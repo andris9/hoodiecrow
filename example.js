@@ -1,30 +1,48 @@
 var IMAPMockServer = require("./lib/server"),
-    inbox = require("../inbox");
+    inbox = require("../inbox"),
+    fs = require("fs"),
+    messageDirectory = __dirname + "/test/fixtures/MimeBack/messages-directory",
+    messages = [];
+
+// SAMPLE MESSAGE STRUCTURE
+/*
+[
+    {
+        uid: 123,
+        flags: ["\\Seen"],
+        internaldate: new Date(2011, 10,3, 13,44),
+        
+        body: "From: Andris Reinman <andris@kreata.ee>\r\n" + 
+              "To: Juulius Sage <juulius@kreata.ee>\r\n" + 
+              "Subject: Hello, Sage!\r\n" + 
+              "\r\n" + 
+              "Simple text message\r\n"
+    }
+]
+*/
+
+// load some messages from the MimeBack folder messages
+fs.readdirSync(messageDirectory).forEach(function(name, i){
+    if(["OLD", ".DS_Store"].indexOf(name) >= 0){
+        return;
+    }
+
+    var message = {
+        uid: 100 + i,
+        flags: ["\\Seen"],
+        internaldate: new Date()
+    };
+
+    try{
+        message.body = fs.readFileSync(messageDirectory + "/" + name, "utf-8");
+        messages.push(message);
+    }catch(E){}
+
+});
 
 startServer(startClient);
 
 function startServer(callback){
-
-    // create a sample message structure that will be listed in INBOX
-    var testmessages = [
-        {
-            uid: 123,
-            flags: ["\\Seen"],
-            date: new Date(2011, 10,3, 13,44),
-            title: "Test message nr 1",
-            from: {name: "Andris Reinman", address: "andris@node.ee"},
-            to: {name: "Juulius Jube", address: "juulius@kreata.ee"},
-            messageId: "<message-id-123@node.ee>"
-        },{
-            uid: 124,
-            flags: ["\\Recent"],
-            date: new Date(2012, 9,21, 15, 21),
-            title: "Test message nr 2",
-            from: {name: "Andris Reinman", address: "andris@node.ee"},
-            to: {name: "Kuugel Kaagel", address: "kuugel@kreata.ee"},
-            messageId: "<message-id-124@node.ee>"
-        },]
-
     var server = new IMAPMockServer({
 
         // enable non default extensions
@@ -43,7 +61,7 @@ function startServer(callback){
         directories: {
             "INBOX": {
                 uidnext: 100,
-                messages: testmessages
+                messages: messages
             },
             "Misc": {
                 flags: ["\\Noselect"]
