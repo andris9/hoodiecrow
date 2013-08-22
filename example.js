@@ -37,8 +37,17 @@ fs.readdirSync(messageDirectory).forEach(function(name, i){
         message.body = fs.readFileSync(messageDirectory + "/" + name, "utf-8");
         messages.push(message);
     }catch(E){}
-
 });
+
+try{
+    var message = {
+        uid: 100 + messages.length,
+        flags: ["\\Seen"],
+        internaldate: new Date()
+    };
+    message.body = fs.readFileSync(__dirname + "/test/fixtures/mime-torture", "utf-8");
+    messages.push(message);
+}catch(E){console.log(E)}
 
 startServer(startClient);
 
@@ -119,6 +128,8 @@ function startClient(){
                     client._send("STORE 1:* -FLAGS (\\Seen)")
                     client._send("STORE 1:* FLAGS (\\Sada \\Kada)")
                     client._send("STORE 1:* FLAGS.SILENT (\\Mada \\Vada)")
+
+                    client._send("FETCH 1:* BODYSTRUCTURE")
 
                     setTimeout(function(){
                         client._send("LOGOUT")
