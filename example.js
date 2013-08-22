@@ -12,6 +12,7 @@ var IMAPMockServer = require("./lib/server"),
         flags: ["\\Seen"],
         internaldate: new Date(2011, 10,3, 13,44),
         
+        // message body is either a Buffer or an ASCII string
         body: "From: Andris Reinman <andris@kreata.ee>\r\n" + 
               "To: Juulius Sage <juulius@kreata.ee>\r\n" + 
               "Subject: Hello, Sage!\r\n" + 
@@ -34,7 +35,8 @@ fs.readdirSync(messageDirectory).forEach(function(name, i){
     };
 
     try{
-        message.body = fs.readFileSync(messageDirectory + "/" + name, "utf-8");
+        // message body is either a Buffer or an ASCII string
+        message.body = fs.readFileSync(messageDirectory + "/" + name);
         messages.push(message);
     }catch(E){}
 });
@@ -45,7 +47,8 @@ try{
         flags: ["\\Seen"],
         internaldate: new Date()
     };
-    message.body = fs.readFileSync(__dirname + "/test/fixtures/mime-torture", "utf-8");
+    // message body is either a Buffer or an ASCII string
+    message.body = fs.readFileSync(__dirname + "/test/fixtures/mime-torture");
     messages.push(message);
 }catch(E){console.log(E)}
 
@@ -54,8 +57,11 @@ startServer(startClient);
 function startServer(callback){
     var server = new IMAPMockServer({
 
+        // if set to true, start a TLS server
+        secureConnection: false,
+
         // enable non default extensions
-        enabled: ["ID", "IDLE"],
+        enabled: ["ID", "IDLE", "STARTTLS", "LOGINDISABLED"],
 
         // base directory
         reference: "",
@@ -94,6 +100,7 @@ function startServer(callback){
 
 function startClient(){
     var client = inbox.createConnection(1234, "localhost", {
+        secureConnection: false,
         auth:{
             user: "testuser",
             pass: "testpass"
@@ -137,6 +144,9 @@ function startClient(){
                 });
             });
         });
+    });
+    client.on("close", function(){
+        process.exit();
     });
 }
 
