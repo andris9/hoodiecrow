@@ -112,6 +112,13 @@ function startClient(){
                         console.log(message.UID+": "+message.title);
                     });
                     console.log("");
+
+                    client._send("STORE 1:* +FLAGS (\\Juhkental)")
+                    client._send("STORE 1:* +FLAGS (\\Puhvet)")
+                    client._send("STORE 1:* -FLAGS (\\Juhkental)")
+                    client._send("STORE 1:* -FLAGS (\\Seen)")
+                    client._send("STORE 1:* FLAGS (\\Sada \\Kada)")
+                    client._send("STORE 1:* FLAGS.SILENT (\\Mada \\Vada)")
                 });
             });
         });
