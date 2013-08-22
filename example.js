@@ -119,6 +119,10 @@ function startClient(){
                     client._send("STORE 1:* -FLAGS (\\Seen)")
                     client._send("STORE 1:* FLAGS (\\Sada \\Kada)")
                     client._send("STORE 1:* FLAGS.SILENT (\\Mada \\Vada)")
+
+                    setTimeout(function(){
+                        client._send("LOGOUT")
+                    }, 3000);
                 });
             });
         });
