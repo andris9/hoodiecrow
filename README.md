@@ -11,11 +11,13 @@ Toybird is supposed to be a scriptable IMAP server for client testing. Currently
   * `STORE`
   * `SELECT`
   * `EXAMINE`
+  * `STATUS`
   * `CLOSE`
   * `LSUB`
   * `LIST`
   * `APPEND`
-  * `UID FETCH`
+  * `EXPUNGE`
+  * `UID FETCH` - same issues as with regular `FETCH`
   * `NOOP`
   * `LOGOUT`
   * `LOGIN`
