@@ -5,24 +5,6 @@ var toybird = require("./lib/server"),
     messages = [],
     server;
 
-// SAMPLE MESSAGE STRUCTURE
-/*
-[
-    {
-        uid: 123,
-        flags: ["\\Seen"],
-        internaldate: new Date(2011, 10,3, 13,44),
-        
-        // message body is either a Buffer or an ASCII string
-        body: "From: Andris Reinman <andris@kreata.ee>\r\n" + 
-              "To: Juulius Sage <juulius@kreata.ee>\r\n" + 
-              "Subject: Hello, Sage!\r\n" + 
-              "\r\n" + 
-              "Simple text message\r\n"
-    }
-]
-*/
-
 // load some messages from the MimeBack folder messages
 fs.readdirSync(messageDirectory).forEach(function(name, i){
     if(["OLD", ".DS_Store"].indexOf(name) >= 0){
@@ -42,17 +24,6 @@ fs.readdirSync(messageDirectory).forEach(function(name, i){
     }catch(E){}
 });
 
-try{
-    var message = {
-        uid: 100 + messages.length,
-        flags: ["\\Seen"],
-        internaldate: new Date()
-    };
-    // message body is either a Buffer or an ASCII string
-    message.body = fs.readFileSync(__dirname + "/test/fixtures/mime-torture");
-    messages.push(message);
-}catch(E){console.log(E)}
-
 startServer(startClient);
 
 function startServer(callback){
@@ -62,6 +33,7 @@ function startServer(callback){
         secureConnection: false,
 
         // enable non default extensions
+        // logindisabled is not enabled, so you could log in with telnet or nc
         enabled: ["ID", "IDLE", "STARTTLS"/*, "LOGINDISABLED"*/],
 
         // base directory
@@ -100,58 +72,36 @@ function startServer(callback){
 
 
 function startClient(){
+
     var client = inbox.createConnection(1234, "localhost", {
         secureConnection: false,
         auth:{
             user: "testuser",
             pass: "testpass"
-        },
-        debug: true
+        }
     });
 
     client.connect();
 
     client.on("connect", function(){
-
-        client.listMailboxes(function(err, list){
-
-            console.log("\nAvailable mailboxes:")
-            console.log(list);
-            console.log("");
-
-            client.openMailbox("INBOX", function(error, mailbox){
-                if(error) throw error;
-
-                // list all messages
-                client.listMessages(0, function(err, messages){
-                    console.log("\nMessages:")
-                    messages.forEach(function(message){
-                        console.log(message.UID+": "+message.title);
-                    });
-                    console.log("");
-
-                    client._send("STORE 1:* +FLAGS (\\Juhkental)")
-                    client._send("STORE 1:* +FLAGS (\\Puhvet)")
-                    client._send("STORE 1:* -FLAGS (\\Juhkental)")
-                    client._send("STORE 1:* -FLAGS (\\Seen)")
-                    client._send("STORE 1:* FLAGS (\\Sada \\Kada)")
-                    client._send("STORE 1:* FLAGS.SILENT (\\Mada \\Vada)")
-
-                    client._send("FETCH 1:* (FLAGS ENVELOPE BODYSTRUCTURE)")
-                    client._send("STATUS INBOX (MESSAGES RECENT UIDNEXT UIDVALIDITY UNSEEN)");
-
-                    setTimeout(function(){
-                        //client._send("LOGOUT")
-                        server.addMessage("INBOX", {
-                            body: "From: andris\r\nTo: Juulius\r\nSubject: test\r\n\r\nHello!"
-                        });
-                    }, 3000);
+        client.openMailbox("INBOX", function(error, mailbox){
+            if(error) throw error;
+            // list all messages
+            client.listMessages(0, function(err, messages){
+                console.log("\nMessages:")
+                messages.forEach(function(message){
+                    console.log(message.UID+": "+message.title);
                 });
+                console.log("");
+
+                // add a new message after 5 seconds of idle time
+                setTimeout(function(){
+                    server.addMessage("INBOX", {
+                        body: "From: andris\r\nTo: Juulius\r\nSubject: test message\r\n\r\nHello!"
+                    });
+                }, 5000);
             });
         });
-    });
-    client.on("close", function(){
-        process.exit();
     });
 }
 
