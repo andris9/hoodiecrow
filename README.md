@@ -26,6 +26,7 @@ Several clients can connect to the server simultanously but all the clients shar
   * `UID FETCH` - same issues as with regular `FETCH`
   * `UID STORE`
   * `NOOP`
+  * `CHECK`
   * `LOGOUT`
   * `LOGIN`
 
@@ -47,7 +48,7 @@ Install toybird and run sample application.
 
 The sample application defines IMAP directory structure, enables ID and IDLE extensions and starts the server. When the server is running, the application creates a client that connects to it. The client lists available mailboxes, selects INBOX and fetches some message data from it.
 
-If you have the sample application running, you can try connecting to it with a Desktp IMAP client like Thunderbird (use host: localhost, port: 1234). IMAP client should be able to list all existing messages, mark messages as read/unread, add-remove flags etc.
+If you have the sample application running, you can try connecting to it with a Desktp IMAP client like Thunderbird (use host: `"localhost"`, port: `1234`, username: `"testuser"`, password: `"testpass"`). IMAP client should be able to list all existing messages, mark messages as read/unread, add-remove flags etc.
 
 ## Example
 
