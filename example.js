@@ -1,4 +1,4 @@
-var IMAPMockServer = require("./lib/server"),
+var toybird = require("./lib/server"),
     inbox = require("../inbox"),
     fs = require("fs"),
     messageDirectory = __dirname + "/test/fixtures/MimeBack/messages-directory",
@@ -56,7 +56,7 @@ try{
 startServer(startClient);
 
 function startServer(callback){
-    server = new IMAPMockServer({
+    server = toybird({
 
         // if set to true, start a TLS server
         secureConnection: false,

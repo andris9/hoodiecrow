@@ -4,6 +4,12 @@ Toybird is supposed to be a scriptable IMAP server for client testing. Currently
 
 **NB** this is a proof of concept module, not yet something actually usable.
 
+## Scope
+
+Toybird is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where for every test a new fresh server is started with predefined data.
+
+Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
+
 ## Available commands
 
   * `CAPABILITY`
@@ -39,6 +45,42 @@ Install toybird and run sample application.
     node example.js
 
 The sample application defines IMAP directory structure, enables ID and IDLE extensions and starts the server. When the server is running, the application creates a client that connects to it. The client lists available mailboxes, selects INBOX and fetches some message data from it.
+
+## Example
+
+```javascript
+var toybird = require("toybird");
+
+var server = toybird({
+
+    // enable non default extensions
+    enabled: ["ID", "IDLE", "STARTTLS", "LOGINDISABLED"],
+
+    // describe initial IMAP directory structure for this server instace
+    directories: {
+        "INBOX": {
+            uidnext: 100,
+            messages: [{
+                uid:1,
+                internaldate: new Date(),
+                body: "From: sender\nTo:Receiver\nSubject: Test\n\nHello world!"
+            }]
+        },
+        "Other":{
+            flags: ["\\Noselect"],
+            directories: {
+                "Sent mail":{}
+            }
+        }
+    }
+);
+
+// add authentication info for clients
+server.addUser("testuser", "testpass");
+
+// start the server
+server.listen(143);
+```
 
 ## Issues
 
