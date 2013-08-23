@@ -12,14 +12,15 @@ Toybird is supposed to be a scriptable IMAP server for client testing. Currently
   * `SELECT`
   * `LSUB`
   * `LIST`
-  * `NOOP` - partial support, does not return untagged info
+  * `APPEND`
+  * `NOOP`
   * `LOGOUT`
   * `LOGIN`
 
 Supported extensions
 
   * `ID`
-  * `IDLE` - partial support, does not return untagged info
+  * `IDLE`
   * `STARTTLS`
   * `LOGINDISABLED`
 

@@ -2,7 +2,8 @@ var IMAPMockServer = require("./lib/server"),
     inbox = require("../inbox"),
     fs = require("fs"),
     messageDirectory = __dirname + "/test/fixtures/MimeBack/messages-directory",
-    messages = [];
+    messages = [],
+    server;
 
 // SAMPLE MESSAGE STRUCTURE
 /*
@@ -55,13 +56,13 @@ try{
 startServer(startClient);
 
 function startServer(callback){
-    var server = new IMAPMockServer({
+    server = new IMAPMockServer({
 
         // if set to true, start a TLS server
         secureConnection: false,
 
         // enable non default extensions
-        enabled: ["ID", "IDLE", "STARTTLS", "LOGINDISABLED"],
+        enabled: ["ID", "IDLE", "STARTTLS"/*, "LOGINDISABLED"*/],
 
         // base directory
         reference: "",
@@ -139,7 +140,10 @@ function startClient(){
                     client._send("FETCH 1:* BODYSTRUCTURE")
 
                     setTimeout(function(){
-                        client._send("LOGOUT")
+                        //client._send("LOGOUT")
+                        server.addMessage("INBOX", {
+                            body: "From: andris\r\nTo: Juulius\r\nSubject: test\r\n\r\nHello!"
+                        });
                     }, 3000);
                 });
             });
