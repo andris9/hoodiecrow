@@ -137,7 +137,8 @@ function startClient(){
                     client._send("STORE 1:* FLAGS (\\Sada \\Kada)")
                     client._send("STORE 1:* FLAGS.SILENT (\\Mada \\Vada)")
 
-                    client._send("FETCH 1:* BODYSTRUCTURE")
+                    client._send("FETCH 1:* (FLAGS ENVELOPE BODYSTRUCTURE)")
+                    client._send("STATUS INBOX (MESSAGES RECENT UIDNEXT UIDVALIDITY UNSEEN)");
 
                     setTimeout(function(){
                         //client._send("LOGOUT")

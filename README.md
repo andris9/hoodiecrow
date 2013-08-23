@@ -10,9 +10,12 @@ Toybird is supposed to be a scriptable IMAP server for client testing. Currently
   * `FETCH` - partial support (missing support for `BODY[zzz]`, `RFC822.ZZZ` etc. values)
   * `STORE`
   * `SELECT`
+  * `EXAMINE`
+  * `CLOSE`
   * `LSUB`
   * `LIST`
   * `APPEND`
+  * `UID FETCH`
   * `NOOP`
   * `LOGOUT`
   * `LOGIN`
