@@ -57,7 +57,10 @@ function startServer(callback){
             "Other":{
                 flags: ["\\Noselect"],
                 directories: {
-                    "Sent mail":{}
+                    "Sent mail":{},
+                    "Not listed":{
+                        unsubscribed: true
+                    }
                 }
             }
         }

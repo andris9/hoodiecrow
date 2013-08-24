@@ -1,34 +1,39 @@
 # toybird
 
-Toybird is supposed to be a scriptable IMAP server for client testing. Currently it doesn't do much - a user can sign in, list mailbxes, fetch some messages and enter IDLE.
+Toybird is supposed to be a scriptable IMAP server for client testing.
 
 **NB** this is a proof of concept module, not yet something actually usable.
 
 ## Scope
 
-Toybird is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where for every test a new fresh server is started with predefined data.
+Toybird is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.
 
 Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
 
 ## Available commands
 
   * `CAPABILITY`
-  * `FETCH` - partial support (missing support for `BODY[zzz]`, `RFC822.ZZZ` etc. values)
-  * `STORE`
+  * `LOGOUT`
+  * `LOGIN`
+  * `NOOP`
+  * `CHECK`
+  * `LIST`
+  * `CREATE`
+  * `LSUB`
+  * `SUBSCRIBE`
+  * `UNSUBSCRIBE`
   * `SELECT`
   * `EXAMINE`
-  * `STATUS`
   * `CLOSE`
-  * `LSUB`
-  * `LIST`
+  * `STATUS`
+  * `FETCH` - partial support (missing support for most `BODY[zzz]` and `RFC822.ZZZ` etc. values)
+  * `STORE`
+  * `COPY`
   * `APPEND`
   * `EXPUNGE`
   * `UID FETCH` - same issues as with regular `FETCH`
   * `UID STORE`
-  * `NOOP`
-  * `CHECK`
-  * `LOGOUT`
-  * `LOGIN`
+  * `UID COPY`
 
 Supported extensions
 
@@ -73,7 +78,10 @@ var server = toybird({
         "Other":{
             flags: ["\\Noselect"],
             directories: {
-                "Sent mail":{}
+                "Sent mail":{},
+                "Not Subscribed":{
+                    unsubscribed: true
+                }
             }
         }
     }
