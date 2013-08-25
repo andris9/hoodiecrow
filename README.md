@@ -98,10 +98,48 @@ server.addUser("testuser", "testpass");
 server.listen(143);
 ```
 
+## API
+
+Server API allows to modify server state at runtime. If needed, specific notices are sent to connected clients.
+
+### Create new mailbox
+
+```javascript
+server.createMailbox(path)
+```
+
+Where
+
+  * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
+
+### Delete a mailbox
+
+```javascript
+server.deleteMailbox(path)
+```
+
+Where
+
+  * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
+
+### Add new message
+
+```javascript
+server.addMessage(path, message)
+```
+
+Where
+
+  * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
+  * `message` is the message structure (eg. `{uid: 1, flags: ["\\Seen"], body:"From:..."}`)
+
 ## Issues
 
+These issues are low priority and might not get fixed any time soon
+
   * The parser is way too forgiving, should be more strict
-  * If `"foo/bar"` is subscribed but `"foo"` is not, then listing `LSUB "" "%"` should return `* LSUB (\Noselect) foo` but toybox ignores the unsubscribed `"foo"` and skips it from the listing.
+  * Optional charset parameter for `SEARCH` is ignored
+  * Special case for `LSUB %` - if `"foo/bar"` is subscribed but `"foo"` is not, then listing `LSUB "" "%"` should return `* LSUB (\Noselect) foo` but toybox ignores the unsubscribed `"foo"` and skips it from the listing.
   * BODYSTRUCTURE is generated correctly even for complex messages but line number count is a bit off, not sure how this is exactly calculated (trim empty lines at end etc.?)
 
 # License
