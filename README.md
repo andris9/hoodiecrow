@@ -20,6 +20,7 @@ Several clients can connect to the server simultanously but all the clients shar
   * `LIST`
   * `CREATE`
   * `DELETE`
+  * `RENAME`
   * `LSUB`
   * `SUBSCRIBE`
   * `UNSUBSCRIBE`
@@ -97,7 +98,9 @@ server.listen(143);
 
 ## Issues
 
-BODYSTRUCTURE is generated correctly even for complex messages but line number count is a bit off, not sure how this is exactly calculated (trim empty lines at end etc.?)
+  * The parser is way too forgiving, should be more strict
+  * If `"foo/bar"` is subscribed but `"foo"` is not, then listing `LSUB "" "%"` should return `* LSUB (\Noselect) foo` but toybox ignores the unsubscribed `"foo"` and skips it from the listing.
+  * BODYSTRUCTURE is generated correctly even for complex messages but line number count is a bit off, not sure how this is exactly calculated (trim empty lines at end etc.?)
 
 # License
 
