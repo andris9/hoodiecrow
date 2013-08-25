@@ -97,6 +97,8 @@ function startClient(){
                 });
                 console.log("");
 
+                client._send("SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
+
                 // add a new message after 5 seconds of idle time
                 setTimeout(function(){
                     server.addMessage("INBOX", {
@@ -106,5 +108,9 @@ function startClient(){
             });
         });
     });
+
+    client.on("new", function(){
+        client._send("SEARCH UNSEEN");
+    })
 }
 
