@@ -98,6 +98,7 @@ function startClient(){
                 console.log("");
 
                 client._send("SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
+                client._send("UID SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
 
                 // add a new message after 5 seconds of idle time
                 setTimeout(function(){
@@ -112,6 +113,9 @@ function startClient(){
     client.on("new", function(){
         client._send("SEARCH UNSEEN");
         client._send("SEARCH TEXT \"Note that even\"");
+
+        client._send("UID SEARCH UNSEEN");
+        client._send("UID SEARCH TEXT \"Note that even\"");
     })
 }
 
