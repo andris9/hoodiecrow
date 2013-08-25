@@ -131,12 +131,13 @@ server.addMessage(path, message)
 Where
 
   * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
-  * `message` is the message structure (eg. `{uid: 1, flags: ["\\Seen"], body:"From:..."}`)
+  * `message` is the message structure (eg. `{uid: 1, flags: ["\Seen"], body:"From:..."}`)
 
 ## Issues
 
 These issues are low priority and might not get fixed any time soon
 
+  * Session flags (including `\Recent`) are not supported, all flags are permanent
   * The parser is way too forgiving, should be more strict
   * Optional charset parameter for `SEARCH` is ignored
   * Special case for `LSUB %` - if `"foo/bar"` is subscribed but `"foo"` is not, then listing `LSUB "" "%"` should return `* LSUB (\Noselect) foo` but toybox ignores the unsubscribed `"foo"` and skips it from the listing.
