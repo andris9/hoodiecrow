@@ -42,8 +42,8 @@ function startServer(callback){
         // directory path separator
         separator: "/",
 
-        // default flags listed when a mailbox is selected
-        flags: ["\\Answered", "\\Flagged", "\\Draft", "\\Deleted", "\\Seen"],
+        // Automatically logged in as selected user
+        // preauth: "testuser",
 
         // IMAP directory structure
         directories: {
