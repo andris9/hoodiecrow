@@ -115,7 +115,7 @@ function startClient(){
         client._send("SEARCH TEXT \"Note that even\"");
 
         client._send("UID SEARCH UNSEEN");
-        client._send("UID SEARCH BODY \"Note that even\"");
+        client._send("UID SEARCH BODY \"note that even\"");
     })
 }
 
