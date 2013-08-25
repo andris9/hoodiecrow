@@ -111,6 +111,7 @@ function startClient(){
 
     client.on("new", function(){
         client._send("SEARCH UNSEEN");
+        client._send("SEARCH TEXT \"Note that even\"");
     })
 }
 
