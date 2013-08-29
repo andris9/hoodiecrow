@@ -99,6 +99,9 @@ function startClient(){
 
                 client._send("SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
                 client._send("UID SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
+                client._send("UID SEARCH 1:* SENTBEFORE \"2013-01-01\"");
+                client._send("UID SEARCH 1:* SENTSINCE \"2013-01-01\"");
+                client._send("UID SEARCH 1:* SENTON \"2013-01-01\"");
 
                 // add a new message after 5 seconds of idle time
                 setTimeout(function(){

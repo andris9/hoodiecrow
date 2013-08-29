@@ -2,15 +2,16 @@
   "name": "toybird",
   "version": "0.1.0",
   "description": "Scriptable IMAP mock server for testing purposes",
-  "main": "index.js",
+  "main": "lib/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "nodeunit test"
   },
   "repository": "git@github.com:andris9/toybird.git",
   "keywords": [
     "IMAP"
   ],
-  "dependencies":{
+  "devDependencies":{
+    "nodeunit": "*",
     "inbox": "*"
   },
   "author": "Andris Reinman",
