@@ -29,7 +29,7 @@ Several clients can connect to the server simultanously but all the clients shar
   * `CLOSE`
   * `STATUS`
   * `FETCH` - partial support (missing support for `BODY[TEXT/MIME/nr.ZZZ]` and `RFC822.TEXT` values)
-  * `SEARCH` - partial support (all date queries missing, optional charset is ignored)
+  * `SEARCH`
   * `STORE`
   * `COPY`
   * `APPEND`
@@ -37,7 +37,7 @@ Several clients can connect to the server simultanously but all the clients shar
   * `UID FETCH` - same issues as with regular `FETCH`
   * `UID STORE`
   * `UID COPY`
-  * `UID SEARCH` - same issues as with regular `SEARCH`
+  * `UID SEARCH`
 
 Supported extensions
 
