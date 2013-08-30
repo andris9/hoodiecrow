@@ -96,29 +96,9 @@ function startClient(){
                     console.log(message.UID+": "+message.title);
                 });
                 console.log("");
-
-                client._send("SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
-                client._send("UID SEARCH 1:* OR 2 UID 134:137 NOT OR 34 35");
-                client._send("UID SEARCH 1:* SENTBEFORE \"2013-01-01\"");
-                client._send("UID SEARCH 1:* SENTSINCE \"2013-01-01\"");
-                client._send("UID SEARCH 1:* SENTON \"2013-01-01\"");
-
-                // add a new message after 5 seconds of idle time
-                setTimeout(function(){
-                    server.addMessage("INBOX", {
-                        body: "From: andris\r\nTo: Juulius\r\nSubject: test message\r\n\r\nHello!"
-                    });
-                }, 5000);
+                client._send("fetch " + messages.length + " (body[2.1.header.fields (From)]");
             });
         });
     });
-
-    client.on("new", function(){
-        client._send("SEARCH UNSEEN");
-        client._send("SEARCH TEXT \"Note that even\"");
-
-        client._send("UID SEARCH UNSEEN");
-        client._send("UID SEARCH BODY \"note that even\"");
-    })
 }
 

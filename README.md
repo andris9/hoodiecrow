@@ -28,13 +28,13 @@ Several clients can connect to the server simultanously but all the clients shar
   * `EXAMINE`
   * `CLOSE`
   * `STATUS`
-  * `FETCH` - partial support (missing support for `BODY[nr.ZZZ]` values)
+  * `FETCH`
   * `SEARCH`
   * `STORE`
   * `COPY`
   * `APPEND`
   * `EXPUNGE`
-  * `UID FETCH` - same issues as with regular `FETCH`
+  * `UID FETCH`
   * `UID STORE`
   * `UID COPY`
   * `UID SEARCH`
