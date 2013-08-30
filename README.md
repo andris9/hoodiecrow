@@ -28,7 +28,7 @@ Several clients can connect to the server simultanously but all the clients shar
   * `EXAMINE`
   * `CLOSE`
   * `STATUS`
-  * `FETCH` - partial support (missing support for `BODY[TEXT/MIME/nr.ZZZ]` and `RFC822.TEXT` values)
+  * `FETCH` - partial support (missing support for `BODY[nr.ZZZ]` values)
   * `SEARCH`
   * `STORE`
   * `COPY`
