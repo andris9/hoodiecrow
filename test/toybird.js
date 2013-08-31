@@ -8,11 +8,14 @@ module.exports["Basic tests"] = {
             separator: "/",
             directories: {
                 "INBOX": {
-                    messages:[{}, {}, {}]
+                    messages:[{}, {q: "abc"}, {}]
                 }
             }
         });
         this.server.addUser("testuser", "testpass");
+        this.server.setSearchHandler("testsearch", function(mailbox, message, index, param){
+            return param == message.q;
+        });
         this.server.listen(1234, done);
     },
 
@@ -60,6 +63,19 @@ module.exports["Basic tests"] = {
                 "A5 LOGOUT"];
         mockClient(1234, "localhost", cmds, false, function(resp){
             test.ok(resp.toString("utf-8").indexOf("\nA4 OK [READ-WRITE]") >= 0);
+            test.done();
+        });
+    },
+
+    "Custom SEARCH": function(test){
+        var cmds = ["A1 CAPABILITY", 
+                "A2 STARTTLS",
+                "A3 LOGIN testuser testpass", 
+                "A4 SELECT INBOX",
+                "A5 SEARCH TESTSEARCH abc",
+                "A6 LOGOUT"];
+        mockClient(1234, "localhost", cmds, false, function(resp){
+            test.ok(resp.toString("utf-8").indexOf("\r\n* SEARCH 2\r\n") >= 0);
             test.done();
         });
     }
