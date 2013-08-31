@@ -20,14 +20,46 @@ module.exports["Basic tests"] = {
         this.server.close(done);
     },
 
-    basic: function(test){
+    "Failed login, LOGINDISABLED": function(test){
+        var cmds = ["A1 CAPABILITY", 
+                "A2 LOGIN testuser testpass", 
+                "A3 LOGOUT"];
+        mockClient(1234, "localhost", cmds, false, function(resp){
+            test.ok(resp.toString("utf-8").indexOf("\nA2 NO") >= 0);
+            test.done();
+        });
+    },
+
+    "Start TLS, LOGIN invalid": function(test){
+        var cmds = ["A1 CAPABILITY", 
+                "A2 STARTTLS",
+                "A3 LOGIN testuser invalidpass", 
+                "A4 LOGOUT"];
+        mockClient(1234, "localhost", cmds, false, function(resp){
+            test.ok(resp.toString("utf-8").indexOf("\nA3 NO") >= 0);
+            test.done();
+        });
+    },
+
+    "Start TLS, LOGIN success": function(test){
+        var cmds = ["A1 CAPABILITY", 
+                "A2 STARTTLS",
+                "A3 LOGIN testuser testpass", 
+                "A4 LOGOUT"];
+        mockClient(1234, "localhost", cmds, false, function(resp){
+            test.ok(resp.toString("utf-8").indexOf("\nA3 OK") >= 0);
+            test.done();
+        });
+    },
+
+    "Select INBOX": function(test){
         var cmds = ["A1 CAPABILITY", 
                 "A2 STARTTLS",
                 "A3 LOGIN testuser testpass", 
                 "A4 SELECT INBOX",
-                "A6 LOGOUT"];
+                "A5 LOGOUT"];
         mockClient(1234, "localhost", cmds, false, function(resp){
-            test.ok(resp.toString("utf-8").indexOf(" OK [READ-WRITE]"));
+            test.ok(resp.toString("utf-8").indexOf("\nA4 OK [READ-WRITE]") >= 0);
             test.done();
         });
     }
