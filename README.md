@@ -133,6 +133,40 @@ Where
   * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
   * `message` is the message structure (eg. `{uid: 1, flags: ["\Seen"], body:"From:..."}`)
 
+### Define custom SEARCH handlers
+
+You can define a search handler for any keyword.
+
+```javascript
+server.setSearchHandler(keyword, handler)
+```
+
+Where
+
+  * `keyword` is the the search keyword (eg. *"SENTBEFORE"*)
+  * `handler` (mailbox, message, index [, param1[, param2[,...paramN]]]) is the handler function for a message. If it returns true, the message is included in the search results
+
+Example
+
+```javascript
+// return every 5th message
+server.setSearchHandler("FIFTH", function(mailbox, message, index){
+    return !((index + 1) % 5);
+});
+// tag SEARCH FIFTH
+// * SEARCH 5 10 15 20
+```
+
+```javascript
+// return messages with exact subject, overrides default SUBJECT
+// default behavior is to search messages with partial, case insensitive matches
+server.setSearchHandler("SUBJECT", function(mailbox, message, index, queryParam){
+    return message.structured.parsedHeader.subject == queryParam;
+});
+// tag SEARCH SUBJECT "exact Match"
+// * SEARCH ...(messages with 'Subject: exact Match')
+```
+
 ## Issues
 
 These issues are low priority and might not get fixed any time soon

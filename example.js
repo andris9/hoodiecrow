@@ -5,6 +5,8 @@ var toybird = require("./lib/server"),
     messages = [],
     server;
 
+var IMAP_PORT = 1234;
+
 // load some messages from the MimeBack folder messages
 fs.readdirSync(messageDirectory).forEach(function(name, i){
     if(["OLD", ".DS_Store"].indexOf(name) >= 0){
@@ -28,6 +30,9 @@ startServer(startClient);
 
 function startServer(callback){
     server = toybird({
+
+        // output command to console
+        debug: true,
 
         // if set to true, start a TLS server
         secureConnection: false,
@@ -69,14 +74,21 @@ function startServer(callback){
     // add authentication info
     server.addUser("testuser", "testpass");
 
+    server.setSearchHandler("SUBJECT", function(mailbox, message, index, queryParam){
+        return message.structured.parsedHeader.subject == queryParam;
+    });
+
     // start the server
-    server.listen(1234, callback);
+    server.listen(IMAP_PORT, function(){
+        console.log("IMAP server listening on port %s", IMAP_PORT);
+        callback();
+    });
 }
 
 
 function startClient(){
 
-    var client = inbox.createConnection(1234, "localhost", {
+    var client = inbox.createConnection(IMAP_PORT, "localhost", {
         secureConnection: false,
         auth:{
             user: "testuser",
@@ -96,7 +108,7 @@ function startClient(){
                     console.log(message.UID+": "+message.title);
                 });
                 console.log("");
-                client._send("fetch " + messages.length + " (body[2.1.header.fields (From)]");
+                client._send("search subject \"EM1.1.1\"");
             });
         });
     });
