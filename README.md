@@ -173,41 +173,38 @@ server.setSearchHandler("SUBJECT", function(mailbox, message, index, queryParam)
 There is some support for creating custom plugins in toybird. Plugins can be enabled with the `enabled` property by providing a function as the plugin.
 
 ```javascript
-var server = toybird({enabled: [myplugin]});
+var server = toybird({enabled: [xDatePlugin]});
 
-function myplugin(server){
+function xDatePlugin(server){
 
-    // Add XMYPLUGIN to capability listing
-    server.addCapability("XMYPLUGIN", function(connection){
+    // Add XDATE to capability listing
+    server.addCapability("XDATE", function(connection){
         // allow only for logged in users, hide for others
         return connection.state != "Not Authenticated";
     });
 
-    // Add XMYPLUGIN command
-    // Runnign 'tag XMYPLUGIN' should return server time
-    // C: A1 XMYPLUGIN
-    // S: * XMYPLUGIN "Sun Sep 01 2013 14:36:51 GMT+0300 (EEST)"
-    // S: A1 OK XMYPLUGIN Completed (Success)
-    server.addCommandHandler("XMYPLUGIN", function(connection, tag, data, callback){
-        if(!connection.checkSupport("XMYPLUGIN")){
-            connection.send(tag, "BAD Unknown command: XMYPLUGIN");
+    // Add XDATE command
+    // Runnign 'tag XDATE' should return server time
+    // C: A1 XDATE
+    // S: * XDATE "Sun Sep 01 2013 14:36:51 GMT+0300 (EEST)"
+    // S: A1 OK XDATE Completed (Success)
+    server.addCommandHandler("XDATE", function(connection, tag, data, callback){
+        if(!connection.checkSupport("XDATE")){ // is the capability enabled?
+            connection.send(tag, "BAD Unknown command: XDATE");
             return callback();
         }
-
-        connection.send("*", "XMYPLUGIN " + connection.escapeString(Date()));
-        
+        connection.send("*", "XDATE " + connection.escapeString(Date()));
         connection.processNotices(); // show untagged responses like EXPUNGED etc.
-        connection.send(tag, "OK XMYPLUGIN Completed (Success)");
-
+        connection.send(tag, "OK XDATE Completed (Success)");
         callback();
     });
 
-    // Add XMYPLUGIN search keyword
-    // Return random messages as search matches for 'tag SEARCH XMYPLUGIN'
-    // C: A1 SEARCH XMYPLUGIN
+    // Add XRANDOM search keyword
+    // Return random messages as search matches for 'tag SEARCH XRANDOM'
+    // C: A1 SEARCH XRANDOM
     // S: * SEARCH ...(random list of messages)
     // S: A1 OK SEARCH Completed (Success)
-    server.setSearchHandler("XMYPLUGIN", function(mailbox, message, index){
+    server.setSearchHandler("XRANDOM", function(mailbox, message, index){
         return Math.random() >= 0.5;
     });
 }
