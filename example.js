@@ -39,7 +39,12 @@ function startServer(callback){
 
         // enable non default extensions
         // logindisabled is not enabled, so you could log in with telnet or nc
-        enabled: ["ID", "IDLE", "STARTTLS"/*, "LOGINDISABLED"*/],
+        enabled: [
+            require("./lib/plugins/id"),
+            "xfifth",
+            "condstore",
+            "IDLE",
+            "STARTTLS"/*, "LOGINDISABLED"*/],
 
         // base directory
         reference: "",
@@ -108,7 +113,8 @@ function startClient(){
                     console.log(message.UID+": "+message.title);
                 });
                 console.log("");
-                client._send("search subject \"EM1.1.1\"");
+                client._send("search XFIFTH");
+                client._send("search MODSEQ 15");
             });
         });
     });

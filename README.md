@@ -150,10 +150,11 @@ Example
 
 ```javascript
 // return every 5th message
-server.setSearchHandler("FIFTH", function(mailbox, message, index){
-    return !((index + 1) % 5);
+server.setSearchHandler("XFIFTH", function(mailbox, message, index){
+    // 'index' is a 1 based message sequence number
+    return index % 5 == 0;
 });
-// tag SEARCH FIFTH
+// tag SEARCH XFIFTH
 // * SEARCH 5 10 15 20
 ```
 
@@ -165,6 +166,51 @@ server.setSearchHandler("SUBJECT", function(mailbox, message, index, queryParam)
 });
 // tag SEARCH SUBJECT "exact Match"
 // * SEARCH ...(messages with 'Subject: exact Match')
+```
+
+## Plugins
+
+There is some support for creating custom plugins in toybird. Plugins can be enabled with the `enabled` property byt providing a function as the capability.
+
+```javascript
+var server = toybird({enabled: [myplugin]});
+
+function myplugin(server){
+
+    // Add XMYPLUGIN to capability listing
+    server.addCapability("ID", function(connection){
+        // allow only for logged in users, hide for others
+        return connection.state != "Not Authenticated";
+    });
+
+    // Add XMYPLUGIN command
+    // Runnign 'tag XMYPLUGIN' should return server time
+    // C: A1 XMYPLUGIN
+    // S: * XMYPLUGIN "Sun Sep 01 2013 14:36:51 GMT+0300 (EEST)"
+    // S: A1 OK XMYPLUGIN Completed (Success)
+    server.addCommandHandler("XMYPLUGIN", function(connection, tag, data, callback){
+        if(!connection.checkSupport("XMYPLUGIN")){
+            connection.send(tag, "BAD Unknown command: XMYPLUGIN");
+            return callback();
+        }
+
+        connection.send("*", "XMYPLUGIN " + connection.escapeString(Date()));
+        
+        connection.processNotices(); // show untagged responses like EXPUNGED etc.
+        connection.send(tag, "OK XMYPLUGIN Completed (Success)");
+
+        callback();
+    });
+
+    // Add XMYPLUGIN search keyword
+    // Return random messages as search matches for 'tag SEARCH XMYPLUGIN'
+    // C: A1 SEARCH XMYPLUGIN
+    // S: * SEARCH ...(random list of messages)
+    // S: A1 OK SEARCH Completed (Success)
+    server.setSearchHandler("XMYPLUGIN", function(mailbox, message, index){
+        return Math.random() >= 0.5;
+    });
+}
 ```
 
 ## Issues
