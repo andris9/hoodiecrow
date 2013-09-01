@@ -170,7 +170,7 @@ server.setSearchHandler("SUBJECT", function(mailbox, message, index, queryParam)
 
 ## Plugins
 
-There is some support for creating custom plugins in toybird. Plugins can be enabled with the `enabled` property byt providing a function as the capability.
+There is some support for creating custom plugins in toybird. Plugins can be enabled with the `enabled` property by providing a function as the plugin.
 
 ```javascript
 var server = toybird({enabled: [myplugin]});
@@ -178,7 +178,7 @@ var server = toybird({enabled: [myplugin]});
 function myplugin(server){
 
     // Add XMYPLUGIN to capability listing
-    server.addCapability("ID", function(connection){
+    server.addCapability("XMYPLUGIN", function(connection){
         // allow only for logged in users, hide for others
         return connection.state != "Not Authenticated";
     });
@@ -212,6 +212,8 @@ function myplugin(server){
     });
 }
 ```
+
+See *lib/plugins* folder for samples
 
 ## Issues
 
