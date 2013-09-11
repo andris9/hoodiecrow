@@ -188,14 +188,14 @@ function xDatePlugin(server){
     // C: A1 XDATE
     // S: * XDATE "Sun Sep 01 2013 14:36:51 GMT+0300 (EEST)"
     // S: A1 OK XDATE Completed (Success)
-    server.addCommandHandler("XDATE", function(connection, tag, data, callback){
+    server.addCommandHandler("XDATE", function(connection, send, tag, data, callback){
         if(!connection.checkSupport("XDATE")){ // is the capability enabled?
-            connection.send(tag, "BAD Unknown command: XDATE");
+            send(tag, "BAD Unknown command: XDATE");
             return callback();
         }
-        connection.send("*", "XDATE " + connection.escapeString(Date()));
+        send("*", "XDATE " + connection.escapeString(Date()));
         connection.processNotices(); // show untagged responses like EXPUNGED etc.
-        connection.send(tag, "OK XDATE Completed (Success)");
+        send(tag, "OK XDATE Completed (Success)");
         callback();
     });
 

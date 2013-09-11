@@ -115,6 +115,7 @@ function startClient(){
                 console.log("");
                 client._send("search XFIFTH");
                 client._send("search MODSEQ 15");
+                client._send("FETCH 1:* (UID) (CHANGEDSINCE 15)")
             });
         });
     });
