@@ -1,6 +1,6 @@
 var toybird = require("./lib/server"),
     server = toybird({
-        plugins: ["ID", "STARTTLS", "LOGINDISABLED"],
+        plugins: ["ID", "STARTTLS", "LOGINDISABLED", "AUTH-PLAIN"],
         id:{
             "name": "toybird",
             "version": "0.1"

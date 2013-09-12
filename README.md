@@ -10,6 +10,8 @@ Toybird is a single user / multiple connections IMAP server that uses a JSON obj
 
 Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
 
+Toybird is extendable, any command can be overwritted, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
+
 # Known issues
 
 These issues are probably not going to be fixed
