@@ -14,8 +14,10 @@ Toybird is extendable, any command can be overwritten, plugins can be added etc 
 
 ## CONDSTORE support
 
+  * All messages have MODSEQ value
   * CONDSTORE can be ENABLEd
-  * SELECT/EXAMINE support CONDSTORE
+  * SELECT/EXAMINE show HIGHESTMODSEQ
+  * SELECT/EXAMINE support (CONDSTORE) option
 
 # Known issues
 
