@@ -2,7 +2,7 @@
 
 Toybird is supposed to be a scriptable IMAP server for client testing.
 
-**NB** this is a proof of concept module, not yet something actually usable.
+**NB** I won't update this brach anymore, I started rewriting toybird in the v2 branch (to be more modular, uses better IMAP parser etc).
 
 ## Scope
 
