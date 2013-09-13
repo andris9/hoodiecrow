@@ -47,4 +47,4 @@ setInterval(function(){
             {type: "ATOM", value: "EXPUNGE"}
         ]
     });
-}, 5000);
+}, 25000);
