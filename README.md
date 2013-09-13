@@ -12,7 +12,17 @@ Several clients can connect to the server simultanously but all the clients shar
 
 Toybird is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
 
+## CONDSTORE support
+
+  * CONDSTORE can be ENABLEd
+  * SELECT/EXAMINE support CONDSTORE
+
 # Known issues
+
+These issues will be fixed
+
+  * **CONDSTORE** support is partial
+  * **INBOX** is only recognized as case sensitive, should be case insensitive
 
 These issues are probably not going to be fixed
 
