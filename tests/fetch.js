@@ -1,6 +1,8 @@
 var toybird = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
+var IMAP_PORT = 4143;
+
 module.exports["Toybird tests"] = {
     setUp: function(done){
         this.server = toybird({
@@ -44,11 +46,19 @@ module.exports["Toybird tests"] = {
             }
         });
 
-        this.server.listen(1234, done);
+        console.log("Initializing server ...");
+        this.server.listen(IMAP_PORT, function(){
+            console.log("Server listening on port %s", IMAP_PORT);
+            done();
+        });
     },
 
     tearDown: function(done){
-        this.server.close(done);
+        console.log("Closing server ...");
+        this.server.close(function(){
+            console.log("Server closed");
+            done();
+        });
     },
 
     "FETCH UID": function(test){
@@ -56,7 +66,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 2 (UID)"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* 2 FETCH (UID 2)\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -69,7 +79,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 2 (FLAGS)"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* 2 FETCH (FLAGS (\\Seen))\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -82,7 +92,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 3 (BODYSTRUCTURE)"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* 3 FETCH (BODYSTRUCTURE (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 8 1 NIL NIL NIL))\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -95,7 +105,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 (ENVELOPE)"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('* 4 FETCH (ENVELOPE ("Fri, 13 Sep 2013 15:01:00 +0300" "hello 4" (("sender name" NIL "sender" "example.com")) (("sender name" NIL "sender" "example.com")) (("sender name" NIL "sender" "example.com")) (("Receiver name" NIL "receiver" "example.com")) NIL NIL NIL "<abcde>"))\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -111,7 +121,7 @@ module.exports["Toybird tests"] = {
                 "A5 FETCH 3 BODY[]<4.10>",
                 "A6 FETCH 3 BODY[]<4.10000>"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('\n* 3 FETCH (BODY ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 1))\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -141,7 +151,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 3 (RFC822)"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
 
             test.ok(resp.indexOf('\n* 3 FETCH (RFC822 {28}\r\n'+
@@ -159,7 +169,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 1 INTERNALDATE"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* 1 FETCH (INTERNALDATE \"14-Sep-2013 21:22:28 -0300\")\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -172,7 +182,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 RFC822.SIZE"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* 4 FETCH (RFC822.SIZE 170)\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -185,7 +195,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 RFC822.HEADER"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('\n* 4 FETCH (RFC822.HEADER {162}\r\n'+
                 'From: sender name <sender@example.com>\r\n'+
@@ -205,7 +215,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[HEADER]"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER] {162}\r\n'+
                 'From: sender name <sender@example.com>\r\n'+
@@ -225,7 +235,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[HEADER.FIELDS (From \"Subject\")]"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER.FIELDS (From Subject)] {60}\r\n'+
                 'From: sender name <sender@example.com>\r\n'+
@@ -242,7 +252,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[HEADER.FIELDS.NOT (From \"Subject\")]"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER.FIELDS.NOT (From Subject)] {104}\r\n'+
                 'To: Receiver name <receiver@example.com>\r\n'+
@@ -260,7 +270,7 @@ module.exports["Toybird tests"] = {
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[TEXT]"];
 
-        mockClient(1234, "localhost", cmds, false, function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER.FIELDS.NOT (From Subject)] {104}\r\n'+
                 'To: Receiver name <receiver@example.com>\r\n'+
