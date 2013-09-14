@@ -68,7 +68,7 @@ module.exports["Toybird tests"] = {
 
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
-                "A3 FETCH 2 (UID)"];
+                "A3 FETCH 2 (UID)", "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
@@ -84,7 +84,7 @@ module.exports["Toybird tests"] = {
 
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
-                "A3 FETCH 2 (FLAGS)"];
+                "A3 FETCH 2 (FLAGS)", "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
@@ -100,7 +100,7 @@ module.exports["Toybird tests"] = {
 
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
-                "A3 FETCH 3 (BODYSTRUCTURE)"];
+                "A3 FETCH 3 (BODYSTRUCTURE)", "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
@@ -116,7 +116,7 @@ module.exports["Toybird tests"] = {
 
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
-                "A3 FETCH 4 (ENVELOPE)"];
+                "A3 FETCH 4 (ENVELOPE)", "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
@@ -168,7 +168,7 @@ module.exports["Toybird tests"] = {
 
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
-                "A3 FETCH 3 (RFC822)"];
+                "A3 FETCH 3 (RFC822)", "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
