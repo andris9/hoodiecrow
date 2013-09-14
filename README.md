@@ -4,6 +4,9 @@ Toybird is supposed to be a scriptable IMAP server for client testing.
 
 **NB** To see a working version, see the master branch. This is a rewrite of the original project to allow better extendability. New IMAP parser was added etc.
 
+[![Build Status](https://secure.travis-ci.org/andris9/toybird.png)](http://travis-ci.org/andris9/toybird)
+[![NPM version](https://badge.fury.io/js/toybird.png)](http://badge.fury.io/js/toybird)
+
 ## Scope
 
 Toybird is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.
