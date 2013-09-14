@@ -10,9 +10,12 @@ var toybird = require("./lib/server"),
                 folders: {
                     "INBOX":{
                         messages: [
-                            {
-                                raw: "Subject: hello\r\n\r\nWorld!"
-                            }
+                            "Subject: hello 1\r\n\r\nWorld 1!",
+                            {raw: "Subject: hello 2\r\n\r\nWorld 2!", internaldate: "14-Sep-2013 21:22:28 -0300"},
+                            {raw: "Subject: hello 3\r\n\r\nWorld 3!", flags: ["\\Seen"]},
+                            {raw: "Subject: hello 4\r\n\r\nWorld 4!", flags: "\\Answered"},
+                            "Subject: hello 5\r\n\r\nWorld 5!",
+                            "Subject: hello 6\r\n\r\nWorld 6!"
                         ]
                     }
                 }
