@@ -1,7 +1,8 @@
 var toybird = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
-var IMAP_PORT = 4143;
+var IMAP_PORT = 4143,
+    instance = 0;
 
 module.exports["Toybird tests"] = {
     setUp: function(done){
@@ -46,19 +47,20 @@ module.exports["Toybird tests"] = {
             }
         });
 
-        console.log("Initializing server ...");
-        this.server.listen(IMAP_PORT, function(){
-            console.log("Server listening on port %s", IMAP_PORT);
+        this.instanceId = ++instance;
+        console.log("Initializing server %s ...", this.instanceId);
+        this.server.listen(IMAP_PORT, (function(){
+            console.log("Server %s listening on port %s", this.instanceId, IMAP_PORT);
             done();
-        });
+        }).bind(this));
     },
 
     tearDown: function(done){
-        console.log("Closing server ...");
-        this.server.close(function(){
-            console.log("Server closed");
+        console.log("Closing server %s ...", this.instanceId);
+        this.server.close((function(){
+            console.log("Server %s closed", this.instanceId);
             done();
-        });
+        }).bind(this));
     },
 
     "FETCH UID": function(test){
