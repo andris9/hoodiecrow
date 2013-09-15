@@ -5,7 +5,7 @@ var toybird = require("./lib/server"),
             name: "toybird",
             version: "0.1"
         },
-        namespace:{
+        storage: {
             "":{
                 folders: {
                     "INBOX":{

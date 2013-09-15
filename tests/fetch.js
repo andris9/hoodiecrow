@@ -12,7 +12,7 @@ module.exports["Toybird tests"] = {
                 name: "toybird",
                 version: "0.1"
             },
-            namespace:{
+            storage:{
                 "":{
                     folders: {
                         "INBOX":{
