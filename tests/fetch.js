@@ -48,24 +48,18 @@ module.exports["Toybird tests"] = {
         });
 
         this.instanceId = ++instance;
-        console.log("Initializing server %s ...", this.instanceId);
         this.server.listen(IMAP_PORT, (function(){
-            console.log("Server %s listening on port %s", this.instanceId, IMAP_PORT);
             done();
         }).bind(this));
     },
 
     tearDown: function(done){
-        console.log("Closing server %s ...", this.instanceId);
         this.server.close((function(){
-            console.log("Server %s closed", this.instanceId);
             done();
         }).bind(this));
     },
 
     "FETCH UID": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 2 (UID)",
@@ -73,17 +67,13 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf("\n* 2 FETCH (UID 2)\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH FLAGS": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 2 (FLAGS)",
@@ -91,17 +81,13 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf("\n* 2 FETCH (FLAGS (\\Seen))\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH BODYSTRUCTURE": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 3 (BODYSTRUCTURE)",
@@ -109,17 +95,13 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf("\n* 3 FETCH (BODYSTRUCTURE (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 8 1 NIL NIL NIL))\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH ENVELOPE": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 (ENVELOPE)",
@@ -127,17 +109,13 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf('* 4 FETCH (ENVELOPE ("Fri, 13 Sep 2013 15:01:00 +0300" "hello 4" (("sender name" NIL "sender" "example.com")) (("sender name" NIL "sender" "example.com")) (("sender name" NIL "sender" "example.com")) (("Receiver name" NIL "receiver" "example.com")) NIL NIL NIL "<abcde>"))\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH BODY": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 3 (BODY)",
@@ -148,7 +126,6 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf('\n* 3 FETCH (BODY ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 1))\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
@@ -168,14 +145,11 @@ module.exports["Toybird tests"] = {
                     'World 3!)\r\n') >= 0);
             test.ok(resp.indexOf("\nA4 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH RFC822": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 3 (RFC822)",
@@ -183,7 +157,6 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
 
             test.ok(resp.indexOf('\n* 3 FETCH (RFC822 {28}\r\n'+
                     'Subject: hello 3\r\n'+
@@ -191,14 +164,11 @@ module.exports["Toybird tests"] = {
                     'World 3!)\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH INTERNALDATE": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 1 INTERNALDATE",
@@ -206,18 +176,14 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf("\n* 1 FETCH (INTERNALDATE \"14-Sep-2013 21:22:28 -0300\")\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH RFC8222.SIZE": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 RFC822.SIZE",
@@ -225,18 +191,14 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf("\n* 4 FETCH (RFC822.SIZE 170)\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH RFC822.HEADER": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 RFC822.HEADER",
@@ -244,7 +206,6 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf('\n* 4 FETCH (RFC822.HEADER {162}\r\n'+
                 'From: sender name <sender@example.com>\r\n'+
                 'To: Receiver name <receiver@example.com>\r\n'+
@@ -255,14 +216,11 @@ module.exports["Toybird tests"] = {
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH BODY[HEADER]": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[HEADER]",
@@ -270,7 +228,6 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER] {162}\r\n'+
                 'From: sender name <sender@example.com>\r\n'+
                 'To: Receiver name <receiver@example.com>\r\n'+
@@ -281,14 +238,11 @@ module.exports["Toybird tests"] = {
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH BODY[HEADER.FIELDS]": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[HEADER.FIELDS (From \"Subject\")]",
@@ -296,7 +250,6 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER.FIELDS (From Subject)] {60}\r\n'+
                 'From: sender name <sender@example.com>\r\n'+
                 'Subject: hello 4\r\n'+
@@ -304,14 +257,11 @@ module.exports["Toybird tests"] = {
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     },
 
     "FETCH BODY[HEADER.FIELDS.NOT]": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[HEADER.FIELDS.NOT (From \"Subject\")]",
@@ -319,7 +269,6 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
             test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER.FIELDS.NOT (From Subject)] {104}\r\n'+
                 'To: Receiver name <receiver@example.com>\r\n'+
                 'Message-Id: <abcde>\r\n'+
@@ -328,14 +277,13 @@ module.exports["Toybird tests"] = {
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
     }/*,
 
     "FETCH BODY[TEXT]": function(test){
         console.log("Starting test %s", this.instanceId);
-        
+
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 FETCH 4 BODY[TEXT]",

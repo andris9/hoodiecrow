@@ -15,6 +15,10 @@ Several clients can connect to the server simultanously but all the clients shar
 
 Toybird is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
 
+## Authentication
+
+An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
+
 ## CONDSTORE support
 
   * All messages have MODSEQ value
