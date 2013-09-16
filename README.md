@@ -25,7 +25,6 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
   * **FETCH** and **UID FETCH** support is partial
   * No **SEARCH** or **UID SEARCH**
-  * No **STORE** or **UID STORE**
   * No mailbox managing (missing **CREATE**, **DELETE** and **RENAME**)
   * No **COPY**
   * Other commands should be more or less ready
@@ -43,7 +42,7 @@ Plugins can be enabled when starting the server but can not be unloaded or loade
   * **IDLE**
   * **LITERALPLUS**
   * **LOGINDISABLED** is effective with LOGIN when connection is unencrypted but does not affect AUTH=PLAIN
-  * **NAMESPACE** no anonymouse namespaces though
+  * **NAMESPACE** no anonymous namespaces though
   * **SALS-IR**
   * **STARTTLS**
   * **UNSELECT**
@@ -87,6 +86,7 @@ C: A2 RESTART
   * CONDSTORE can be ENABLEd
   * SELECT/EXAMINE show HIGHESTMODSEQ
   * SELECT/EXAMINE support (CONDSTORE) option
+  * Updating flags increments MODSEQ value
 
 # Known issues
 
@@ -98,6 +98,7 @@ These issues are probably not going to get fixed
 
   * **addr-adl** (at-domain-list) values are not supported, NIL is always used
   * **anonymous namespaces** are not supported
+  * **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
 
 # License
 

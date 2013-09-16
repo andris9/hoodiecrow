@@ -18,7 +18,7 @@ module.exports["Toybird tests"] = {
                         "INBOX":{
                             messages: [
                                 {
-                                    raw: "Subject: hello 1\r\n\r\nWorld 1!", 
+                                    raw: "Subject: hello 1\r\n\r\nWorld 1!",
                                     internaldate: "14-Sep-2013 21:22:28 -0300",
                                     flags: "\\Deleted"
                                 }
