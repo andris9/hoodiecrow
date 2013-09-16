@@ -61,7 +61,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH UID": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 2 (UID)",
                 "ZZ LOGOUT"];
 
@@ -75,7 +75,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH FLAGS": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 2 (FLAGS)",
                 "ZZ LOGOUT"];
 
@@ -89,7 +89,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH BODYSTRUCTURE": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 3 (BODYSTRUCTURE)",
                 "ZZ LOGOUT"];
 
@@ -103,7 +103,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH ENVELOPE": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 (ENVELOPE)",
                 "ZZ LOGOUT"];
 
@@ -117,7 +117,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH BODY": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 3 (BODY)",
                 "A4 FETCH 3 BODY[]",
                 "A5 FETCH 3 BODY[]<4.10>",
@@ -126,6 +126,7 @@ module.exports["Toybird tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
+
             test.ok(resp.indexOf('\n* 3 FETCH (BODY ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 1))\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
@@ -151,7 +152,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH RFC822": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 3 (RFC822)",
                 "ZZ LOGOUT"];
 
@@ -170,7 +171,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH INTERNALDATE": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 1 INTERNALDATE",
                 "ZZ LOGOUT"];
 
@@ -185,7 +186,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH RFC8222.SIZE": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 RFC822.SIZE",
                 "ZZ LOGOUT"];
 
@@ -200,7 +201,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH RFC822.HEADER": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 RFC822.HEADER",
                 "ZZ LOGOUT"];
 
@@ -222,7 +223,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH BODY[HEADER]": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 BODY[HEADER]",
                 "ZZ LOGOUT"];
 
@@ -244,7 +245,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH BODY[HEADER.FIELDS]": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 BODY[HEADER.FIELDS (From \"Subject\")]",
                 "ZZ LOGOUT"];
 
@@ -263,7 +264,7 @@ module.exports["Toybird tests"] = {
 
     "FETCH BODY[HEADER.FIELDS.NOT]": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 BODY[HEADER.FIELDS.NOT (From \"Subject\")]",
                 "ZZ LOGOUT"];
 
@@ -279,13 +280,32 @@ module.exports["Toybird tests"] = {
 
             test.done();
         }).bind(this));
+    },
+
+    "Mark as Seen": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 SELECT INBOX",
+                "A3 FETCH 2 BODY[]",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+
+            test.ok(resp.indexOf('* 2 FETCH (BODY[] {28}\r\n'+
+                'Subject: hello 2\r\n'+
+                '\r\n'+
+                'World 2! FLAGS (\\Seen))\r\n') >= 0);
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+
+            test.done();
+        }).bind(this));
     }/*,
 
     "FETCH BODY[TEXT]": function(test){
         console.log("Starting test %s", this.instanceId);
 
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
+                "A2 EXAMINE INBOX",
                 "A3 FETCH 4 BODY[TEXT]",
                 "ZZ LOGOUT"];
 
