@@ -4,7 +4,7 @@ var toybird = require("../lib/server"),
 var IMAP_PORT = 4143,
     instance = 0;
 
-module.exports["Normal login"] = {
+module.exports["Create"] = {
     setUp: function(done){
         this.server = toybird({
             storage: {
