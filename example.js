@@ -31,7 +31,8 @@ var toybird = require("./lib/server"),
                 type: "shared",
                 separator: "?"
             }
-        }
+        },
+        debug: true
     });
 
 const PORT = 1234;

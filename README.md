@@ -25,7 +25,7 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
   * **FETCH** and **UID FETCH** support is partial
   * No **SEARCH** or **UID SEARCH**
-  * No mailbox managing (missing **CREATE**, **DELETE** and **RENAME**)
+  * No **RENAME**
   * No **COPY**
   * Other commands should be more or less ready
 
