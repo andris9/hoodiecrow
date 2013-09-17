@@ -25,7 +25,6 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
   * **FETCH** and **UID FETCH** support is partial
   * No **SEARCH** or **UID SEARCH**
-  * No **COPY**
   * Other commands should be more or less ready
 
 I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of **toybird**, so I can copy and paste a lot.
