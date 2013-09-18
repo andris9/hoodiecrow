@@ -12,7 +12,6 @@ Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON 
 Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
 
 Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
-<<<<<<< HEAD
 
 ## Authentication
 
@@ -54,7 +53,6 @@ Planned but not yet implemented
   * **X-GM-EXT-1** except for **SEARCH X-GM-RAW**
   * **AUTH=XOAUTH2** (maybe **AUTH=XOAUTH2** also)
 
-=======
 
 ## Authentication
 
@@ -122,6 +120,33 @@ C: A2 RESTART
 
 ## CONDSTORE support
 
+=======
+## Existing XTOYBIRD commands
+
+  * **XTOYBIRD SERVER** dumps server object as a LITERAL string. Useful for debugging current state.
+  * **XTOYBIRD SERVER** dumps session object as a LITERAL string. Useful for debugging current state.
+  * **XTOYBIRD STORAGE** outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.
+
+## Useful features for Hoodiecrow I'd like to see
+
+  * An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
+  * An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
+  * An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
+  * An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"":{"INBOX":{...}}})`)
+  * Maybe even enabling/disabling plugins but this would require restarting the server
+
+```
+C: A1 XTOYBIRD ENABLE ID UIDPLUS
+S: * XTOYBIRD ENABLED ID
+S: * XTOYBIRD ENABLED UIDPLUS
+S: A1 XTOYBIRD completed. Restart required
+C: A2 RESTART
+* BYE Server is Restarting
+```
+
+## CONDSTORE support
+
+>>>>>>> v2
   * All messages have MODSEQ value
   * CONDSTORE can be ENABLEd
   * SELECT/EXAMINE show HIGHESTMODSEQ
