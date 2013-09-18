@@ -61,10 +61,8 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
 ### IMAP4rev1
 
-  * **FETCH** and **UID FETCH** support is partial
+  * **FETCH** and **UID FETCH** support is partial (does not retrieve nested parts, eg. 1.1.TEXT)
   * Other commands should be more or less ready
-
-I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of **hoodiecrow**, so I can copy and paste a lot.
 
 ### Supported Plugins
 
