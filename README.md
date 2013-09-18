@@ -43,7 +43,7 @@ var hoodiecrow = require("hoodiecrow"),
 server.listen(143);
 ```
 
-See [https://github.com/andris9/hoodiecrow/blob/master/example.js](example.js) for an example configuration.
+See (example.js)[https://github.com/andris9/hoodiecrow/blob/master/example.js] for an example configuration.
 
 ## Scope
 
