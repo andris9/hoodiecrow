@@ -1,0 +1,73 @@
+Hoodiecrow (v__VERSION__)
+=============__VBAR__=
+hoodiecrow starts an IMAP server that is suitable for running client
+integration tests. Nothing is written to disk, all operations are
+performed on memory and the changes are lost after restart, so the
+initial state is always guaranteed when running your tests.
+
+Usage: hoodiecrow [OPTS]
+
+  -p <port>, --port=<port> Port number to listen to, defaults to 143
+  -s, --secure=true        Starts a secure server, defaults port to 993
+  -d, --debug=true         Writes IMAP traffic to console
+  --storage=<path>         Path to JSON file with the directory tree
+  --config=<config>        Path to config JSON file
+  --plugin=<plugin>        Enables a plugin for the server. See below for
+                           available plugins.
+Available plugins
+-----------------
+
+Usage: hoodiecrow [OPTS] --plugin=ID --plugin=IDLE
+or:    hoodiecrow [OPTS] --plugin=ID,IDLE
+
+__PLUGINS__
+
+Configuration files
+-------------------
+
+Configuration file takes the following structure
+
+{
+    "plugins": ["ID", "IDLE"],
+    "debug": false,
+    "secureConnection": false,
+    "port": 143,
+    "id":{
+        "name": "hoodecrow",
+        "version": "__VERSION__",
+        "key": "value"
+    }
+}
+
+Storage file is a tree like structure starting with namespace values
+
+{
+    "":{
+        "separator": "/",
+        "folders": {
+            "INBOX":{
+                "nextuid": 123,
+                "messages": [
+                    {"raw": "Subject: Test\r\n\r\nHello world!"}
+                ]
+            },
+            "Parent folder":{
+                "folders":{
+                    "Subfolder": {}
+                }
+            }
+        }
+    },
+    "#news":{
+        type: "shared"
+    }
+}
+
+If not storage file is specified, an empty "INBOX" is used
+
+Project homepage: http://hoodiecrow.com/
+Report issues at: https://github.com/andris9/hoodiecrow/issues
+
+License: MIT
+
+(c) 2013 Andris Reinman

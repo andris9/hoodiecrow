@@ -1,9 +1,33 @@
 # hoodiecrow
 
-Hoodiecrow is supposed to be a scriptable IMAP server for client testing.
+Hoodiecrow is supposed to be a scriptable IMAP server for client integration testing.
 
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
 [![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
+
+# Usage
+
+Run as standalone server
+
+```bash
+npm install -g hoodiecrow
+hoodiecrow --help
+sudo hoodiecrow
+```
+
+Run as a Node.js module
+
+```bash
+npm install hoodiecrow
+```
+
+```javascript
+var hoodiecrow = require("hoodiecrow");
+
+var server = hoodiecrow(options);
+
+server.listen(143);
+```
 
 ## Scope
 
