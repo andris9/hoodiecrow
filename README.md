@@ -12,6 +12,7 @@ Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON 
 Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
 
 Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
+<<<<<<< HEAD
 
 ## Authentication
 
@@ -53,6 +54,49 @@ Planned but not yet implemented
   * **X-GM-EXT-1** except for **SEARCH X-GM-RAW**
   * **AUTH=XOAUTH2** (maybe **AUTH=XOAUTH2** also)
 
+=======
+
+## Authentication
+
+An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
+
+## Status
+
+### IMAP4rev1
+
+  * **FETCH** and **UID FETCH** support is partial
+  * No **SEARCH** or **UID SEARCH**
+  * Other commands should be more or less ready
+
+I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of **hoodiecrow**, so I can copy and paste a lot.
+
+### Supported Plugins
+
+Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running
+
+  * **AUTH=PLAIN** (supports **SASL-IR**, ignores **LOGINDISABLED**)
+  * **CONDSTORE** partial, see below for CONDSTORE support
+  * **ENABLE**
+  * **ID**
+  * **IDLE**
+  * **LITERALPLUS**
+  * **LOGINDISABLED** is effective with LOGIN when connection is unencrypted but does not affect AUTH=PLAIN
+  * **NAMESPACE** no anonymous namespaces though
+  * **SALS-IR**
+  * **STARTTLS**
+  * **UNSELECT**
+  * **XTOYBIRD** to programmatically control Hoodiecrow through the IMAP protocol. Does not require login.
+
+Planned but not yet implemented
+
+  * **SPECIAL-USE** (maybe **XLIST** as well but probably not)
+  * **MOVE**
+  * **UIDPLUS**
+  * **QUOTA**
+  * **X-GM-EXT-1** except for **SEARCH X-GM-RAW**
+  * **AUTH=XOAUTH2** (maybe **AUTH=XOAUTH2** also)
+
+>>>>>>> v2
 ## Existing XTOYBIRD commands
 
   * **XTOYBIRD SERVER** dumps server object as a LITERAL string. Useful for debugging current state.
