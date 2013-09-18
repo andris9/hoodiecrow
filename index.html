@@ -33,7 +33,7 @@
         <h1>
 <a name="hoodiecrow" class="anchor" href="#hoodiecrow"><span class="octicon octicon-link"></span></a>hoodiecrow</h1>
 
-<p>Hoodiecrow is supposed to be a scriptable IMAP server for client integration testing.</p>
+<p>Hoodiecrow is a scriptable IMAP server for client integration testing. Currently it offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.</p>
 
 <p><a href="http://travis-ci.org/andris9/hoodiecrow"><img src="https://secure.travis-ci.org/andris9/hoodiecrow.png" alt="Build Status"></a>
 <a href="http://badge.fury.io/js/hoodiecrow"><img src="https://badge.fury.io/js/hoodiecrow.png" alt="NPM version"></a></p>
@@ -41,14 +41,24 @@
 <h1>
 <a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h1>
 
-<p>Run as standalone server</p>
+<h3>
+<a name="run-as-a-standalone-server" class="anchor" href="#run-as-a-standalone-server"><span class="octicon octicon-link"></span></a>Run as a standalone server</h3>
+
+<p>Install Hoodiecrow with <a href="http://npmjs.org/">npm</a></p>
 
 <div class="highlight highlight-bash"><pre>npm install -g hoodiecrow
 hoodiecrow --help
 sudo hoodiecrow
 </pre></div>
 
-<p>Run as a Node.js module</p>
+<p>Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143, you do not need to use sudo.</p>
+
+<p><code>hoodiecrow --help</code> displays useful information about command line options for Hoodiecrow and some sample configuration data.</p>
+
+<p>After you have started Hoodiecrow server, you can point your IMAP client to localhost:143</p>
+
+<h3>
+<a name="include-as-a-nodejs-module" class="anchor" href="#include-as-a-nodejs-module"><span class="octicon octicon-link"></span></a>Include as a Node.js module</h3>
 
 <div class="highlight highlight-bash"><pre>npm install hoodiecrow
 </pre></div>
@@ -60,10 +70,12 @@ sudo hoodiecrow
 <span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="mi">143</span><span class="p">);</span>
 </pre></div>
 
+<p>See <a href="example.js">example.js</a> for an example configuration.</p>
+
 <h2>
 <a name="scope" class="anchor" href="#scope"><span class="octicon octicon-link"></span></a>Scope</h2>
 
-<p>Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.</p>
+<p>Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write integration tests for clients in a way where a new fresh server with unmodified data is started for every test.</p>
 
 <p>Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.</p>
 
@@ -83,8 +95,6 @@ sudo hoodiecrow
 <ul>
 <li>
 <strong>FETCH</strong> and <strong>UID FETCH</strong> support is partial</li>
-<li>No <strong>SEARCH</strong> or <strong>UID SEARCH</strong>
-</li>
 <li>Other commands should be more or less ready</li>
 </ul><p>I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of <strong>hoodiecrow</strong>, so I can copy and paste a lot.</p>
 
