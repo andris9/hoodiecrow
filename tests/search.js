@@ -475,12 +475,15 @@ module.exports["Search tests"] = {
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 SEARCH UID 66",
+                "A4 SEARCH UID 1:*",
                 "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* SEARCH 6\r\n") >= 0);
+            test.ok(resp.indexOf("\n* SEARCH 1 2 3 4 5 6\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
+            test.ok(resp.indexOf("\nA4 OK") >= 0);
             test.done();
         }).bind(this));
     },
