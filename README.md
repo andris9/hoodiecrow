@@ -1,4 +1,8 @@
-# hoodiecrow
+# Hoodiecrow
+
+![It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow.jpg)
+
+*It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer. Stay tuned for new image.*
 
 Hoodiecrow is a scriptable IMAP server for client integration testing. Currently it offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.
 
@@ -154,6 +158,22 @@ These issues are probably not going to get fixed
   * **addr-adl** (at-domain-list) values are not supported, NIL is always used
   * **anonymous namespaces** are not supported
   * **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
+
+# Running tests
+
+Running tests requires you to have grunt-cli installed
+
+    npm install -g grunt-cli
+
+After which you can run
+
+    grunt
+
+or
+
+    npm test
+
+To run all the tests.
 
 # License
 
