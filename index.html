@@ -1,37 +1,42 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Hoodiecrow IMAP server by andris9</title>
-
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <script src="javascripts/scale.fix.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
+    <title>Hoodiecrow IMAP server by andris9</title>
   </head>
+
   <body>
-    <div class="wrapper">
-      <header>
-        <h1 class="header">Hoodiecrow IMAP server</h1>
-        <p class="header">Scriptable IMAP server for client integration testing</p>
+    <div id="container">
+      <div class="inner">
 
-        <ul>
-          <li class="download"><a class="buttons" href="https://github.com/andris9/hoodiecrow/zipball/master">Download ZIP</a></li>
-          <li class="download"><a class="buttons" href="https://github.com/andris9/hoodiecrow/tarball/master">Download TAR</a></li>
-          <li><a class="buttons github" href="https://github.com/andris9/hoodiecrow">View On GitHub</a></li>
-        </ul>
+        <header>
+          <h1>Hoodiecrow IMAP server</h1>
+          <h2>Scriptable IMAP server for client integration testing</h2>
+        </header>
 
-        <p class="header">This project is maintained by <a class="header name" href="https://github.com/andris9">andris9</a></p>
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/andris9/hoodiecrow/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/andris9/hoodiecrow/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/andris9/hoodiecrow" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
 
+        <hr>
 
-      </header>
-      <section>
-        <h1>
-<a name="hoodiecrow" class="anchor" href="#hoodiecrow"><span class="octicon octicon-link"></span></a>hoodiecrow</h1>
+        <section id="main_content">
+          <h1>
+<a name="hoodiecrow" class="anchor" href="#hoodiecrow"><span class="octicon octicon-link"></span></a>Hoodiecrow</h1>
+
+<p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow.jpg" alt="It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer"></p>
+
+<p><em>It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer. Stay tuned for new image.</em></p>
 
 <p>Hoodiecrow is a scriptable IMAP server for client integration testing. Currently it offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.</p>
 
@@ -60,17 +65,19 @@ sudo hoodiecrow
 <h3>
 <a name="include-as-a-nodejs-module" class="anchor" href="#include-as-a-nodejs-module"><span class="octicon octicon-link"></span></a>Include as a Node.js module</h3>
 
+<p>Add <code>hoodiecrow</code> dependnecy</p>
+
 <div class="highlight highlight-bash"><pre>npm install hoodiecrow
 </pre></div>
 
-<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">hoodiecrow</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s2">"hoodiecrow"</span><span class="p">);</span>
+<p>Create and start an IMAP server</p>
 
-<span class="kd">var</span> <span class="nx">server</span> <span class="o">=</span> <span class="nx">hoodiecrow</span><span class="p">(</span><span class="nx">options</span><span class="p">);</span>
-
+<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">hoodiecrow</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s2">"hoodiecrow"</span><span class="p">),</span>
+    <span class="nx">server</span> <span class="o">=</span> <span class="nx">hoodiecrow</span><span class="p">(</span><span class="nx">options</span><span class="p">);</span>
 <span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="mi">143</span><span class="p">);</span>
 </pre></div>
 
-<p>See <a href="example.js">example.js</a> for an example configuration.</p>
+<p>See <a href="example.js">https://github.com/andris9/hoodiecrow/blob/master/example.js</a> for an example configuration.</p>
 
 <h2>
 <a name="scope" class="anchor" href="#scope"><span class="octicon octicon-link"></span></a>Scope</h2>
@@ -142,14 +149,32 @@ sudo hoodiecrow
 <h2>
 <a name="existing-xtoybird-commands" class="anchor" href="#existing-xtoybird-commands"><span class="octicon octicon-link"></span></a>Existing XTOYBIRD commands</h2>
 
+<p>To use these functions, XTOYBIRD plugin needs to be enabled</p>
+
 <ul>
 <li>
 <strong>XTOYBIRD SERVER</strong> dumps server object as a LITERAL string. Useful for debugging current state.</li>
 <li>
-<strong>XTOYBIRD SERVER</strong> dumps session object as a LITERAL string. Useful for debugging current state.</li>
+<strong>XTOYBIRD CONNECTION</strong> dumps session object as a LITERAL string. Useful for debugging current state (includes socket info etc).</li>
 <li>
 <strong>XTOYBIRD STORAGE</strong> outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.</li>
-</ul><h2>
+</ul><p>Example</p>
+
+<pre><code>S: * Hoodiecrow ready for rumble
+C: A1 XTOYBIRD STORAGE
+S: * OK [JSON] {3224}
+S: {
+S:   "": {
+S:       "folders": {
+S:           "INBOX": {
+S:               "messages": [
+S:                   {
+S:                       "raw": "Subject: hello 1\r\n\r\nWorld 1!",
+S:                       ...
+S: A1 OK XTOYBIRD Completed
+</code></pre>
+
+<h2>
 <a name="useful-features-for-hoodiecrow-id-like-to-see" class="anchor" href="#useful-features-for-hoodiecrow-id-like-to-see"><span class="octicon octicon-link"></span></a>Useful features for Hoodiecrow I'd like to see</h2>
 
 <ul>
@@ -195,16 +220,37 @@ C: A2 RESTART
 <li>
 <strong>STORE</strong> returns NO and nothing is updated if there are pending EXPUNGE messages</li>
 </ul><h1>
+<a name="running-tests" class="anchor" href="#running-tests"><span class="octicon octicon-link"></span></a>Running tests</h1>
+
+<p>Running tests requires you to have grunt-cli installed</p>
+
+<pre><code>npm install -g grunt-cli
+</code></pre>
+
+<p>After which you can run</p>
+
+<pre><code>grunt
+</code></pre>
+
+<p>or</p>
+
+<pre><code>npm test
+</code></pre>
+
+<p>To run all the tests.</p>
+
+<h1>
 <a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h1>
 
 <p><strong>MIT</strong></p>
-      </section>
-      <footer>
-        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
-      </footer>
-    </div>
-    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-		          <script type="text/javascript">
+        </section>
+
+        <footer>
+          Hoodiecrow IMAP server is maintained by <a href="https://github.com/andris9">andris9</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+                  <script type="text/javascript">
             var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
             document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
           </script>
@@ -215,5 +261,7 @@ C: A2 RESTART
             } catch(err) {}
           </script>
 
+      </div>
+    </div>
   </body>
 </html>
