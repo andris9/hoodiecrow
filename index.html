@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>Hoodiecrow by andris9</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>Hoodiecrow</h1>
+        <h2>Scriptable IMAP server for testing purposes</h2>
+        <a href="https://github.com/andris9/hoodiecrow" class="button"><small>View project on</small>GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a name="hoodiecrow" class="anchor" href="#hoodiecrow"><span class="octicon octicon-link"></span></a>Hoodiecrow</h1>
+
+<p>Hoodiecrow is supposed to be a scriptable IMAP server for client testing.</p>
+
+<p><a href="http://travis-ci.org/andris9/hoodiecrow"><img src="https://secure.travis-ci.org/andris9/hoodiecrow.png" alt="Build Status"></a>
+<a href="http://badge.fury.io/js/hoodiecrow"><img src="https://badge.fury.io/js/hoodiecrow.png" alt="NPM version"></a></p>
+
+<h2>
+<a name="scope" class="anchor" href="#scope"><span class="octicon octicon-link"></span></a>Scope</h2>
+
+<p>Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.</p>
+
+<p>Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.</p>
+
+<p>Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).</p>
+
+<h2>
+<a name="authentication" class="anchor" href="#authentication"><span class="octicon octicon-link"></span></a>Authentication</h2>
+
+<p>An user can always login with username <code>"testuser"</code> and password <code>"testpass"</code>. Any other credentials can be added as needed.</p>
+
+<h2>
+<a name="status" class="anchor" href="#status"><span class="octicon octicon-link"></span></a>Status</h2>
+
+<h3>
+<a name="imap4rev1" class="anchor" href="#imap4rev1"><span class="octicon octicon-link"></span></a>IMAP4rev1</h3>
+
+<ul>
+<li>
+<strong>FETCH</strong> and <strong>UID FETCH</strong> support is partial</li>
+<li>No <strong>SEARCH</strong> or <strong>UID SEARCH</strong>
+</li>
+<li>Other commands should be more or less ready</li>
+</ul><p>I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of <strong>hoodiecrow</strong>, so I can copy and paste a lot.</p>
+
+<h3>
+<a name="supported-plugins" class="anchor" href="#supported-plugins"><span class="octicon octicon-link"></span></a>Supported Plugins</h3>
+
+<p>Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running</p>
+
+<ul>
+<li>
+<strong>AUTH=PLAIN</strong> (supports <strong>SASL-IR</strong>, ignores <strong>LOGINDISABLED</strong>)</li>
+<li>
+<strong>CONDSTORE</strong> partial, see below for CONDSTORE support</li>
+<li><strong>ENABLE</strong></li>
+<li><strong>ID</strong></li>
+<li><strong>IDLE</strong></li>
+<li><strong>LITERALPLUS</strong></li>
+<li>
+<strong>LOGINDISABLED</strong> is effective with LOGIN when connection is unencrypted but does not affect AUTH=PLAIN</li>
+<li>
+<strong>NAMESPACE</strong> no anonymous namespaces though</li>
+<li><strong>SALS-IR</strong></li>
+<li><strong>STARTTLS</strong></li>
+<li><strong>UNSELECT</strong></li>
+<li>
+<strong>XTOYBIRD</strong> to programmatically control Hoodiecrow through the IMAP protocol. Does not require login.</li>
+</ul><p>Planned but not yet implemented</p>
+
+<ul>
+<li>
+<strong>SPECIAL-USE</strong> (maybe <strong>XLIST</strong> as well but probably not)</li>
+<li><strong>MOVE</strong></li>
+<li><strong>UIDPLUS</strong></li>
+<li><strong>QUOTA</strong></li>
+<li>
+<strong>X-GM-EXT-1</strong> except for <strong>SEARCH X-GM-RAW</strong>
+</li>
+<li>
+<strong>AUTH=XOAUTH2</strong> (maybe <strong>AUTH=XOAUTH2</strong> also)</li>
+</ul><h2>
+<a name="authentication-1" class="anchor" href="#authentication-1"><span class="octicon octicon-link"></span></a>Authentication</h2>
+
+<p>An user can always login with username <code>"testuser"</code> and password <code>"testpass"</code>. Any other credentials can be added as needed.</p>
+
+<h2>
+<a name="status-1" class="anchor" href="#status-1"><span class="octicon octicon-link"></span></a>Status</h2>
+
+<h3>
+<a name="imap4rev1-1" class="anchor" href="#imap4rev1-1"><span class="octicon octicon-link"></span></a>IMAP4rev1</h3>
+
+<ul>
+<li>
+<strong>FETCH</strong> and <strong>UID FETCH</strong> support is partial</li>
+<li>No <strong>SEARCH</strong> or <strong>UID SEARCH</strong>
+</li>
+<li>Other commands should be more or less ready</li>
+</ul><p>I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of <strong>hoodiecrow</strong>, so I can copy and paste a lot.</p>
+
+<h3>
+<a name="supported-plugins-1" class="anchor" href="#supported-plugins-1"><span class="octicon octicon-link"></span></a>Supported Plugins</h3>
+
+<p>Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running</p>
+
+<ul>
+<li>
+<strong>AUTH=PLAIN</strong> (supports <strong>SASL-IR</strong>, ignores <strong>LOGINDISABLED</strong>)</li>
+<li>
+<strong>CONDSTORE</strong> partial, see below for CONDSTORE support</li>
+<li><strong>ENABLE</strong></li>
+<li><strong>ID</strong></li>
+<li><strong>IDLE</strong></li>
+<li><strong>LITERALPLUS</strong></li>
+<li>
+<strong>LOGINDISABLED</strong> is effective with LOGIN when connection is unencrypted but does not affect AUTH=PLAIN</li>
+<li>
+<strong>NAMESPACE</strong> no anonymous namespaces though</li>
+<li><strong>SALS-IR</strong></li>
+<li><strong>STARTTLS</strong></li>
+<li><strong>UNSELECT</strong></li>
+<li>
+<strong>XTOYBIRD</strong> to programmatically control Hoodiecrow through the IMAP protocol. Does not require login.</li>
+</ul><p>Planned but not yet implemented</p>
+
+<ul>
+<li>
+<strong>SPECIAL-USE</strong> (maybe <strong>XLIST</strong> as well but probably not)</li>
+<li><strong>MOVE</strong></li>
+<li><strong>UIDPLUS</strong></li>
+<li><strong>QUOTA</strong></li>
+<li>
+<strong>X-GM-EXT-1</strong> except for <strong>SEARCH X-GM-RAW</strong>
+</li>
+<li>
+<strong>AUTH=XOAUTH2</strong> (maybe <strong>AUTH=XOAUTH2</strong> also)</li>
+</ul><blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>v2</p>
+
+<h2>
+<a name="existing-xtoybird-commands" class="anchor" href="#existing-xtoybird-commands"><span class="octicon octicon-link"></span></a>Existing XTOYBIRD commands</h2>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+
+<ul>
+<li>
+<strong>XTOYBIRD SERVER</strong> dumps server object as a LITERAL string. Useful for debugging current state.</li>
+<li>
+<strong>XTOYBIRD SERVER</strong> dumps session object as a LITERAL string. Useful for debugging current state.</li>
+<li>
+<strong>XTOYBIRD STORAGE</strong> outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.</li>
+</ul><h2>
+<a name="useful-features-for-hoodiecrow-id-like-to-see" class="anchor" href="#useful-features-for-hoodiecrow-id-like-to-see"><span class="octicon octicon-link"></span></a>Useful features for Hoodiecrow I'd like to see</h2>
+
+<ul>
+<li>An ability to change UIDVALIDITY at runtime (eg. <code>A1 XTOYBIRD UIDVALIDITY INBOX 123</code> where 123 is the new UIDVALIDITY for INBOX)</li>
+<li>An ability to change available disk space (eg. <code>A1 XTOYBIRD DISKSPACE 100 50</code> where 100 is total disk space in bytes and 50 is available space)</li>
+<li>An ability to restart the server to return initial state (<code>A1 XTOYBIRD RESET</code>)</li>
+<li>An ability to change storage runtime by sending a JSON string describing the entire storage (<code>A1 XTOYBIRD UPDATE {123}\r\n{"":{"INBOX":{...}}})</code>)</li>
+<li>Maybe even enabling/disabling plugins but this would require restarting the server</li>
+</ul><pre><code>C: A1 XTOYBIRD ENABLE ID UIDPLUS
+S: * XTOYBIRD ENABLED ID
+S: * XTOYBIRD ENABLED UIDPLUS
+S: A1 XTOYBIRD completed. Restart required
+C: A2 RESTART
+* BYE Server is Restarting
+</code></pre>
+
+<h2>
+<a name="condstore-support" class="anchor" href="#condstore-support"><span class="octicon octicon-link"></span></a>CONDSTORE support</h2>
+
+<h1></h1>
+
+<h2>
+<a name="existing-xtoybird-commands-1" class="anchor" href="#existing-xtoybird-commands-1"><span class="octicon octicon-link"></span></a>Existing XTOYBIRD commands</h2>
+
+<ul>
+<li>
+<strong>XTOYBIRD SERVER</strong> dumps server object as a LITERAL string. Useful for debugging current state.</li>
+<li>
+<strong>XTOYBIRD SERVER</strong> dumps session object as a LITERAL string. Useful for debugging current state.</li>
+<li>
+<strong>XTOYBIRD STORAGE</strong> outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.</li>
+</ul><h2>
+<a name="useful-features-for-hoodiecrow-id-like-to-see-1" class="anchor" href="#useful-features-for-hoodiecrow-id-like-to-see-1"><span class="octicon octicon-link"></span></a>Useful features for Hoodiecrow I'd like to see</h2>
+
+<ul>
+<li>An ability to change UIDVALIDITY at runtime (eg. <code>A1 XTOYBIRD UIDVALIDITY INBOX 123</code> where 123 is the new UIDVALIDITY for INBOX)</li>
+<li>An ability to change available disk space (eg. <code>A1 XTOYBIRD DISKSPACE 100 50</code> where 100 is total disk space in bytes and 50 is available space)</li>
+<li>An ability to restart the server to return initial state (<code>A1 XTOYBIRD RESET</code>)</li>
+<li>An ability to change storage runtime by sending a JSON string describing the entire storage (<code>A1 XTOYBIRD UPDATE {123}\r\n{"":{"INBOX":{...}}})</code>)</li>
+<li>Maybe even enabling/disabling plugins but this would require restarting the server</li>
+</ul><pre><code>C: A1 XTOYBIRD ENABLE ID UIDPLUS
+S: * XTOYBIRD ENABLED ID
+S: * XTOYBIRD ENABLED UIDPLUS
+S: A1 XTOYBIRD completed. Restart required
+C: A2 RESTART
+* BYE Server is Restarting
+</code></pre>
+
+<h2>
+<a name="condstore-support-1" class="anchor" href="#condstore-support-1"><span class="octicon octicon-link"></span></a>CONDSTORE support</h2>
+
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>v2</p>
+
+<ul>
+<li>All messages have MODSEQ value</li>
+<li>CONDSTORE can be ENABLEd</li>
+<li>SELECT/EXAMINE show HIGHESTMODSEQ</li>
+<li>SELECT/EXAMINE support (CONDSTORE) option</li>
+<li>Updating flags increments MODSEQ value</li>
+</ul>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+
+<h1>
+<a name="known-issues" class="anchor" href="#known-issues"><span class="octicon octicon-link"></span></a>Known issues</h1>
+
+<p>These issues will be fixed</p>
+
+<ul>
+<li>
+<strong>CONDSTORE</strong> support is partial</li>
+</ul><p>These issues are probably not going to get fixed</p>
+
+<ul>
+<li>
+<strong>addr-adl</strong> (at-domain-list) values are not supported, NIL is always used</li>
+<li>
+<strong>anonymous namespaces</strong> are not supported</li>
+<li>
+<strong>STORE</strong> returns NO and nothing is updated if there are pending EXPUNGE messages</li>
+</ul><h1>
+<a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h1>
+
+<p><strong>MIT</strong></p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/andris9/hoodiecrow/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/andris9/hoodiecrow/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/andris9/hoodiecrow"></a> is maintained by <a href="https://github.com/andris9">andris9</a>.</p>
+
+          <p>This page was generated by <a href="pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+            <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-51322-45");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
