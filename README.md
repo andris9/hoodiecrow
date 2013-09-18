@@ -1,19 +1,19 @@
-# toybird
+# hoodiecrow
 
-Toybird is supposed to be a scriptable IMAP server for client testing.
+Hoodiecrow is supposed to be a scriptable IMAP server for client testing.
 
 **NB** To see a working version, see the master branch. This is a rewrite of the original project to allow better extendability. New IMAP parser was added etc.
 
-[![Build Status](https://secure.travis-ci.org/andris9/toybird.png)](http://travis-ci.org/andris9/toybird)
-[![NPM version](https://badge.fury.io/js/toybird.png)](http://badge.fury.io/js/toybird)
+[![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
+[![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
 
 ## Scope
 
-Toybird is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.
+Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.
 
 Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
 
-Toybird is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
+Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
 
 ## Authentication
 
@@ -27,7 +27,7 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
   * No **SEARCH** or **UID SEARCH**
   * Other commands should be more or less ready
 
-I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of **toybird**, so I can copy and paste a lot.
+I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of **hoodiecrow**, so I can copy and paste a lot.
 
 ### Supported Plugins
 
@@ -44,7 +44,7 @@ Plugins can be enabled when starting the server but can not be unloaded or loade
   * **SALS-IR**
   * **STARTTLS**
   * **UNSELECT**
-  * **XTOYBIRD** to programmatically control toybird through the IMAP protocol. Does not require login.
+  * **XTOYBIRD** to programmatically control Hoodiecrow through the IMAP protocol. Does not require login.
 
 Planned but not yet implemented
 
@@ -61,7 +61,7 @@ Planned but not yet implemented
   * **XTOYBIRD SERVER** dumps session object as a LITERAL string. Useful for debugging current state.
   * **XTOYBIRD STORAGE** outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.
 
-## Useful features for XTOYBIRD I'd like to see
+## Useful features for Hoodiecrow I'd like to see
 
   * An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
   * An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)

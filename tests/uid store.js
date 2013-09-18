@@ -1,12 +1,12 @@
-var toybird = require("../lib/server"),
+var hoodiecrow = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
     instance = 0;
 
-module.exports["Toybird tests"] = {
+module.exports["Hoodiecrow tests"] = {
     setUp: function(done){
-        this.server = toybird({
+        this.server = hoodiecrow({
             storage:{
                 "":{
                     folders: {
@@ -164,7 +164,7 @@ module.exports["Toybird tests"] = {
 
 module.exports["Custom flags not allowed"] = {
     setUp: function(done){
-        this.server = toybird({
+        this.server = hoodiecrow({
             storage:{
                 "":{
                     folders: {

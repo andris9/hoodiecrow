@@ -1,4 +1,4 @@
-var toybird = require("../lib/server"),
+var hoodiecrow = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
@@ -6,7 +6,7 @@ var IMAP_PORT = 4143,
 
 module.exports["Auth Plain disabled"] = {
     setUp: function(done){
-        this.server = toybird();
+        this.server = hoodiecrow();
 
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function(){
@@ -36,7 +36,7 @@ module.exports["Auth Plain disabled"] = {
 
 module.exports["Auth Plain enabled"] = {
     setUp: function(done){
-        this.server = toybird({
+        this.server = hoodiecrow({
             plugins: ["AUTH-PLAIN"]
         });
 

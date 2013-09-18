@@ -1,4 +1,4 @@
-var toybird = require("../lib/server"),
+var hoodiecrow = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
@@ -6,7 +6,7 @@ var IMAP_PORT = 4143,
 
 module.exports["Delete"] = {
     setUp: function(done){
-        this.server = toybird({
+        this.server = hoodiecrow({
             plugins: "XTOYBIRD",
             storage: {
                 "":{

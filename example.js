@@ -1,8 +1,8 @@
-var toybird = require("./lib/server"),
-    server = toybird({
+var hoodiecrow = require("./lib/server"),
+    server = hoodiecrow({
         plugins: ["ID", "STARTTLS"/*, "LOGINDISABLED"*/, "SASL-IR", "AUTH-PLAIN", "NAMESPACE", "IDLE", "ENABLE", "CONDSTORE", "XTOYBIRD", "LITERALPLUS", "UNSELECT"],
         id:{
-            name: "toybird",
+            name: "hoodiecrow",
             version: "0.1"
         },
         storage: {
@@ -38,5 +38,5 @@ var toybird = require("./lib/server"),
 const PORT = 1234;
 
 server.listen(PORT, function(){
-    console.log("Toybird listening on port %s", PORT)
+    console.log("Hoodiecrow listening on port %s", PORT)
 });

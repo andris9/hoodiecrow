@@ -1,15 +1,15 @@
-var toybird = require("../lib/server"),
+var hoodiecrow = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
     instance = 0;
 
-module.exports["Toybird tests"] = {
+module.exports["Hoodiecrow tests"] = {
     setUp: function(done){
-        this.server = toybird({
+        this.server = hoodiecrow({
             plugins: "UNSELECT",
             id:{
-                name: "toybird",
+                name: "hoodiecrow",
                 version: "0.1"
             },
             storage:{
