@@ -1,17 +1,22 @@
 {
-  "name": "toybird",
+  "name": "hoodiecrow",
   "version": "0.1.0",
   "description": "Scriptable IMAP mock server for testing purposes",
   "main": "lib/server.js",
   "scripts": {
-    "test": "nodeunit test"
+    "test": "grunt"
   },
-  "repository": "git@github.com:andris9/toybird.git",
+  "repository": "git@github.com:andris9/hoodiecrow.git",
   "keywords": [
     "IMAP"
   ],
+  "dependencies":{
+    "imap-handler": "*"
+  },
   "devDependencies":{
-    "nodeunit": "*",
+    "grunt": "~0.4.1",
+    "grunt-contrib-jshint": "~0.6.4",
+    "grunt-contrib-nodeunit": "~0.2.0",
     "inbox": "*"
   },
   "author": "Andris Reinman",

@@ -1,226 +1,100 @@
-# toybird
+# hoodiecrow
 
-Toybird is supposed to be a scriptable IMAP server for client testing.
+Hoodiecrow is supposed to be a scriptable IMAP server for client testing.
 
-**NB** I won't update this brach anymore, I started rewriting toybird in the v2 branch (to be more modular, uses better IMAP parser etc).
+[![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
+[![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
 
 ## Scope
 
-Toybird is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.
+Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write unit tests for clients in a way where a new fresh server with unmodified data is started for every test.
 
 Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
 
-## Available commands
+Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
 
-  * `CAPABILITY`
-  * `LOGOUT`
-  * `LOGIN`
-  * `NOOP`
-  * `CHECK`
-  * `LIST`
-  * `CREATE`
-  * `DELETE`
-  * `RENAME`
-  * `LSUB`
-  * `SUBSCRIBE`
-  * `UNSUBSCRIBE`
-  * `SELECT`
-  * `EXAMINE`
-  * `CLOSE`
-  * `STATUS`
-  * `FETCH`
-  * `SEARCH`
-  * `STORE`
-  * `COPY`
-  * `APPEND`
-  * `EXPUNGE`
-  * `UID FETCH`
-  * `UID STORE`
-  * `UID COPY`
-  * `UID SEARCH`
+## Authentication
 
-Supported extensions
+An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
 
-  * `ID`
-  * `IDLE`
-  * `STARTTLS`
-  * `LOGINDISABLED`
+## Status
 
-## Usage
+### IMAP4rev1
 
-Install toybird and run sample application.
+  * **FETCH** and **UID FETCH** support is partial
+  * No **SEARCH** or **UID SEARCH**
+  * Other commands should be more or less ready
 
-    git clone git@github.com:andris9/toybird.git
-    cd toybird
-    npm install
-    node example.js
+I'm trying to get these done one by one. Most of it was already implemented in the previous incarnation  of **hoodiecrow**, so I can copy and paste a lot.
 
-The sample application defines IMAP directory structure, enables ID and IDLE extensions and starts the server. When the server is running, the application creates a client that connects to it. The client lists available mailboxes, selects INBOX and fetches some message data from it.
+### Supported Plugins
 
-If you have the sample application running, you can try connecting to it with a Desktp IMAP client like Thunderbird (use host: `"localhost"`, port: `1234`, username: `"testuser"`, password: `"testpass"`). IMAP client should be able to list all existing messages, mark messages as read/unread, add-remove flags etc.
+Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running
 
-## Example
+  * **AUTH=PLAIN** (supports **SASL-IR**, ignores **LOGINDISABLED**)
+  * **CONDSTORE** partial, see below for CONDSTORE support
+  * **ENABLE**
+  * **ID**
+  * **IDLE**
+  * **LITERALPLUS**
+  * **LOGINDISABLED** is effective with LOGIN when connection is unencrypted but does not affect AUTH=PLAIN
+  * **NAMESPACE** no anonymous namespaces though
+  * **SALS-IR**
+  * **STARTTLS**
+  * **UNSELECT**
+  * **XTOYBIRD** to programmatically control Hoodiecrow through the IMAP protocol. Does not require login.
 
-```javascript
-var toybird = require("toybird");
+Planned but not yet implemented
 
-var server = toybird({
+  * **SPECIAL-USE** (maybe **XLIST** as well but probably not)
+  * **MOVE**
+  * **UIDPLUS**
+  * **QUOTA**
+  * **X-GM-EXT-1** except for **SEARCH X-GM-RAW**
+  * **AUTH=XOAUTH2** (maybe **AUTH=XOAUTH2** also)
 
-    // enable non default extensions
-    enabled: ["ID", "IDLE", "STARTTLS", "LOGINDISABLED"],
+## Existing XTOYBIRD commands
 
-    // describe initial IMAP directory structure for this server instace
-    directories: {
-        "INBOX": {
-            uidnext: 100,
-            messages: [{
-                uid:1,
-                internaldate: new Date(),
-                body: "From: sender\nTo:Receiver\nSubject: Test\n\nHello world!"
-            }]
-        },
-        "Other":{
-            flags: ["\\Noselect"],
-            directories: {
-                "Sent mail":{},
-                "Not Subscribed":{
-                    unsubscribed: true
-                }
-            }
-        }
-    }
-);
+  * **XTOYBIRD SERVER** dumps server object as a LITERAL string. Useful for debugging current state.
+  * **XTOYBIRD SERVER** dumps session object as a LITERAL string. Useful for debugging current state.
+  * **XTOYBIRD STORAGE** outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.
 
-// add authentication info for clients
-server.addUser("testuser", "testpass");
+## Useful features for Hoodiecrow I'd like to see
 
-// start the server
-server.listen(143);
+  * An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
+  * An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
+  * An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
+  * An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"":{"INBOX":{...}}})`)
+  * Maybe even enabling/disabling plugins but this would require restarting the server
+
+```
+C: A1 XTOYBIRD ENABLE ID UIDPLUS
+S: * XTOYBIRD ENABLED ID
+S: * XTOYBIRD ENABLED UIDPLUS
+S: A1 XTOYBIRD completed. Restart required
+C: A2 RESTART
+* BYE Server is Restarting
 ```
 
-## API
+## CONDSTORE support
 
-Server API allows to modify server state at runtime. If needed, specific notices are sent to connected clients.
+  * All messages have MODSEQ value
+  * CONDSTORE can be ENABLEd
+  * SELECT/EXAMINE show HIGHESTMODSEQ
+  * SELECT/EXAMINE support (CONDSTORE) option
+  * Updating flags increments MODSEQ value
 
-### Create new mailbox
+# Known issues
 
-```javascript
-server.createMailbox(path)
-```
+These issues will be fixed
 
-Where
+  * **CONDSTORE** support is partial
 
-  * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
+These issues are probably not going to get fixed
 
-### Delete a mailbox
-
-```javascript
-server.deleteMailbox(path)
-```
-
-Where
-
-  * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
-
-### Add new message
-
-```javascript
-server.addMessage(path, message)
-```
-
-Where
-
-  * `path` is the mailbox name (eg. *"Other/Sent Mail"*)
-  * `message` is the message structure (eg. `{uid: 1, flags: ["\Seen"], body:"From:..."}`)
-
-### Define custom SEARCH handlers
-
-You can define a search handler for any keyword.
-
-```javascript
-server.setSearchHandler(keyword, handler)
-```
-
-Where
-
-  * `keyword` is the the search keyword (eg. *"SENTBEFORE"*)
-  * `handler` (mailbox, message, index [, param1[, param2[,...paramN]]]) is the handler function for a message. If it returns true, the message is included in the search results
-
-Example
-
-```javascript
-// return every 5th message
-server.setSearchHandler("XFIFTH", function(mailbox, message, index){
-    // 'index' is a 1 based message sequence number
-    return index % 5 == 0;
-});
-// tag SEARCH XFIFTH
-// * SEARCH 5 10 15 20
-```
-
-```javascript
-// return messages with exact subject, overrides default SUBJECT
-// default behavior is to search messages with partial, case insensitive matches
-server.setSearchHandler("SUBJECT", function(mailbox, message, index, queryParam){
-    return message.structured.parsedHeader.subject == queryParam;
-});
-// tag SEARCH SUBJECT "exact Match"
-// * SEARCH ...(messages with 'Subject: exact Match')
-```
-
-## Plugins
-
-There is some support for creating custom plugins in toybird. Plugins can be enabled with the `enabled` property by providing a function as the plugin.
-
-```javascript
-var server = toybird({enabled: [xDatePlugin]});
-
-function xDatePlugin(server){
-
-    // Add XDATE to capability listing
-    server.addCapability("XDATE", function(connection){
-        // allow only for logged in users, hide for others
-        return connection.state != "Not Authenticated";
-    });
-
-    // Add XDATE command
-    // Runnign 'tag XDATE' should return server time
-    // C: A1 XDATE
-    // S: * XDATE "Sun Sep 01 2013 14:36:51 GMT+0300 (EEST)"
-    // S: A1 OK XDATE Completed (Success)
-    server.addCommandHandler("XDATE", function(connection, tag, data, callback){
-        if(!connection.checkSupport("XDATE")){ // is the capability enabled?
-            connection.send(tag, "BAD Unknown command: XDATE");
-            return callback();
-        }
-        connection.send("*", "XDATE " + connection.escapeString(Date()));
-        connection.processNotices(); // show untagged responses like EXPUNGED etc.
-        connection.send(tag, "OK XDATE Completed (Success)");
-        callback();
-    });
-
-    // Add XRANDOM search keyword
-    // Return random messages as search matches for 'tag SEARCH XRANDOM'
-    // C: A1 SEARCH XRANDOM
-    // S: * SEARCH ...(random list of messages)
-    // S: A1 OK SEARCH Completed (Success)
-    server.setSearchHandler("XRANDOM", function(mailbox, message, index){
-        return Math.random() >= 0.5;
-    });
-}
-```
-
-See *lib/plugins* folder for samples
-
-## Issues
-
-These issues are low priority and might not get fixed any time soon
-
-  * Session flags (including `\Recent`) are not supported, all flags are permanent
-  * The parser is way too forgiving, should be more strict
-  * Optional charset parameter for `SEARCH` is ignored
-  * Special case for `LSUB %` - if `"foo/bar"` is subscribed but `"foo"` is not, then listing `LSUB "" "%"` should return `* LSUB (\Noselect) foo` but toybox ignores the unsubscribed `"foo"` and skips it from the listing.
-  * BODYSTRUCTURE is generated correctly even for complex messages but line number count is a bit off, not sure how this is exactly calculated (trim empty lines at end etc.?)
+  * **addr-adl** (at-domain-list) values are not supported, NIL is always used
+  * **anonymous namespaces** are not supported
+  * **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
 
 # License
 
