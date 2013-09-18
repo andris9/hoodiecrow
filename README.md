@@ -25,19 +25,21 @@ After you have started Hoodiecrow server, you can point your IMAP client to loca
 
 ### Include as a Node.js module
 
+Add `hoodiecrow` dependnecy
+
 ```bash
 npm install hoodiecrow
 ```
 
+Create and start an IMAP server
+
 ```javascript
-var hoodiecrow = require("hoodiecrow");
-
-var server = hoodiecrow(options);
-
+var hoodiecrow = require("hoodiecrow"),
+    server = hoodiecrow(options);
 server.listen(143);
 ```
 
-See [example.js](example.js) for an example configuration.
+See [https://github.com/andris9/hoodiecrow/blob/master/example.js](example.js) for an example configuration.
 
 ## Scope
 
@@ -92,9 +94,28 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
 ## Existing XTOYBIRD commands
 
+To use these functions, XTOYBIRD plugin needs to be enabled
+
   * **XTOYBIRD SERVER** dumps server object as a LITERAL string. Useful for debugging current state.
-  * **XTOYBIRD SERVER** dumps session object as a LITERAL string. Useful for debugging current state.
+  * **XTOYBIRD CONNECTION** dumps session object as a LITERAL string. Useful for debugging current state (includes socket info etc).
   * **XTOYBIRD STORAGE** outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.
+
+Example
+
+```
+S: * Hoodiecrow ready for rumble
+C: A1 XTOYBIRD STORAGE
+S: * OK [JSON] {3224}
+S: {
+S:   "": {
+S:       "folders": {
+S:           "INBOX": {
+S:               "messages": [
+S:                   {
+S:                       "raw": "Subject: hello 1\r\n\r\nWorld 1!",
+S:                       ...
+S: A1 OK XTOYBIRD Completed
+```
 
 ## Useful features for Hoodiecrow I'd like to see
 
