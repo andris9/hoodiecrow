@@ -25,7 +25,7 @@ Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143
 
 `hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
 
-After you have started Hoodiecrow server, you can point your IMAP client to localhost:143
+After you have started Hoodiecrow server, you can point your IMAP client to `localhost:143`. Use `"testuser"` as user name and `"testpass"` as password to log in to the server.
 
 ### Include as a Node.js module
 
