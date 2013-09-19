@@ -159,18 +159,26 @@ sudo hoodiecrow
 
 <p>To use these functions, XTOYBIRD plugin needs to be enabled</p>
 
+<p>Available commands:</p>
+
 <ul>
 <li>
-<strong>XTOYBIRD SERVER</strong> dumps server object as a LITERAL string. Useful for debugging current state.</li>
+<strong>XTOYBIRD SERVER</strong> dumps server internals</li>
 <li>
-<strong>XTOYBIRD CONNECTION</strong> dumps session object as a LITERAL string. Useful for debugging current state (includes socket info etc).</li>
+<strong>XTOYBIRD CONNECTION</strong> dumps connection internals</li>
 <li>
-<strong>XTOYBIRD STORAGE</strong> outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.</li>
-</ul><p>Example</p>
+<strong>XTOYBIRD STORAGE</strong> dumps storage as JSON</li>
+<li>
+<strong>XTOYBIRD USERADD "username" "password"</strong> adds or updates user</li>
+<li>
+<strong>XTOYBIRD USERDEL "username"</strong> removes an user</li>
+<li>
+<strong>XTOYBIRD SHUTDOWN</strong> Closes the server after the last client disconnects. New connections are rejected.</li>
+</ul><p>Example usage for XTOYBIRD STORAGE:</p>
 
 <pre><code>S: * Hoodiecrow ready for rumble
 C: A1 XTOYBIRD STORAGE
-S: * OK [JSON] {3224}
+S: * XTOYBIRD [XJSONDUMP] {3224}
 S: {
 S:   "": {
 S:       "folders": {
@@ -208,14 +216,21 @@ C: A2 RESTART
 <li>SELECT/EXAMINE show HIGHESTMODSEQ</li>
 <li>SELECT/EXAMINE support (CONDSTORE) option</li>
 <li>Updating flags increments MODSEQ value</li>
-</ul><h1>
+<li>FETCH (MODSEQ) works</li>
+<li>FETCH (CHANGEDSINCE modseq) works</li>
+<li>STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)</li>
+</ul><p><strong>SEARCH MODSEQ</strong> is not supported</p>
+
+<h1>
 <a name="known-issues" class="anchor" href="#known-issues"><span class="octicon octicon-link"></span></a>Known issues</h1>
 
-<p>These issues will be fixed</p>
+<p>Not sure if these should be fixed or not</p>
 
 <ul>
 <li>
-<strong>CONDSTORE</strong> support is partial</li>
+<strong>STORE</strong> does not emit notifications to other clients</li>
+<li>
+<strong>MODSEQ</strong> updates are not notified</li>
 </ul><p>These issues are probably not going to get fixed</p>
 
 <ul>
@@ -248,6 +263,35 @@ C: A2 RESTART
 </code></pre>
 
 <p>To run all the tests.</p>
+
+<h2>
+<a name="example-configs" class="anchor" href="#example-configs"><span class="octicon octicon-link"></span></a>Example configs</h2>
+
+<h3>
+<a name="cyrus" class="anchor" href="#cyrus"><span class="octicon octicon-link"></span></a>Cyrus</h3>
+
+<p>config.json:</p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"INBOX."</span><span class="p">:{},</span>
+    <span class="nt">"user."</span><span class="p">:{</span>
+        <span class="nt">"type"</span><span class="p">:</span><span class="s2">"user"</span>
+    <span class="p">},</span>
+    <span class="nt">""</span><span class="p">:{</span>
+        <span class="nt">"type"</span><span class="p">:</span><span class="s2">"shared"</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="gmail" class="anchor" href="#gmail"><span class="octicon octicon-link"></span></a>Gmail</h3>
+
+<p>config.json:</p>
+
+<div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"INBOX."</span><span class="p">:{}</span>
+<span class="p">}</span>
+</pre></div>
 
 <h1>
 <a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h1>
