@@ -1,6 +1,6 @@
 {
   "name": "hoodiecrow",
-  "version": "0.1.11",
+  "version": "0.1.6",
   "description": "Scriptable IMAP mock server for testing purposes",
   "main": "lib/server.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "IMAP"
   ],
   "dependencies":{
-    "imap-handler": "~0.1.0",
+    "imap-handler": "~0.1.11",
     "optimist": "~0.6.0"
   },
   "devDependencies":{
