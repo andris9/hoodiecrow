@@ -23,13 +23,36 @@ var hoodiecrow = require("./lib/server"),
                         {raw: "Subject: hello 6\r\n\r\nWorld 6!"}
                     ]
                 },
-                "INBOX.":{},
-                "user.":{
-                    type: "user",
-                    separator: "."
-                },
                 "":{
-                    type: "shared"
+                    "separator": "/",
+                    "folders":{
+                        "[Gmail]":{
+                            "flags": ["\\Noselect"],
+                            "folders": {
+                                "All Mail":{
+                                    "special-use": "\\All"
+                                },
+                                "Drafts":{
+                                    "special-use": "\\Drafts"
+                                },
+                                "Important":{
+                                    "special-use": "\\Important"
+                                },
+                                "Sent Mail":{
+                                    "special-use": "\\Sent"
+                                },
+                                "Spam":{
+                                    "special-use": "\\Junk"
+                                },
+                                "Starred":{
+                                    "special-use": "\\Flagged"
+                                },
+                                "Trash":{
+                                    "special-use": "\\Trash"
+                                }
+                            }
+                        }
+                    }
                 }
             },
         debug: true

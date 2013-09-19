@@ -42,15 +42,15 @@ Configuration file takes the following structure
 Storage file is a tree like structure starting with namespace values
 
 {
+    "INBOX":{
+        "nextuid": 123,
+        "messages": [
+            {"raw": "Subject: Test\r\n\r\nHello world!"}
+        ]
+    },
     "":{
         "separator": "/",
         "folders": {
-            "INBOX":{
-                "nextuid": 123,
-                "messages": [
-                    {"raw": "Subject: Test\r\n\r\nHello world!"}
-                ]
-            },
             "Parent folder":{
                 "folders":{
                     "Subfolder": {}

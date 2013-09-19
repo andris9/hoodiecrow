@@ -4,7 +4,7 @@
 
 *It's a dove - I know - but I didn't have a proper hoodiecrow picture. Fake crow like a fake IMAP server*
 
-Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.
+Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored. 
 
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
 [![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
@@ -116,13 +116,11 @@ S: * Hoodiecrow ready for rumble
 C: A1 XTOYBIRD STORAGE
 S: * XTOYBIRD [XJSONDUMP] {3224}
 S: {
-S:   "": {
-S:       "folders": {
-S:           "INBOX": {
-S:               "messages": [
-S:                   {
-S:                       "raw": "Subject: hello 1\r\n\r\nWorld 1!",
-S:                       ...
+S:     "INBOX": {
+S:         "messages": [
+S:             {
+S:                 "raw": "Subject: hello 1\r\n\r\nWorld 1!",
+S:                 ...
 S: A1 OK XTOYBIRD Completed
 ```
 
@@ -131,7 +129,7 @@ S: A1 OK XTOYBIRD Completed
   * An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
   * An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
   * An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
-  * An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"":{"INBOX":{...}}})`)
+  * An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
   * Maybe even enabling/disabling plugins but this would require restarting the server
 
 ```
@@ -157,6 +155,8 @@ C: A2 RESTART
 **SEARCH MODSEQ** is not supported
 
 # Known issues
+
+  * *INBOX** as a separate namespace and managing INBOX subfolders is a mess. CREATE seems to work, DELETE is buggy and RENAME doesn't work with INBOX subfolders (unless the default namespace is `"INBOX."`, not `""`). I need to rethink how this works.
 
 Not sure if these should be fixed or not
 
@@ -185,8 +185,6 @@ or
 
     npm test
 
-To run all the tests.
-
 ## Example configs
 
 ### Cyrus
@@ -211,7 +209,38 @@ config.json:
 
 ```json
 {
-    "INBOX.":{}
+    "INBOX":{},
+    "":{
+        "separator": "/",
+        "folders":{
+            "[Gmail]":{
+                "flags": ["\\Noselect"],
+                "folders": {
+                    "All Mail":{
+                        "special-use": "\\All"
+                    },
+                    "Drafts":{
+                        "special-use": "\\Drafts"
+                    },
+                    "Important":{
+                        "special-use": "\\Important"
+                    },
+                    "Sent Mail":{
+                        "special-use": "\\Sent"
+                    },
+                    "Spam":{
+                        "special-use": "\\Junk"
+                    },
+                    "Starred":{
+                        "special-use": "\\Flagged"
+                    },
+                    "Trash":{
+                        "special-use": "\\Trash"
+                    }
+                }
+            }
+        }
+    }
 }
 ```
 
