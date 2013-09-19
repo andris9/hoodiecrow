@@ -1,10 +1,11 @@
 var hoodiecrow = require("./lib/server"),
     server = hoodiecrow({
-        plugins: ["ID", "STARTTLS"/*, "LOGINDISABLED"*/, "SASL-IR", "AUTH-PLAIN", "NAMESPACE", "IDLE", "ENABLE", "XTOYBIRD", "LITERALPLUS", "UNSELECT", "SPECIAL-USE"],
+        plugins: ["ID", "STARTTLS"/*, "LOGINDISABLED"*/, "SASL-IR", "AUTH-PLAIN", "NAMESPACE", "IDLE", "ENABLE", "XTOYBIRD", "LITERALPLUS", "UNSELECT", "SPECIAL-USE", "CREATE-SPECIAL-USE"],
         id:{
             name: "hoodiecrow",
             version: "0.1"
         },
+
         storage: {
             "": {
                 "folders": {
