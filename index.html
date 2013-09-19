@@ -33,7 +33,7 @@
 
 <p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow.jpg" alt="It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer"></p>
 
-<p><em>It's a dove - I know - but I didn't have a proper hoodiecrow picture</em></p>
+<p><em>It's a dove - I know - but I didn't have a proper hoodiecrow picture. Fake crow like a fake IMAP server</em></p>
 
 <p>Hoodiecrow is a scriptable IMAP server for client integration testing. Currently it offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.</p>
 
@@ -107,27 +107,37 @@ sudo hoodiecrow
 
 <ul>
 <li>
-<strong>AUTH=PLAIN</strong> (supports <strong>SASL-IR</strong>, ignores <strong>LOGINDISABLED</strong>)</li>
+<strong>AUTH-PLAIN</strong> Adds AUTH=PLAIN capability. Supports SALS-IR [RFC4959] as well</li>
 <li>
-<strong>CONDSTORE</strong> partial, see below for CONDSTORE support</li>
-<li><strong>ENABLE</strong></li>
-<li><strong>ID</strong></li>
-<li><strong>IDLE</strong></li>
-<li><strong>LITERALPLUS</strong></li>
+<strong>CONDSTORE</strong> Partially implemented CONDSTORE [RFC4551] support</li>
 <li>
-<strong>LOGINDISABLED</strong> is effective with LOGIN when connection is unencrypted but does not affect AUTH=PLAIN</li>
+<strong>CREATE-SPECIAL-USE</strong> Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option <code>"special-use"</code>
+</li>
 <li>
-<strong>NAMESPACE</strong> no anonymous namespaces though</li>
-<li><strong>SALS-IR</strong></li>
-<li><strong>STARTTLS</strong></li>
-<li><strong>UNSELECT</strong></li>
+<strong>ENABLE</strong> Adds ENABLE capability [RFC5161]. Must be loaded before any plugin that requires ENABLE support (eg. CONDSTORE)</li>
 <li>
-<strong>XTOYBIRD</strong> to programmatically control Hoodiecrow through the IMAP protocol. Does not require login.</li>
+<strong>ID</strong> Adds ID [RFC2971] capability</li>
+<li>
+<strong>IDLE</strong> Adds IDLE [RFC2177] capability</li>
+<li>
+<strong>LITERALPLUS</strong> Enables LITERAL+ [RFC2088] capability</li>
+<li>
+<strong>LOGINDISABLED</strong> Disables LOGIN support for unencrypted connections</li>
+<li>
+<strong>NAMESPACE</strong> Adds NAMESPACE [RFC2342] capability</li>
+<li>
+<strong>SASL-IR</strong> Enables SASL-IR [RFC4959] capability</li>
+<li>
+<strong>SPECIAL-USE</strong> Enables SPECIAL-USE [RFC6154] capability Mailboxes need to have a "special-use" property (String or Array) that will be used as extra flag for LIST and LSUB responses</li>
+<li>
+<strong>STARTTLS</strong> Adds STARTTLS command</li>
+<li>
+<strong>UNSELECT</strong> Adds UNSELECT [RFC3691] capability</li>
+<li>
+<strong>XTOYBIRD</strong> Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands</li>
 </ul><p>Planned but not yet implemented</p>
 
 <ul>
-<li>
-<strong>SPECIAL-USE</strong> (maybe <strong>XLIST</strong> as well but probably not)</li>
 <li><strong>MOVE</strong></li>
 <li><strong>UIDPLUS</strong></li>
 <li><strong>QUOTA</strong></li>
