@@ -35,7 +35,7 @@
 
 <p><em>It's a dove - I know - but I didn't have a proper hoodiecrow picture. Fake crow like a fake IMAP server</em></p>
 
-<p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.</p>
+<p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored. </p>
 
 <p><a href="http://travis-ci.org/andris9/hoodiecrow"><img src="https://secure.travis-ci.org/andris9/hoodiecrow.png" alt="Build Status"></a>
 <a href="http://badge.fury.io/js/hoodiecrow"><img src="https://badge.fury.io/js/hoodiecrow.png" alt="NPM version"></a></p>
@@ -180,13 +180,11 @@ sudo hoodiecrow
 C: A1 XTOYBIRD STORAGE
 S: * XTOYBIRD [XJSONDUMP] {3224}
 S: {
-S:   "": {
-S:       "folders": {
-S:           "INBOX": {
-S:               "messages": [
-S:                   {
-S:                       "raw": "Subject: hello 1\r\n\r\nWorld 1!",
-S:                       ...
+S:     "INBOX": {
+S:         "messages": [
+S:             {
+S:                 "raw": "Subject: hello 1\r\n\r\nWorld 1!",
+S:                 ...
 S: A1 OK XTOYBIRD Completed
 </code></pre>
 
@@ -197,7 +195,7 @@ S: A1 OK XTOYBIRD Completed
 <li>An ability to change UIDVALIDITY at runtime (eg. <code>A1 XTOYBIRD UIDVALIDITY INBOX 123</code> where 123 is the new UIDVALIDITY for INBOX)</li>
 <li>An ability to change available disk space (eg. <code>A1 XTOYBIRD DISKSPACE 100 50</code> where 100 is total disk space in bytes and 50 is available space)</li>
 <li>An ability to restart the server to return initial state (<code>A1 XTOYBIRD RESET</code>)</li>
-<li>An ability to change storage runtime by sending a JSON string describing the entire storage (<code>A1 XTOYBIRD UPDATE {123}\r\n{"":{"INBOX":{...}}})</code>)</li>
+<li>An ability to change storage runtime by sending a JSON string describing the entire storage (<code>A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})</code>)</li>
 <li>Maybe even enabling/disabling plugins but this would require restarting the server</li>
 </ul><pre><code>C: A1 XTOYBIRD ENABLE ID UIDPLUS
 S: * XTOYBIRD ENABLED ID
@@ -224,7 +222,10 @@ C: A2 RESTART
 <h1>
 <a name="known-issues" class="anchor" href="#known-issues"><span class="octicon octicon-link"></span></a>Known issues</h1>
 
-<p>Not sure if these should be fixed or not</p>
+<ul>
+<li>
+<em>INBOX</em>* as a separate namespace and managing INBOX subfolders is a mess. CREATE seems to work, DELETE is buggy and RENAME doesn't work with INBOX subfolders (unless the default namespace is <code>"INBOX."</code>, not <code>""</code>). I need to rethink how this works.</li>
+</ul><p>Not sure if these should be fixed or not</p>
 
 <ul>
 <li>
@@ -262,8 +263,6 @@ C: A2 RESTART
 <pre><code>npm test
 </code></pre>
 
-<p>To run all the tests.</p>
-
 <h2>
 <a name="example-configs" class="anchor" href="#example-configs"><span class="octicon octicon-link"></span></a>Example configs</h2>
 
@@ -289,7 +288,38 @@ C: A2 RESTART
 <p>config.json:</p>
 
 <div class="highlight highlight-json"><pre><span class="p">{</span>
-    <span class="nt">"INBOX."</span><span class="p">:{}</span>
+    <span class="nt">"INBOX"</span><span class="p">:{},</span>
+    <span class="nt">""</span><span class="p">:{</span>
+        <span class="nt">"separator"</span><span class="p">:</span> <span class="s2">"/"</span><span class="p">,</span>
+        <span class="nt">"folders"</span><span class="p">:{</span>
+            <span class="nt">"[Gmail]"</span><span class="p">:{</span>
+                <span class="nt">"flags"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"\\Noselect"</span><span class="p">],</span>
+                <span class="nt">"folders"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="nt">"All Mail"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\All"</span>
+                    <span class="p">},</span>
+                    <span class="nt">"Drafts"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\Drafts"</span>
+                    <span class="p">},</span>
+                    <span class="nt">"Important"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\Important"</span>
+                    <span class="p">},</span>
+                    <span class="nt">"Sent Mail"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\Sent"</span>
+                    <span class="p">},</span>
+                    <span class="nt">"Spam"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\Junk"</span>
+                    <span class="p">},</span>
+                    <span class="nt">"Starred"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\Flagged"</span>
+                    <span class="p">},</span>
+                    <span class="nt">"Trash"</span><span class="p">:{</span>
+                        <span class="nt">"special-use"</span><span class="p">:</span> <span class="s2">"\\Trash"</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 
