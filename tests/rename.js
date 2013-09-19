@@ -11,7 +11,6 @@ module.exports["Rename"] = {
             storage: {
                 "":{
                     folders: {
-                        "INBOX":{},
                         "level1":{folders:{
                             "level2":{folders:{
                                 "level3":{folders:{

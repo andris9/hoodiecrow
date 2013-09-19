@@ -13,20 +13,20 @@ module.exports["Hoodiecrow tests"] = {
                 version: "0.1"
             },
             storage:{
+                "INBOX":{
+                    messages: [
+                        {
+                            raw: "Subject: hello 1\r\n\r\nWorld 1!",
+                            internaldate: "14-Sep-2013 21:22:28 -0300",
+                            flags: "\\Deleted"
+                        },
+                        {
+                            raw: "Subject: hello 1\r\n\r\nWorld 2!"
+                        }
+                    ]
+                },
                 "":{
                     folders: {
-                        "INBOX":{
-                            messages: [
-                                {
-                                    raw: "Subject: hello 1\r\n\r\nWorld 1!",
-                                    internaldate: "14-Sep-2013 21:22:28 -0300",
-                                    flags: "\\Deleted"
-                                },
-                                {
-                                    raw: "Subject: hello 1\r\n\r\nWorld 2!"
-                                }
-                            ]
-                        },
                         "target": {}
                     }
                 }

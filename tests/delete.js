@@ -11,7 +11,6 @@ module.exports["Delete"] = {
             storage: {
                 "":{
                     folders: {
-                        "INBOX":{},
                         "testfold": {uidnext: 234, folders: {"sub": {uidnext: 567}}}
                     }
                 },

@@ -100,16 +100,21 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
 To use these functions, XTOYBIRD plugin needs to be enabled
 
-  * **XTOYBIRD SERVER** dumps server object as a LITERAL string. Useful for debugging current state.
-  * **XTOYBIRD CONNECTION** dumps session object as a LITERAL string. Useful for debugging current state (includes socket info etc).
-  * **XTOYBIRD STORAGE** outputs storage as a LITERAL strint (JSON). Useful for storing the storage for later usage.
+Available commands:
 
-Example
+  * **XTOYBIRD SERVER** dumps server internals
+  * **XTOYBIRD CONNECTION** dumps connection internals
+  * **XTOYBIRD STORAGE** dumps storage as JSON
+  * **XTOYBIRD USERADD "username" "password"** adds or updates user
+  * **XTOYBIRD USERDEL "username"** removes an user
+  * **XTOYBIRD SHUTDOWN** Closes the server after the last client disconnects. New connections are rejected.
+
+Example usage for XTOYBIRD STORAGE:
 
 ```
 S: * Hoodiecrow ready for rumble
 C: A1 XTOYBIRD STORAGE
-S: * OK [JSON] {3224}
+S: * XTOYBIRD [XJSONDUMP] {3224}
 S: {
 S:   "": {
 S:       "folders": {
@@ -145,12 +150,18 @@ C: A2 RESTART
   * SELECT/EXAMINE show HIGHESTMODSEQ
   * SELECT/EXAMINE support (CONDSTORE) option
   * Updating flags increments MODSEQ value
+  * FETCH (MODSEQ) works
+  * FETCH (CHANGEDSINCE modseq) works
+  * STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)
+
+**SEARCH MODSEQ** is not supported
 
 # Known issues
 
-These issues will be fixed
+Not sure if these should be fixed or not
 
-  * **CONDSTORE** support is partial
+  * **STORE** does not emit notifications to other clients
+  * **MODSEQ** updates are not notified
 
 These issues are probably not going to get fixed
 
@@ -175,6 +186,35 @@ or
     npm test
 
 To run all the tests.
+
+## Example configs
+
+### Cyrus
+
+config.json:
+
+```json
+{
+    "INBOX.":{},
+    "user.":{
+        "type":"user"
+    },
+    "":{
+        "type":"shared"
+    }
+}
+```
+
+### Gmail
+
+config.json:
+
+```json
+{
+    "INBOX.":{}
+}
+```
+
 
 # License
 

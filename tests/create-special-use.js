@@ -7,22 +7,7 @@ var IMAP_PORT = 4143,
 module.exports["Create"] = {
     setUp: function(done){
         this.server = hoodiecrow({
-            plugins: ["SPECIAL-USE", "CREATE-SPECIAL-USE"],
-            storage: {
-                "":{
-                    folders: {
-                        "INBOX":{}
-                    }
-                },
-                "#news.":{
-                    type: "shared",
-                    separator: "."
-                },
-                "#juke?":{
-                    type: "shared",
-                    separator: "?"
-                }
-            }
+            plugins: ["SPECIAL-USE", "CREATE-SPECIAL-USE"]
         });
 
         this.instanceId = ++instance;

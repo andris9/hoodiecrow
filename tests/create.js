@@ -8,19 +8,7 @@ module.exports["Create"] = {
     setUp: function(done){
         this.server = hoodiecrow({
             storage: {
-                "":{
-                    folders: {
-                        "INBOX":{}
-                    }
-                },
-                "#news.":{
-                    type: "shared",
-                    separator: "."
-                },
-                "#juke?":{
-                    type: "shared",
-                    separator: "?"
-                }
+                "#news":{type: "shared"}
             }
         });
 

@@ -8,15 +8,11 @@ module.exports["Hoodiecrow tests"] = {
     setUp: function(done){
         this.server = hoodiecrow({
             storage:{
-                "":{
-                    folders: {
-                        "INBOX":{
-                            messages: [
-                                {uid: 31, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]},
-                                {uid: 32, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen", "\\Deleted"]}
-                            ]
-                        }
-                    }
+                "INBOX":{
+                    messages: [
+                        {uid: 31, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]},
+                        {uid: 32, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen", "\\Deleted"]}
+                    ]
                 }
             }
         });
@@ -166,15 +162,11 @@ module.exports["Custom flags not allowed"] = {
     setUp: function(done){
         this.server = hoodiecrow({
             storage:{
-                "":{
-                    folders: {
-                        "INBOX":{
-                            allowPermanentFlags: false,
-                            messages: [
-                                {uid: 31, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]}
-                            ]
-                        }
-                    }
+                "INBOX":{
+                    allowPermanentFlags: false,
+                    messages: [
+                        {uid: 31, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]}
+                    ]
                 }
             }
         });
