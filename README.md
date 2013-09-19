@@ -4,7 +4,7 @@
 
 *It's a dove - I know - but I didn't have a proper hoodiecrow picture. Fake crow like a fake IMAP server*
 
-Hoodiecrow is a scriptable IMAP server for client integration testing. Currently it offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.
+Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off.
 
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
 [![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
@@ -13,23 +13,24 @@ Hoodiecrow is a scriptable IMAP server for client integration testing. Currently
 
 ### Run as a standalone server
 
-Install Hoodiecrow with [npm](http://npmjs.org/)
+To run Hoodiecrow you need [Node.js](http://nodejs.org/) in your machine. Node should work on almost any platform, so Hoodiecrow should too.
+
+If you have Node.js installed, install Hoodiecrow with the `npm` command and run it:
 
 ```bash
 npm install -g hoodiecrow
-hoodiecrow --help
 sudo hoodiecrow
 ```
 
 Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143, you do not need to use sudo.
 
-`hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
+> Protip: Running `hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
 
 After you have started Hoodiecrow server, you can point your IMAP client to `localhost:143`. Use `"testuser"` as user name and `"testpass"` as password to log in to the server.
 
 ### Include as a Node.js module
 
-Add `hoodiecrow` dependnecy
+Add `hoodiecrow` dependency
 
 ```bash
 npm install hoodiecrow
