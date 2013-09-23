@@ -315,6 +315,15 @@ Where
   * **name** a string displayed in the capability response
   * **availability** a function which returns boolean value. Executed before displaying the capability response. If the function returns true, the capability is displayed, if false then not.
 
+Example
+
+```javascript
+// Display in CAPABILITY only in Not Authenticated state
+server.registerCapability("XAUTH", function(connection){
+    return connection.state == "Not Authenticated";
+});
+```
+
 #### Define a command
 
     server.setCommandHandler(name, handler)
