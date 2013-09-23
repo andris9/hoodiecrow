@@ -279,6 +279,7 @@ module.exports["IMAP tests"] = {
     "Connect to the server": function(test){
         var client = myIMAPCLient.connect("localhost", 1143);
         client.on("ready", function(){
+            client.disconnect();
             test.done();
         });
     }
