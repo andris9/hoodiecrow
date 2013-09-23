@@ -398,7 +398,15 @@ C: A2 RESTART
 <strong>name</strong> a string displayed in the capability response</li>
 <li>
 <strong>availability</strong> a function which returns boolean value. Executed before displaying the capability response. If the function returns true, the capability is displayed, if false then not.</li>
-</ul><h4>
+</ul><p>Example</p>
+
+<div class="highlight highlight-javascript"><pre><span class="c1">// Display in CAPABILITY only in Not Authenticated state</span>
+<span class="nx">server</span><span class="p">.</span><span class="nx">registerCapability</span><span class="p">(</span><span class="s2">"XAUTH"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">connection</span><span class="p">){</span>
+    <span class="k">return</span> <span class="nx">connection</span><span class="p">.</span><span class="nx">state</span> <span class="o">==</span> <span class="s2">"Not Authenticated"</span><span class="p">;</span>
+<span class="p">});</span>
+</pre></div>
+
+<h4>
 <a name="define-a-command" class="anchor" href="#define-a-command"><span class="octicon octicon-link"></span></a>Define a command</h4>
 
 <pre><code>server.setCommandHandler(name, handler)
