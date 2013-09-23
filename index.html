@@ -33,7 +33,7 @@
 
 <p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg" alt="Hoodiecrow"></p>
 
-<p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.</p>
+<p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers <a href="http://tools.ietf.org/html/rfc3501">IMAP4ver1</a> support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.</p>
 
 <p><a href="http://travis-ci.org/andris9/hoodiecrow"><img src="https://secure.travis-ci.org/andris9/hoodiecrow.png" alt="Build Status"></a>
 <a href="http://badge.fury.io/js/hoodiecrow"><img src="https://badge.fury.io/js/hoodiecrow.png" alt="NPM version"></a></p>
@@ -78,7 +78,7 @@ automatically to INBOX. To use it, use <em>smtpPort</em> option (<code>hoodiecro
 <span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="mi">143</span><span class="p">);</span>
 </pre></div>
 
-<p>See <a href="https://github.com/andris9/hoodiecrow/blob/master/example.js">example.js</a> for an example.</p>
+<p>See <a href="https://github.com/andris9/hoodiecrow/blob/master/examples/complete.js">complete.js</a> for an example.</p>
 
 <h2>
 <a name="scope" class="anchor" href="#scope"><span class="octicon octicon-link"></span></a>Scope</h2>
@@ -324,6 +324,182 @@ C: A2 RESTART
     <span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
+
+<h2>
+<a name="creating-custom-plugins" class="anchor" href="#creating-custom-plugins"><span class="octicon octicon-link"></span></a>Creating custom plugins</h2>
+
+<p>A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="nx">hoodiecrow</span><span class="p">({</span>
+    <span class="c1">// Add two plugins, built in "IDLE" and custom function</span>
+    <span class="nx">plugin</span><span class="o">:</span> <span class="p">[</span><span class="s2">"IDLE"</span><span class="p">,</span> <span class="nx">myAwesomePlugin</span><span class="p">]</span>
+<span class="p">});</span>
+
+<span class="c1">// Plugin handler</span>
+<span class="kd">function</span> <span class="nx">myAwesomePlugin</span><span class="p">(</span><span class="nx">server</span><span class="p">){</span>
+
+    <span class="c1">// Add a string to the capability listing</span>
+    <span class="nx">server</span><span class="p">.</span><span class="nx">registerCapability</span><span class="p">(</span><span class="s2">"XSUM"</span><span class="p">);</span>
+
+    <span class="cm">/**</span>
+<span class="cm">     * Add a new command X-SUM</span>
+<span class="cm">     * If client runs this command, the response is a sum of all</span>
+<span class="cm">     * numeric arguments provided</span>
+<span class="cm">     *</span>
+<span class="cm">     * A1 X-SUM 1 2 3 4 5</span>
+<span class="cm">     * * X-SUM 15</span>
+<span class="cm">     * A1 OK SUM completed</span>
+<span class="cm">     *</span>
+<span class="cm">     * @param {Object} connection - Session instance</span>
+<span class="cm">     * @param {Object} parsed - Input from the client in structured form</span>
+<span class="cm">     * @param {String} data - Input command as a binary string</span>
+<span class="cm">     * @param {Function} callback - callback function to run</span>
+<span class="cm">     */</span>
+    <span class="nx">server</span><span class="p">.</span><span class="nx">setCommandHandler</span><span class="p">(</span><span class="s2">"XSUM"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">connection</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">callback</span><span class="p">){</span>
+
+        <span class="c1">// Send untagged X-SUM response</span>
+        <span class="nx">connection</span><span class="p">.</span><span class="nx">send</span><span class="p">({</span>
+            <span class="nx">tag</span><span class="o">:</span> <span class="s2">"*"</span><span class="p">,</span>
+            <span class="nx">command</span><span class="o">:</span> <span class="s2">"XSUM"</span><span class="p">,</span>
+            <span class="nx">attributes</span><span class="o">:</span><span class="p">[</span>
+                <span class="p">[].</span><span class="nx">concat</span><span class="p">(</span><span class="nx">parsed</span><span class="p">.</span><span class="nx">attributes</span> <span class="o">||</span> <span class="p">[]).</span><span class="nx">reduce</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">prev</span><span class="p">,</span> <span class="nx">cur</span><span class="p">){</span>
+                    <span class="k">return</span> <span class="nx">prev</span> <span class="o">+</span> <span class="nb">Number</span><span class="p">(</span><span class="nx">cur</span><span class="p">.</span><span class="nx">value</span><span class="p">);</span>
+                <span class="p">},</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">},</span> <span class="s2">"XSUM"</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">);</span>
+
+        <span class="c1">// Send tagged OK response</span>
+        <span class="nx">connection</span><span class="p">.</span><span class="nx">send</span><span class="p">({</span>
+            <span class="nx">tag</span><span class="o">:</span> <span class="nx">parsed</span><span class="p">.</span><span class="nx">tag</span><span class="p">,</span>
+            <span class="nx">command</span><span class="o">:</span> <span class="s2">"OK"</span><span class="p">,</span>
+            <span class="nx">attributes</span><span class="o">:</span><span class="p">[</span>
+                <span class="c1">// TEXT allows to send unquoted </span>
+                <span class="p">{</span><span class="nx">type</span><span class="o">:</span> <span class="s2">"TEXT"</span><span class="p">,</span> <span class="nx">value</span><span class="o">:</span> <span class="s2">"X-SUM completed"</span><span class="p">}</span>
+            <span class="p">]</span>
+        <span class="p">},</span> <span class="s2">"X-SUM"</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">);</span>
+        <span class="nx">callback</span><span class="p">();</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
+
+<h3>
+<a name="plugin-mehtods" class="anchor" href="#plugin-mehtods"><span class="octicon octicon-link"></span></a>Plugin mehtods</h3>
+
+<h4>
+<a name="add-a-capability" class="anchor" href="#add-a-capability"><span class="octicon octicon-link"></span></a>Add a capability</h4>
+
+<pre><code>server.registerCapability(name[, availabilty])
+</code></pre>
+
+<p>Where</p>
+
+<ul>
+<li>
+<strong>name</strong> a string displayed in the capability response</li>
+<li>
+<strong>availability</strong> a function which returns boolean value. Executed before displaying the capability response. If the function returns true, the capability is displayed, if false then not.</li>
+</ul><h4>
+<a name="define-a-command" class="anchor" href="#define-a-command"><span class="octicon octicon-link"></span></a>Define a command</h4>
+
+<pre><code>server.setCommandHandler(name, handler)
+</code></pre>
+
+<p>Where</p>
+
+<ul>
+<li>
+<strong>name</strong> is the command name</li>
+<li>
+<strong>handler</strong> <em>(connection, parsed, data, callback)</em> is the handler function for the command</li>
+</ul><p>Handler arguments</p>
+
+<ul>
+<li>
+<strong>connection</strong> - Session instance</li>
+<li>
+<strong>parsed</strong> - Input from the client in structured form (see <a href="https://github.com/andris9/imap-handler#parse-imap-commands">imap-handler</a> for reference)</li>
+<li>
+<strong>data</strong> - Input command as a binary string</li>
+<li>
+<strong>callback</strong> - callback function to run (does not take any arguments)</li>
+</ul><p>The command should send data to the client with <code>connection.send()</code></p>
+
+<pre><code>connection.send(response, description, parsed, data, /* any additional data */)
+</code></pre>
+
+<p>Where</p>
+
+<ul>
+<li>
+<strong>response</strong> is a <a href="https://github.com/andris9/imap-handler#parse-imap-commands">imap-handler</a> compatible object. To get the correct tag for responsing OK, NO or BAD, look into <code>parsed.tag</code>
+</li>
+<li>
+<strong>description</strong> is a string identifying the response to be used by other plugins</li>
+<li>
+<strong>parsed</strong> is the <code>parsed</code> argument passed to the handler</li>
+<li>
+<strong>data</strong> is the <code>data</code> argument passed to the handler</li>
+<li>additional arguments can be used to provide input for other plugins</li>
+</ul><h4>
+<a name="retrieve-an-existing-handler" class="anchor" href="#retrieve-an-existing-handler"><span class="octicon octicon-link"></span></a>Retrieve an existing handler</h4>
+
+<p>To override existing commands you should first cache the existing command, so you can use it in your own command handler.</p>
+
+<pre><code>server.getCommandHandler(name) -&gt; Function
+</code></pre>
+
+<p>Where</p>
+
+<ul>
+<li>
+<strong>name</strong> is the function name</li>
+</ul><p>Example</p>
+
+<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">list</span> <span class="o">=</span> <span class="nx">server</span><span class="p">.</span><span class="nx">getCommandHandler</span><span class="p">(</span><span class="s2">"LIST"</span><span class="p">);</span>
+<span class="nx">server</span><span class="p">.</span><span class="nx">setCommandHandler</span><span class="p">(</span><span class="s2">"LIST"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">connection</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">callback</span><span class="p">){</span>
+    <span class="c1">// do something</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"Received LIST request"</span><span class="p">);</span>
+    <span class="c1">// run the cached command</span>
+    <span class="nx">list</span><span class="p">(</span><span class="nx">connection</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">callback</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
+
+<h4>
+<a name="reroute-input-from-the-client" class="anchor" href="#reroute-input-from-the-client"><span class="octicon octicon-link"></span></a>Reroute input from the client</h4>
+
+<p>If your plugin needs to get direct input from the client, you can reroute the incoming data by defining a <code>connection.inputHandler</code> function. The function gets input data as complete lines (without the linebreaks). Once you want to reroute the input back to the command handler, just clear the function.</p>
+
+<pre><code>connection.inputHandler = function(line){
+    console.log(line);
+    connection.inputHandler = false;
+}
+</code></pre>
+
+<p>See <a href="https://github.com/andris9/hoodiecrow/blob/master/lib/plugins/idle.js">idle.js</a> for an example</p>
+
+<h4>
+<a name="override-output" class="anchor" href="#override-output"><span class="octicon octicon-link"></span></a>Override output</h4>
+
+<p>Any response sent to the client can be overriden or cancelled by other handlers. You should append your handler to <code>server.outputHandlers</code> array. If something is being sent to the client, the response object is passed through all handlers in this array.</p>
+
+<pre><code>server.outputHandlers.push(function(connection, /* arguments from connection.send */){})
+</code></pre>
+
+<p><code>response</code> arguments from <code>connection.send</code> is an object and thus any modifications will be passed on. If <code>skipResponse</code> property is added to the response object, the data is not sent to the client.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="c1">// All untagged responses are ignored and not passed to the client</span>
+<span class="nx">server</span><span class="p">.</span><span class="nx">outputHandlers</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">connection</span><span class="p">,</span> <span class="nx">response</span><span class="p">,</span> <span class="nx">description</span><span class="p">){</span>
+    <span class="k">if</span><span class="p">(</span><span class="nx">response</span><span class="p">.</span><span class="nx">tag</span> <span class="o">==</span> <span class="s2">"*"</span><span class="p">){</span>
+        <span class="nx">response</span><span class="p">.</span><span class="nx">skipResponse</span> <span class="o">=</span> <span class="kc">true</span><span class="p">;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"Ignoring untagged response for %s"</span><span class="p">,</span> <span class="nx">description</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">});</span>
+</pre></div>
+
+<h4>
+<a name="other-possbile-operations" class="anchor" href="#other-possbile-operations"><span class="octicon octicon-link"></span></a>Other possbile operations</h4>
+
+<p>It is possible to append messages to a mailbox; create, delete and rename mailboxes; change authentication state and so on through the <code>server</code> and <code>connection</code> methods and properties. See existing command handlers and plugins for examples.</p>
 
 <h1>
 <a name="license" class="anchor" href="#license"><span class="octicon octicon-link"></span></a>License</h1>
