@@ -12,12 +12,12 @@ function myAwesomePlugin(server){
     server.registerCapability("XSUM");
 
     /**
-     * Add a new command X-SUM
+     * Add a new command XSUM
      * If client runs this command, the response is a sum of all
      * numeric arguments provided
      *
-     * A1 X-SUM 1 2 3 4 5
-     * * X-SUM 15
+     * A1 XSUM 1 2 3 4 5
+     * * XSUM 15
      * A1 OK SUM completed
      *
      * @param {Object} connection - Session instance
@@ -27,7 +27,7 @@ function myAwesomePlugin(server){
      */
     server.setCommandHandler("XSUM", function(connection, parsed, data, callback){
 
-        // Send untagged X-SUM response
+        // Send untagged XSUM response
         connection.send({
             tag: "*",
             command: "XSUM",
@@ -43,9 +43,9 @@ function myAwesomePlugin(server){
             tag: parsed.tag,
             command: "OK",
             attributes:[
-                {type: "TEXT", value: "X-SUM completed"}
+                {type: "TEXT", value: "XSUM completed"}
             ]
-        }, "X-SUM", parsed, data);
+        }, "XSUM", parsed, data);
         callback();
     });
 }
