@@ -2,7 +2,7 @@
 
 ![Hoodiecrow](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg)
 
-Hoodiecrow is a scriptable IMAP server for client integration testing. It offers IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
+Hoodiecrow is a scriptable IMAP server for client integration testing. It offers [IMAP4ver1](http://tools.ietf.org/html/rfc3501) support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
 
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
 [![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
@@ -45,7 +45,7 @@ var hoodiecrow = require("hoodiecrow"),
 server.listen(143);
 ```
 
-See [example.js](https://github.com/andris9/hoodiecrow/blob/master/example.js) for an example.
+See [complete.js](https://github.com/andris9/hoodiecrow/blob/master/examples/complete.js) for an example.
 
 ## Scope
 
@@ -247,6 +247,158 @@ config.json:
 }
 ```
 
+## Creating custom plugins
+
+A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.
+
+```javascript
+hoodiecrow({
+    // Add two plugins, built in "IDLE" and custom function
+    plugin: ["IDLE", myAwesomePlugin]
+});
+
+// Plugin handler
+function myAwesomePlugin(server){
+
+    // Add a string to the capability listing
+    server.registerCapability("XSUM");
+
+    /**
+     * Add a new command X-SUM
+     * If client runs this command, the response is a sum of all
+     * numeric arguments provided
+     *
+     * A1 X-SUM 1 2 3 4 5
+     * * X-SUM 15
+     * A1 OK SUM completed
+     *
+     * @param {Object} connection - Session instance
+     * @param {Object} parsed - Input from the client in structured form
+     * @param {String} data - Input command as a binary string
+     * @param {Function} callback - callback function to run
+     */
+    server.setCommandHandler("XSUM", function(connection, parsed, data, callback){
+
+        // Send untagged X-SUM response
+        connection.send({
+            tag: "*",
+            command: "XSUM",
+            attributes:[
+                [].concat(parsed.attributes || []).reduce(function(prev, cur){
+                    return prev + Number(cur.value);
+                }, 0)
+            ]
+        }, "XSUM", parsed, data);
+
+        // Send tagged OK response
+        connection.send({
+            tag: parsed.tag,
+            command: "OK",
+            attributes:[
+                // TEXT allows to send unquoted 
+                {type: "TEXT", value: "X-SUM completed"}
+            ]
+        }, "X-SUM", parsed, data);
+        callback();
+    });
+}
+```
+
+### Plugin mehtods
+
+#### Add a capability
+
+    server.registerCapability(name[, availabilty])
+
+Where
+
+  * **name** a string displayed in the capability response
+  * **availability** a function which returns boolean value. Executed before displaying the capability response. If the function returns true, the capability is displayed, if false then not.
+
+#### Define a command
+
+    server.setCommandHandler(name, handler)
+
+Where
+
+  * **name** is the command name
+  * **handler** *(connection, parsed, data, callback)* is the handler function for the command
+
+Handler arguments
+
+  * **connection** - Session instance
+  * **parsed** - Input from the client in structured form (see [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) for reference)
+  * **data** - Input command as a binary string
+  * **callback** - callback function to run (does not take any arguments)
+
+The command should send data to the client with `connection.send()`
+
+    connection.send(response, description, parsed, data, /* any additional data */)
+
+Where
+
+  * **response** is a [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) compatible object. To get the correct tag for responsing OK, NO or BAD, look into `parsed.tag`
+  * **description** is a string identifying the response to be used by other plugins
+  * **parsed** is the `parsed` argument passed to the handler
+  * **data** is the `data` argument passed to the handler
+  * additional arguments can be used to provide input for other plugins
+
+#### Retrieve an existing handler
+
+To override existing commands you should first cache the existing command, so you can use it in your own command handler.
+
+    server.getCommandHandler(name) -> Function
+
+Where
+
+  * **name** is the function name
+
+Example
+
+```javascript
+var list = server.getCommandHandler("LIST");
+server.setCommandHandler("LIST", function(connection, parsed, data, callback){
+    // do something
+    console.log("Received LIST request");
+    // run the cached command
+    list(connection, parsed, data, callback);
+});
+```
+
+#### Reroute input from the client
+
+If your plugin needs to get direct input from the client, you can reroute the incoming data by defining a `connection.inputHandler` function. The function gets input data as complete lines (without the linebreaks). Once you want to reroute the input back to the command handler, just clear the function.
+
+```
+connection.inputHandler = function(line){
+    console.log(line);
+    connection.inputHandler = false;
+}
+```
+
+See [idle.js](https://github.com/andris9/hoodiecrow/blob/master/lib/plugins/idle.js) for an example
+
+#### Override output
+
+Any response sent to the client can be overriden or cancelled by other handlers. You should append your handler to `server.outputHandlers` array. If something is being sent to the client, the response object is passed through all handlers in this array.
+
+    server.outputHandlers.push(function(connection, /* arguments from connection.send */){})
+
+`response` arguments from `connection.send` is an object and thus any modifications will be passed on. If `skipResponse` property is added to the response object, the data is not sent to the client.
+
+```javascript
+// All untagged responses are ignored and not passed to the client
+server.outputHandlers.push(function(connection, response, description){
+    if(response.tag == "*"){
+        response.skipResponse = true;
+        console.log("Ignoring untagged response for %s", description);
+    }
+});
+```
+
+#### Other possbile operations
+
+It is possible to append messages to a mailbox; create, delete and rename mailboxes; change authentication state and so on through the `server` and `connection` methods and properties. See existing command handlers and plugins for examples.
 
 # License
 
