@@ -111,7 +111,7 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
 
 <ul>
 <li>
-<strong>AUTH-PLAIN</strong> Adds AUTH=PLAIN capability. Supports SALS-IR [RFC4959] as well</li>
+<strong>AUTH-PLAIN</strong> Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well</li>
 <li>
 <strong>CONDSTORE</strong> Partially implemented CONDSTORE [RFC4551] support</li>
 <li>
@@ -342,12 +342,12 @@ C: A2 RESTART
     <span class="nx">server</span><span class="p">.</span><span class="nx">registerCapability</span><span class="p">(</span><span class="s2">"XSUM"</span><span class="p">);</span>
 
     <span class="cm">/**</span>
-<span class="cm">     * Add a new command X-SUM</span>
+<span class="cm">     * Add a new command XSUM</span>
 <span class="cm">     * If client runs this command, the response is a sum of all</span>
 <span class="cm">     * numeric arguments provided</span>
 <span class="cm">     *</span>
-<span class="cm">     * A1 X-SUM 1 2 3 4 5</span>
-<span class="cm">     * * X-SUM 15</span>
+<span class="cm">     * A1 XSUM 1 2 3 4 5</span>
+<span class="cm">     * * XSUM 15</span>
 <span class="cm">     * A1 OK SUM completed</span>
 <span class="cm">     *</span>
 <span class="cm">     * @param {Object} connection - Session instance</span>
@@ -357,7 +357,7 @@ C: A2 RESTART
 <span class="cm">     */</span>
     <span class="nx">server</span><span class="p">.</span><span class="nx">setCommandHandler</span><span class="p">(</span><span class="s2">"XSUM"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">connection</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">callback</span><span class="p">){</span>
 
-        <span class="c1">// Send untagged X-SUM response</span>
+        <span class="c1">// Send untagged XSUM response</span>
         <span class="nx">connection</span><span class="p">.</span><span class="nx">send</span><span class="p">({</span>
             <span class="nx">tag</span><span class="o">:</span> <span class="s2">"*"</span><span class="p">,</span>
             <span class="nx">command</span><span class="o">:</span> <span class="s2">"XSUM"</span><span class="p">,</span>
@@ -374,9 +374,9 @@ C: A2 RESTART
             <span class="nx">command</span><span class="o">:</span> <span class="s2">"OK"</span><span class="p">,</span>
             <span class="nx">attributes</span><span class="o">:</span><span class="p">[</span>
                 <span class="c1">// TEXT allows to send unquoted </span>
-                <span class="p">{</span><span class="nx">type</span><span class="o">:</span> <span class="s2">"TEXT"</span><span class="p">,</span> <span class="nx">value</span><span class="o">:</span> <span class="s2">"X-SUM completed"</span><span class="p">}</span>
+                <span class="p">{</span><span class="nx">type</span><span class="o">:</span> <span class="s2">"TEXT"</span><span class="p">,</span> <span class="nx">value</span><span class="o">:</span> <span class="s2">"XSUM completed"</span><span class="p">}</span>
             <span class="p">]</span>
-        <span class="p">},</span> <span class="s2">"X-SUM"</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">);</span>
+        <span class="p">},</span> <span class="s2">"XSUM"</span><span class="p">,</span> <span class="nx">parsed</span><span class="p">,</span> <span class="nx">data</span><span class="p">);</span>
         <span class="nx">callback</span><span class="p">();</span>
     <span class="p">});</span>
 <span class="p">}</span>
