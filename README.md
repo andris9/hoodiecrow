@@ -2,7 +2,7 @@
 
 ![Hoodiecrow](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg)
 
-Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored. 
+Hoodiecrow is a scriptable IMAP server for client integration testing. It offers IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
 
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
 [![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
@@ -63,12 +63,13 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
 ### IMAP4rev1
 
-  * **FETCH** and **UID FETCH** support is partial (does not retrieve nested parts, eg. 1.1.TEXT)
-  * Other commands should be more or less ready
+All commands are supported but might be a bit buggy
 
 ### Supported Plugins
 
-Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running
+Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running.
+All plugins are self contained and not tied to core. If you do not enable a plugin, no trace of it is left
+to the system. For example, if you do not enable CONDSTORE, messages do not have a MODSEQ value set.
 
   * **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SALS-IR [RFC4959] as well
   * **CONDSTORE** Partially implemented CONDSTORE [RFC4551] support

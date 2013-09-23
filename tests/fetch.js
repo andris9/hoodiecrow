@@ -26,7 +26,39 @@ module.exports["Hoodiecrow tests"] = {
                             "\r\n"+
                             "World 4!"},
                         {raw: "Subject: hello 5\r\n\r\nWorld 5!"},
-                        {raw: "Subject: hello 6\r\n\r\nWorld 6!"}
+                        {raw: "Subject: hello 6\r\n\r\nWorld 6!"},
+                        {raw:  "MIME-Version: 1.0\r\n"+
+                            "From: andris@kreata.ee\r\n"+
+                            "To: andris@tr.ee\r\n"+
+                            "Content-Type: multipart/mixed;\r\n"+
+                            " boundary=\"----mailcomposer-?=_1-1328088797399\"\r\n"+
+                            "Message-Id: <testmessage-for-bug>;\r\n"+
+                            "\r\n"+
+                            "------mailcomposer-?=_1-1328088797399\r\n"+
+                            "Content-Type: message/rfc822\r\n"+
+                            "Content-Transfer-Encoding: 7bit\r\n"+
+                            "\r\n"+
+                            "MIME-Version: 1.0\r\n"+
+                            "From: andris@kreata.ee\r\n"+
+                            "To: andris@pangalink.net\r\n"+
+                            "In-Reply-To: <test1>\r\n"+
+                            "\r\n"+
+                            "Hello world!\r\n"+
+                            "------mailcomposer-?=_1-1328088797399\r\n"+
+                            "Content-Type: message/rfc822\r\n"+
+                            "Content-Transfer-Encoding: 7bit\r\n"+
+                            "\r\n"+
+                            "MIME-Version: 1.0\r\n"+
+                            "From: andris@kreata.ee\r\n"+
+                            "To: andris@pangalink.net\r\n"+
+                            "\r\n"+
+                            "Hello world!\r\n"+
+                            "------mailcomposer-?=_1-1328088797399\r\n"+
+                            "Content-Type: text/html; charset=utf-8\r\n"+
+                            "Content-Transfer-Encoding: quoted-printable\r\n"+
+                            "\r\n"+
+                            "<b>Hello world!</b>\r\n"+
+                            "------mailcomposer-?=_1-1328088797399--"}
                     ]
                 },
                 "#news.":{
@@ -296,11 +328,9 @@ module.exports["Hoodiecrow tests"] = {
 
             test.done();
         }).bind(this));
-    }/*,
+    },
 
     "FETCH BODY[TEXT]": function(test){
-        console.log("Starting test %s", this.instanceId);
-
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 EXAMINE INBOX",
                 "A3 FETCH 4 BODY[TEXT]",
@@ -308,17 +338,59 @@ module.exports["Hoodiecrow tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            console.log(resp);
-            test.ok(resp.indexOf('\n* 4 FETCH (BODY[HEADER.FIELDS.NOT (From Subject)] {104}\r\n'+
-                'To: Receiver name <receiver@example.com>\r\n'+
-                'Message-Id: <abcde>\r\n'+
-                'Date: Fri, 13 Sep 2013 15:01:00 +0300\r\n'+
+            test.ok(resp.indexOf('\n* 4 FETCH (BODY[TEXT] {8}\r\n'+
+                'World 4!)\r\n') >= 0);
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+
+            test.done();
+        }).bind(this));
+    },
+
+    "FETCH BODY[1.1.HEADER]": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 EXAMINE INBOX",
+                "A3 FETCH 7 BODY[1.1.HEADER]",
+                "A4 FETCH 7 BODY[2.1.HEADER]",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+            test.ok(resp.indexOf('\n* 7 FETCH (BODY[1.1.HEADER] {93}\r\n'+
+                'MIME-Version: 1.0\r\n'+
+                'From: andris@kreata.ee\r\n'+
+                'To: andris@pangalink.net\r\n'+
+                'In-Reply-To: <test1>\r\n'+
+                '\r\n'+
+                ')\r\n') >= 0);
+            test.ok(resp.indexOf('\n* 7 FETCH (BODY[2.1.HEADER] {71}\r\n'+
+                'MIME-Version: 1.0\r\n'+
+                'From: andris@kreata.ee\r\n'+
+                'To: andris@pangalink.net\r\n'+
+                '\r\n'+
+                ')\r\n') >= 0);
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+            test.ok(resp.indexOf("\nA4 OK") >= 0);
+
+            test.done();
+        }).bind(this));
+    },
+
+    "FETCH BODY[1.MIME]": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 EXAMINE INBOX",
+                "A3 FETCH 7 BODY[1.MIME]",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+            test.ok(resp.indexOf('\n* 7 FETCH (BODY[1.MIME] {65}\r\n'+
+                'Content-Type: message/rfc822\r\n'+
+                'Content-Transfer-Encoding: 7bit\r\n'+
                 '\r\n'+
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
 
-            console.log("Calling done for %s", this.instanceId);
             test.done();
         }).bind(this));
-    }*/
+    }
 }
