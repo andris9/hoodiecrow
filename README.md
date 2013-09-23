@@ -247,6 +247,44 @@ config.json:
 }
 ```
 
+## Use Hoodiecrow for testing your client
+
+Creating your tests in Node.js is a piece of cake, you do not even need to run the `hoodiecrow` command. Here is a sample [nodeunit] test.
+
+```javascript
+var hoodiecrow = require("hoodiecrow"),
+    myIMAPCLient = require("../my-imap-client");
+
+module.exports["IMAP tests"] = {
+
+    // Executed before every test
+    // creates a new blank IMAP server
+    setUp: function(callback){
+        this.server = hoodiecrow();
+        this.server.listen(1143);
+        callback();
+    },
+
+    // Executed after every test
+    // Closes the IMAP server created for the test
+    tearDown: function(callback){
+        this.server.close(callback);
+    },
+
+    /**
+     * In this test a new IMAP client is instantiated that tries to connect
+     * to the IMAP server. If client is connected the test is considered
+     * as passed.
+     */
+    "Connect to the server": function(test){
+        var client = myIMAPCLient.connect("localhost", 1143);
+        client.on("ready", function(){
+            test.done();
+        });
+    }
+}
+```
+
 ## Creating custom plugins
 
 A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.
