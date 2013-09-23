@@ -33,6 +33,8 @@
 
 <p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg" alt="Hoodiecrow"></p>
 
+<p><em>Image by yours truly, see the original in <a href="http://instagram.com/p/el_FOIo_tB/#">Instagram</a></em></p>
+
 <p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers <a href="http://tools.ietf.org/html/rfc3501">IMAP4ver1</a> support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.</p>
 
 <p><a href="http://travis-ci.org/andris9/hoodiecrow"><img src="https://secure.travis-ci.org/andris9/hoodiecrow.png" alt="Build Status"></a>
@@ -357,6 +359,7 @@ C: A2 RESTART
     <span class="s2">"Connect to the server"</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">test</span><span class="p">){</span>
         <span class="kd">var</span> <span class="nx">client</span> <span class="o">=</span> <span class="nx">myIMAPCLient</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="mi">1143</span><span class="p">);</span>
         <span class="nx">client</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">"ready"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span>
+            <span class="nx">client</span><span class="p">.</span><span class="nx">disconnect</span><span class="p">();</span>
             <span class="nx">test</span><span class="p">.</span><span class="nx">done</span><span class="p">();</span>
         <span class="p">});</span>
     <span class="p">}</span>
