@@ -31,9 +31,7 @@
         <h1>
 <a name="hoodiecrow" class="anchor" href="#hoodiecrow"><span class="octicon octicon-link"></span></a>Hoodiecrow</h1>
 
-<p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow.jpg" alt="It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer"></p>
-
-<p><em>It's a dove - I know - but I didn't have a proper hoodiecrow picture. Fake crow like a fake IMAP server</em></p>
+<p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg" alt="Hoodiecrow"></p>
 
 <p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored. </p>
 
@@ -54,10 +52,13 @@
 sudo hoodiecrow
 </pre></div>
 
-<p>Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143, you do not need to use sudo.</p>
+<p>Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143 (<code>hoodiecrow -p 1143</code>), you do not need to use sudo.</p>
+
+<p><code>hoodiecrow</code> command also provides an incoming SMTP server which appends all incoming messages
+automatically to INBOX. To use it, use <em>smtpPort</em> option (<code>hoodiecrow --smtpPort=1025</code>).</p>
 
 <blockquote>
-<p>Protip: Running <code>hoodiecrow --help</code> displays useful information about command line options for Hoodiecrow and some sample configuration data.</p>
+<p><strong>Protip</strong> Running <code>hoodiecrow --help</code> displays useful information about command line options for Hoodiecrow and some sample configuration data.</p>
 </blockquote>
 
 <p>After you have started Hoodiecrow server, you can point your IMAP client to <code>localhost:143</code>. Use <code>"testuser"</code> as user name and <code>"testpass"</code> as password to log in to the server.</p>
@@ -77,7 +78,7 @@ sudo hoodiecrow
 <span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="mi">143</span><span class="p">);</span>
 </pre></div>
 
-<p>See <a href="https://github.com/andris9/hoodiecrow/blob/master/example.js">example.js</a> for an example configuration.</p>
+<p>See <a href="https://github.com/andris9/hoodiecrow/blob/master/example.js">example.js</a> for an example.</p>
 
 <h2>
 <a name="scope" class="anchor" href="#scope"><span class="octicon octicon-link"></span></a>Scope</h2>
@@ -272,6 +273,7 @@ C: A2 RESTART
 <p>config.json:</p>
 
 <div class="highlight highlight-json"><pre><span class="p">{</span>
+    <span class="nt">"INBOX"</span><span class="p">:{},</span>
     <span class="nt">"INBOX."</span><span class="p">:{},</span>
     <span class="nt">"user."</span><span class="p">:{</span>
         <span class="nt">"type"</span><span class="p">:</span><span class="s2">"user"</span>
