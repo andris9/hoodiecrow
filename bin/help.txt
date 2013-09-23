@@ -5,6 +5,10 @@ integration tests. Nothing is written to disk, all operations are
 performed on memory and the changes are lost after restart, so the
 initial state is always guaranteed when running your tests.
 
+Additionally Hoodiecrow offers an incoming SMTP server - every mail
+sent to it, is appended to INBOX. To use the incoming SMTP server, 
+use smtpPort option.
+
 Usage: hoodiecrow [OPTS]
 
   -p <port>, --port=<port> Port number to listen to, defaults to 143
@@ -14,6 +18,12 @@ Usage: hoodiecrow [OPTS]
   --config=<config>        Path to config JSON file
   --plugin=<plugin>        Enables a plugin for the server. See below for
                            available plugins.
+  --smtpPort=<port>        Port numbr for incoming SMTP server. If not set
+                           SMTP server is not started.
+
+NB! If port or smtpPort values are below 1024 you most probably need to
+use sudo or run the command in Administrator rights.
+
 Available plugins
 -----------------
 
@@ -39,7 +49,8 @@ Configuration file takes the following structure
     }
 }
 
-Storage file is a tree like structure starting with namespace values
+Storage file is a tree like structure starting with namespace values.
+INBOX has its own namespace.
 
 {
     "INBOX":{

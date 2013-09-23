@@ -1,8 +1,6 @@
 # Hoodiecrow
 
-![It's a dove - I know - but I didn't have a proper hoodiecrow picture in my computer](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow.jpg)
-
-*It's a dove - I know - but I didn't have a proper hoodiecrow picture. Fake crow like a fake IMAP server*
+![Hoodiecrow](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg)
 
 Hoodiecrow is a scriptable IMAP server for client integration testing. It offers partial IMAP4ver1 support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored. 
 
@@ -22,9 +20,12 @@ npm install -g hoodiecrow
 sudo hoodiecrow
 ```
 
-Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143, you do not need to use sudo.
+Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143 (`hoodiecrow -p 1143`), you do not need to use sudo.
 
-> Protip: Running `hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
+`hoodiecrow` command also provides an incoming SMTP server which appends all incoming messages
+automatically to INBOX. To use it, use *smtpPort* option (`hoodiecrow --smtpPort=1025`).
+
+> **Protip** Running `hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
 
 After you have started Hoodiecrow server, you can point your IMAP client to `localhost:143`. Use `"testuser"` as user name and `"testpass"` as password to log in to the server.
 
@@ -44,7 +45,7 @@ var hoodiecrow = require("hoodiecrow"),
 server.listen(143);
 ```
 
-See [example.js](https://github.com/andris9/hoodiecrow/blob/master/example.js) for an example configuration.
+See [example.js](https://github.com/andris9/hoodiecrow/blob/master/example.js) for an example.
 
 ## Scope
 
@@ -193,6 +194,7 @@ config.json:
 
 ```json
 {
+    "INBOX":{},
     "INBOX.":{},
     "user.":{
         "type":"user"

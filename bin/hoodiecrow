@@ -4,10 +4,13 @@ var hoodiecrow = require("../lib/server"),
     packageData = require("../package"),
     fs = require("fs"),
     argv = require('optimist').argv,
+    simplesmtp = require("simplesmtp"),
 
     configLocation = argv.config || process.env.HOODIECROW_CONFIG,
     storageLocation = argv.storage || process.env.HOODIECROW_STORAGE,
     port = argv.port || argv.p || process.env.HOODIECROW_PORT,
+
+    smtpPort = argv.smtpPort || process.env.HOODIECROW_SMTPPORT,
 
     pluginsList = [].concat.apply([], [].concat(argv.plugin || process.env.HOODIECROW_PLUGINS || []).map(function(plugin){
         return (plugin || "").toUpperCase().trim().split(/\s*,\s*/)
@@ -98,5 +101,25 @@ if(argv.h || argv.help){
     server.listen(port, function(){
         console.log("Hoodiecrow successfully%s listening on port %s", secure ? " and securely" : "", port);
     });
+
+    if(smtpPort){
+        simplesmtp.createSimpleServer({SMTPBanner:"Hoodiecrow"}, function(req){
+            var data = [], dataLen = 0;
+            req.on("data", function(chunk){
+                if(!chunk || !chunk.length){
+                    return;
+                }
+                data.push(chunk);
+                dataLen += chunk.length;
+            });
+            req.on("end", function(){
+                var message = Buffer.concat(data, dataLen);
+                server.appendMessage("INBOX", [], false, message.toString("binary"));
+            });
+            req.accept();
+        }).listen(smtpPort, function(){
+            console.log("Incoming SMTP server up and running on port %s", smtpPort);
+        });
+    }
 }
 

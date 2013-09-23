@@ -1,23 +1,26 @@
 {
   "name": "hoodiecrow",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Scriptable IMAP mock server for testing purposes",
   "main": "lib/server.js",
   "scripts": {
     "test": "grunt"
   },
-  "bin":{
+  "bin": {
     "hoodiecrow": "./bin/hoodiecrow"
   },
   "repository": "git@github.com:andris9/hoodiecrow.git",
   "keywords": [
     "IMAP"
   ],
-  "dependencies":{
-    "imap-handler": "~0.1.11",
-    "optimist": "~0.6.0"
+  "dependencies": {
+    "imap-handler": "~0.1.11"
   },
-  "devDependencies":{
+  "optionalDependencies": {
+    "optimist": "~0.6.0",
+    "simplesmtp": "~0.3.10"
+  },
+  "devDependencies": {
     "grunt": "~0.4.1",
     "grunt-contrib-jshint": "~0.6.4",
     "grunt-contrib-nodeunit": "~0.2.0",
