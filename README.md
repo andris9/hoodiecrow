@@ -2,6 +2,8 @@
 
 ![Hoodiecrow](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg)
 
+*Image by yours truly, see the original in [Instagram](http://instagram.com/p/el_FOIo_tB/#)*
+
 Hoodiecrow is a scriptable IMAP server for client integration testing. It offers [IMAP4ver1](http://tools.ietf.org/html/rfc3501) support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
 
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
