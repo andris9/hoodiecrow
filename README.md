@@ -71,7 +71,7 @@ Plugins can be enabled when starting the server but can not be unloaded or loade
 All plugins are self contained and not tied to core. If you do not enable a plugin, no trace of it is left
 to the system. For example, if you do not enable CONDSTORE, messages do not have a MODSEQ value set.
 
-  * **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SALS-IR [RFC4959] as well
+  * **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
   * **CONDSTORE** Partially implemented CONDSTORE [RFC4551] support
   * **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
   * **ENABLE** Adds ENABLE capability [RFC5161]. Must be loaded before any plugin that requires ENABLE support (eg. CONDSTORE)
@@ -264,12 +264,12 @@ function myAwesomePlugin(server){
     server.registerCapability("XSUM");
 
     /**
-     * Add a new command X-SUM
+     * Add a new command XSUM
      * If client runs this command, the response is a sum of all
      * numeric arguments provided
      *
-     * A1 X-SUM 1 2 3 4 5
-     * * X-SUM 15
+     * A1 XSUM 1 2 3 4 5
+     * * XSUM 15
      * A1 OK SUM completed
      *
      * @param {Object} connection - Session instance
@@ -279,7 +279,7 @@ function myAwesomePlugin(server){
      */
     server.setCommandHandler("XSUM", function(connection, parsed, data, callback){
 
-        // Send untagged X-SUM response
+        // Send untagged XSUM response
         connection.send({
             tag: "*",
             command: "XSUM",
@@ -296,9 +296,9 @@ function myAwesomePlugin(server){
             command: "OK",
             attributes:[
                 // TEXT allows to send unquoted 
-                {type: "TEXT", value: "X-SUM completed"}
+                {type: "TEXT", value: "XSUM completed"}
             ]
-        }, "X-SUM", parsed, data);
+        }, "XSUM", parsed, data);
         callback();
     });
 }
