@@ -326,6 +326,44 @@ C: A2 RESTART
 </pre></div>
 
 <h2>
+<a name="use-hoodiecrow-for-testing-your-client" class="anchor" href="#use-hoodiecrow-for-testing-your-client"><span class="octicon octicon-link"></span></a>Use Hoodiecrow for testing your client</h2>
+
+<p>Creating your tests in Node.js is a piece of cake, you do not even need to run the <code>hoodiecrow</code> command. Here is a sample [nodeunit] test.</p>
+
+<div class="highlight highlight-javascript"><pre><span class="kd">var</span> <span class="nx">hoodiecrow</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s2">"hoodiecrow"</span><span class="p">),</span>
+    <span class="nx">myIMAPCLient</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s2">"../my-imap-client"</span><span class="p">);</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="p">[</span><span class="s2">"IMAP tests"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+
+    <span class="c1">// Executed before every test</span>
+    <span class="c1">// creates a new blank IMAP server</span>
+    <span class="nx">setUp</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">callback</span><span class="p">){</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">server</span> <span class="o">=</span> <span class="nx">hoodiecrow</span><span class="p">();</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">listen</span><span class="p">(</span><span class="mi">1143</span><span class="p">);</span>
+        <span class="nx">callback</span><span class="p">();</span>
+    <span class="p">},</span>
+
+    <span class="c1">// Executed after every test</span>
+    <span class="c1">// Closes the IMAP server created for the test</span>
+    <span class="nx">tearDown</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">callback</span><span class="p">){</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">server</span><span class="p">.</span><span class="nx">close</span><span class="p">(</span><span class="nx">callback</span><span class="p">);</span>
+    <span class="p">},</span>
+
+    <span class="cm">/**</span>
+<span class="cm">     * In this test a new IMAP client is instantiated that tries to connect</span>
+<span class="cm">     * to the IMAP server. If client is connected the test is considered</span>
+<span class="cm">     * as passed.</span>
+<span class="cm">     */</span>
+    <span class="s2">"Connect to the server"</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">test</span><span class="p">){</span>
+        <span class="kd">var</span> <span class="nx">client</span> <span class="o">=</span> <span class="nx">myIMAPCLient</span><span class="p">.</span><span class="nx">connect</span><span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="mi">1143</span><span class="p">);</span>
+        <span class="nx">client</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">"ready"</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span>
+            <span class="nx">test</span><span class="p">.</span><span class="nx">done</span><span class="p">();</span>
+        <span class="p">});</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+<h2>
 <a name="creating-custom-plugins" class="anchor" href="#creating-custom-plugins"><span class="octicon octicon-link"></span></a>Creating custom plugins</h2>
 
 <p>A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.</p>
