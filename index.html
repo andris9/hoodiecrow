@@ -142,6 +142,8 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
 <li>
 <strong>X-GM-EXT-1</strong> Adds partial support for <a href="https://developers.google.com/gmail/imap_extensions">Gmail specific</a> options. <code>X-GM-MSGID</code> is fully supported, <code>X-GM-LABELS</code> is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). <code>X-GM-THRID</code> is not supported as I haven't figured threading out yet.</li>
 <li>
+<strong>XOAUTH2</strong> GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use <code>"testuser"</code> as the username and <code>"testtoken"</code> as Access Token to log in.</li>
+<li>
 <strong>XTOYBIRD</strong> Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands</li>
 </ul><p>Planned but not yet implemented</p>
 
@@ -149,11 +151,6 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
 <li><strong>MOVE</strong></li>
 <li><strong>UIDPLUS</strong></li>
 <li><strong>QUOTA</strong></li>
-<li>
-<strong>X-GM-EXT-1</strong> except for <strong>SEARCH X-GM-RAW</strong>
-</li>
-<li>
-<strong>AUTH=XOAUTH2</strong> (maybe <strong>AUTH=XOAUTH2</strong> also)</li>
 </ul><h2>
 <a name="authentication-1" class="anchor" href="#authentication-1"><span class="octicon octicon-link"></span></a>Authentication</h2>
 
@@ -201,16 +198,7 @@ S: A1 OK XTOYBIRD Completed
 <li>An ability to change available disk space (eg. <code>A1 XTOYBIRD DISKSPACE 100 50</code> where 100 is total disk space in bytes and 50 is available space)</li>
 <li>An ability to restart the server to return initial state (<code>A1 XTOYBIRD RESET</code>)</li>
 <li>An ability to change storage runtime by sending a JSON string describing the entire storage (<code>A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})</code>)</li>
-<li>Maybe even enabling/disabling plugins but this would require restarting the server</li>
-</ul><pre><code>C: A1 XTOYBIRD ENABLE ID UIDPLUS
-S: * XTOYBIRD ENABLED ID
-S: * XTOYBIRD ENABLED UIDPLUS
-S: A1 XTOYBIRD completed. Restart required
-C: A2 RESTART
-* BYE Server is Restarting
-</code></pre>
-
-<h2>
+</ul><h2>
 <a name="condstore-support" class="anchor" href="#condstore-support"><span class="octicon octicon-link"></span></a>CONDSTORE support</h2>
 
 <ul>
