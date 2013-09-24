@@ -86,6 +86,7 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
   * **SPECIAL-USE** Enables SPECIAL-USE [RFC6154] capability Mailboxes need to have a "special-use" property (String or Array) that will be used as extra flag for LIST and LSUB responses
   * **STARTTLS** Adds STARTTLS command
   * **UNSELECT** Adds UNSELECT [RFC3691] capability
+  * **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/gmail/imap_extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is not supported as I haven't figured threading out yet.
   * **XTOYBIRD** Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands
 
 Planned but not yet implemented

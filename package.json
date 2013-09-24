@@ -14,7 +14,8 @@
     "IMAP"
   ],
   "dependencies": {
-    "imap-handler": "~0.1.11"
+    "imap-handler": "~0.1.11",
+    "big.js": "~2.4.0"
   },
   "optionalDependencies": {
     "optimist": "~0.6.0",
