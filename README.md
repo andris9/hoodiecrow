@@ -87,6 +87,7 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
   * **STARTTLS** Adds STARTTLS command
   * **UNSELECT** Adds UNSELECT [RFC3691] capability
   * **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/gmail/imap_extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is not supported as I haven't figured threading out yet.
+  * **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
   * **XTOYBIRD** Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands
 
 Planned but not yet implemented
@@ -94,8 +95,6 @@ Planned but not yet implemented
   * **MOVE**
   * **UIDPLUS**
   * **QUOTA**
-  * **X-GM-EXT-1** except for **SEARCH X-GM-RAW**
-  * **AUTH=XOAUTH2** (maybe **AUTH=XOAUTH2** also)
 
 ## Authentication
 
@@ -135,16 +134,6 @@ S: A1 OK XTOYBIRD Completed
   * An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
   * An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
   * An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
-  * Maybe even enabling/disabling plugins but this would require restarting the server
-
-```
-C: A1 XTOYBIRD ENABLE ID UIDPLUS
-S: * XTOYBIRD ENABLED ID
-S: * XTOYBIRD ENABLED UIDPLUS
-S: A1 XTOYBIRD completed. Restart required
-C: A2 RESTART
-* BYE Server is Restarting
-```
 
 ## CONDSTORE support
 
