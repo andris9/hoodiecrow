@@ -140,6 +140,8 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
 <li>
 <strong>UNSELECT</strong> Adds UNSELECT [RFC3691] capability</li>
 <li>
+<strong>X-GM-EXT-1</strong> Adds partial support for <a href="https://developers.google.com/gmail/imap_extensions">Gmail specific</a> options. <code>X-GM-MSGID</code> is fully supported, <code>X-GM-LABELS</code> is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). <code>X-GM-THRID</code> is not supported as I haven't figured threading out yet.</li>
+<li>
 <strong>XTOYBIRD</strong> Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands</li>
 </ul><p>Planned but not yet implemented</p>
 
