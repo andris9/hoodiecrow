@@ -45,7 +45,22 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "COPY": function(test){
+    "UID COPY STRING": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 SELECT INBOX",
+                "A3 UID COPY 1:* \"target\"",
+                "A4 SELECT \"target\"",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+            test.ok(resp.indexOf("\r\nA3 OK") >= 0);
+            test.equal((resp.match(/\* 2 EXISTS/mg) || []).length, 2);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID COPY ATOM": function(test){
         var cmds = ["A1 LOGIN testuser testpass",
                 "A2 SELECT INBOX",
                 "A3 UID COPY 1:* target",
