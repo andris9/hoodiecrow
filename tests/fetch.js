@@ -43,7 +43,7 @@ module.exports["Hoodiecrow tests"] = {
                             "To: andris@pangalink.net\r\n"+
                             "In-Reply-To: <test1>\r\n"+
                             "\r\n"+
-                            "Hello world!\r\n"+
+                            "Hello world 1!\r\n"+
                             "------mailcomposer-?=_1-1328088797399\r\n"+
                             "Content-Type: message/rfc822\r\n"+
                             "Content-Transfer-Encoding: 7bit\r\n"+
@@ -52,12 +52,35 @@ module.exports["Hoodiecrow tests"] = {
                             "From: andris@kreata.ee\r\n"+
                             "To: andris@pangalink.net\r\n"+
                             "\r\n"+
-                            "Hello world!\r\n"+
+                            "Hello world 2!\r\n"+
                             "------mailcomposer-?=_1-1328088797399\r\n"+
                             "Content-Type: text/html; charset=utf-8\r\n"+
                             "Content-Transfer-Encoding: quoted-printable\r\n"+
                             "\r\n"+
-                            "<b>Hello world!</b>\r\n"+
+                            "<b>Hello world 3!</b>\r\n"+
+                            "------mailcomposer-?=_1-1328088797399--"},
+                        {raw:  "MIME-Version: 1.0\r\n"+
+                            "From: andris@kreata.ee\r\n"+
+                            "To: andris@tr.ee\r\n"+
+                            "Content-Type: multipart/mixed;\r\n"+
+                            " boundary=\"----mailcomposer-?=_1-1328088797399\"\r\n"+
+                            "Message-Id: <testmessage-for-bug>;\r\n"+
+                            "\r\n"+
+                            "------mailcomposer-?=_1-1328088797399\r\n"+
+                            "Content-Type: text/plain\r\n"+
+                            "Content-Transfer-Encoding: 7bit\r\n"+
+                            "\r\n"+
+                            "Hello world 1!\r\n"+
+                            "------mailcomposer-?=_1-1328088797399\r\n"+
+                            "Content-Type: text/plain\r\n"+
+                            "Content-Transfer-Encoding: 7bit\r\n"+
+                            "\r\n"+
+                            "Hello world 2!\r\n"+
+                            "------mailcomposer-?=_1-1328088797399\r\n"+
+                            "Content-Type: text/html; charset=utf-8\r\n"+
+                            "Content-Transfer-Encoding: quoted-printable\r\n"+
+                            "\r\n"+
+                            "<b>Hello world 3!</b>\r\n"+
                             "------mailcomposer-?=_1-1328088797399--"}
                     ]
                 },
@@ -121,14 +144,17 @@ module.exports["Hoodiecrow tests"] = {
                 "A2 EXAMINE INBOX",
                 "A3 FETCH 3 (BODYSTRUCTURE)",
                 "A4 FETCH 7 (BODYSTRUCTURE)",
+                "A5 FETCH 8 (BODYSTRUCTURE)",
                 "ZZ LOGOUT"];
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
             test.ok(resp.indexOf("\n* 3 FETCH (BODYSTRUCTURE (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 8 1 NIL NIL NIL))\r\n") >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
-            test.ok(resp.indexOf("\n* 7 FETCH (BODYSTRUCTURE ((\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 105 (NIL \"\" ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"pangalink.net\")) NIL NIL \"<test1>\" NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 12 1 NIL NIL NIL) 6 NIL NIL NIL) (\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 83 (NIL \"\" ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"pangalink.net\")) NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 12 1 NIL NIL NIL) 5 NIL NIL NIL) (\"TEXT\" \"HTML\" (\"CHARSET\" \"utf-8\") NIL NIL \"QUOTED-PRINTABLE\" 19 1 NIL NIL NIL) \"MIXED\" (\"BOUNDARY\" \"----mailcomposer-?=_1-1328088797399\") NIL NIL))\r\n") >= 0);
+            test.ok(resp.indexOf("\n* 7 FETCH (BODYSTRUCTURE ((\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 107 (NIL \"\" ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"pangalink.net\")) NIL NIL \"<test1>\" NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 14 1 NIL NIL NIL) 6 NIL NIL NIL) (\"MESSAGE\" \"RFC822\" NIL NIL NIL \"7BIT\" 85 (NIL \"\" ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"kreata.ee\")) ((NIL NIL \"andris\" \"pangalink.net\")) NIL NIL NIL NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 14 1 NIL NIL NIL) 5 NIL NIL NIL) (\"TEXT\" \"HTML\" (\"CHARSET\" \"utf-8\") NIL NIL \"QUOTED-PRINTABLE\" 21 1 NIL NIL NIL) \"MIXED\" (\"BOUNDARY\" \"----mailcomposer-?=_1-1328088797399\") NIL NIL))\r\n") >= 0);
             test.ok(resp.indexOf("\nA4 OK") >= 0);
+            test.ok(resp.indexOf("\n* 8 FETCH (BODYSTRUCTURE ((\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 14 1 NIL NIL NIL) (\"TEXT\" \"PLAIN\" NIL NIL NIL \"7BIT\" 14 1 NIL NIL NIL) (\"TEXT\" \"HTML\" (\"CHARSET\" \"utf-8\") NIL NIL \"QUOTED-PRINTABLE\" 21 1 NIL NIL NIL) \"MIXED\" (\"BOUNDARY\" \"----mailcomposer-?=_1-1328088797399\") NIL NIL))\r\n") >= 0);
+            test.ok(resp.indexOf("\nA5 OK") >= 0);
             test.done();
         }).bind(this));
     },
@@ -372,6 +398,26 @@ module.exports["Hoodiecrow tests"] = {
                 '\r\n'+
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
+            test.ok(resp.indexOf("\nA4 OK") >= 0);
+
+            test.done();
+        }).bind(this));
+    },
+
+    "FETCH BODY[X]": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 EXAMINE INBOX",
+                "A3 FETCH 8 BODY[1]",
+                "A4 FETCH 8 BODY[2]",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+            test.ok(resp.indexOf('\n* 7 FETCH (BODY[1] {14}\r\n'+
+                'Hello world 1!)\r\n') >= 0);
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+            test.ok(resp.indexOf('\n* 7 FETCH (BODY[2] {14}\r\n'+
+                'Hello world 2!)\r\n') >= 0);
             test.ok(resp.indexOf("\nA4 OK") >= 0);
 
             test.done();
