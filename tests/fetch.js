@@ -81,7 +81,19 @@ module.exports["Hoodiecrow tests"] = {
                             "Content-Transfer-Encoding: quoted-printable\r\n"+
                             "\r\n"+
                             "<b>Hello world 3!</b>\r\n"+
-                            "------mailcomposer-?=_1-1328088797399--"}
+                            "------mailcomposer-?=_1-1328088797399--"},
+                        {raw: "content-type: multipart/mixed; boundary=123\r\n"+
+                            "\r\n"+
+                            "--123\r\n"+
+                            "content-type: text/plain; charset=iso-8859-1; format=flowed\r\n"+
+                            "\r\n"+
+                            "hello\r\n"+
+                            "--123\r\n"+
+                            "content-type: image/png\r\n"+
+                            "content-transfer-encoding: base64\r\n"+
+                            "\r\n"+
+                            "12ab\r\n"+
+                            "--123--\r\n"}
                     ]
                 },
                 "#news.":{
@@ -413,10 +425,10 @@ module.exports["Hoodiecrow tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
             resp = resp.toString();
-            test.ok(resp.indexOf('\n* 7 FETCH (BODY[1] {14}\r\n'+
+            test.ok(resp.indexOf('\n* 8 FETCH (BODY[1] {14}\r\n'+
                 'Hello world 1!)\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
-            test.ok(resp.indexOf('\n* 7 FETCH (BODY[2] {14}\r\n'+
+            test.ok(resp.indexOf('\n* 8 FETCH (BODY[2] {14}\r\n'+
                 'Hello world 2!)\r\n') >= 0);
             test.ok(resp.indexOf("\nA4 OK") >= 0);
 
@@ -438,6 +450,33 @@ module.exports["Hoodiecrow tests"] = {
                 '\r\n'+
                 ')\r\n') >= 0);
             test.ok(resp.indexOf("\nA3 OK") >= 0);
+
+            test.done();
+        }).bind(this));
+    },
+
+    "FETCH BODY[X.MIME]": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 EXAMINE INBOX",
+                "A3 FETCH 9 BODY[1.MIME]",
+                "A4 FETCH 9 BODY[2.MIME]",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+
+            test.ok(resp.indexOf('\n* 9 FETCH (BODY[1.MIME] {63}\r\n'+
+                'content-type: text/plain; charset=iso-8859-1; format=flowed\r\n'+
+                '\r\n'+
+                ')\r\n') >= 0);
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+
+            test.ok(resp.indexOf('\n* 9 FETCH (BODY[2.MIME] {62}\r\n'+
+                'content-type: image/png\r\n'+
+                'content-transfer-encoding: base64\r\n'+
+                '\r\n'+
+                ')\r\n') >= 0);
+            test.ok(resp.indexOf("\nA4 OK") >= 0);
 
             test.done();
         }).bind(this));

@@ -326,7 +326,7 @@ function myAwesomePlugin(server){
             tag: parsed.tag,
             command: "OK",
             attributes:[
-                // TEXT allows to send unquoted 
+                // TEXT allows to send unquoted
                 {type: "TEXT", value: "XSUM completed"}
             ]
         }, "XSUM", parsed, data);
