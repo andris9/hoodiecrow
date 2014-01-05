@@ -6,6 +6,7 @@ node_js:
 
 before_script:
   - npm install -g grunt-cli
+  - openssl version
 
 notifications:
   email:
