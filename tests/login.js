@@ -1,3 +1,5 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 var hoodiecrow = require("../lib/server"),
     mockClient = require("../lib/mock-client");
 
