@@ -76,8 +76,6 @@ module.exports["LOGINDISABLED"] = {
         }).bind(this));
     },
 
-    // STARTTLS fails when testing in Travis
-    /*
     "Successful TLS login": function(test){
         var cmds = ["A1 CAPABILITY",
                 "A2 STARTTLS",
@@ -103,5 +101,4 @@ module.exports["LOGINDISABLED"] = {
             test.done();
         }).bind(this));
     }
-    */
 }
