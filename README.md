@@ -9,6 +9,8 @@ Hoodiecrow is a scriptable IMAP server for client integration testing. It offers
 [![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
 [![NPM version](https://badge.fury.io/js/hoodiecrow.png)](http://badge.fury.io/js/hoodiecrow)
 
+STARTTLS does not play well with OpenSSL 1.0+, this is why the Travis-CI builds fail as well. No idea how to fix this - with OpenSSL 0.9 everything works fine.
+
 # Usage
 
 ### Run as a standalone server
