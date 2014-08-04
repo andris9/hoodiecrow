@@ -11,7 +11,7 @@ module.exports["Hoodiecrow tests"] = {
             storage:{
                 "INBOX":{
                     messages: [
-                        {raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]},
+                        {raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"], "X-GM-THRID": "1234567890123456789"},
                         {raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen", "\\Deleted"]}
                     ]
                 }
@@ -57,6 +57,21 @@ module.exports["Hoodiecrow tests"] = {
             resp = resp.toString();
             test.ok(resp.indexOf("\nA3 OK") >= 0);
             test.ok(resp.indexOf("\n* SEARCH 2\r\n") >= 0);
+
+            test.done();
+        }).bind(this));
+    },
+
+    "SEARCH X-GM-THRID": function(test){
+        var cmds = ["A1 LOGIN testuser testpass",
+                "A2 SELECT INBOX",
+                "A3 SEARCH X-GM-THRID 1234567890123456789",
+                "ZZ LOGOUT"];
+
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+            test.ok(resp.indexOf("\n* SEARCH 1\r\n") >= 0);
 
             test.done();
         }).bind(this));
