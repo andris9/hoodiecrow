@@ -8,16 +8,11 @@ module.exports = function(grunt) {
         jshint: {
             all: ["Gruntfile.js", "lib/**/*.js", "index.js"],
             options: {
-               "node": true,
-               "globalstrict": true,
-               "evil": true,
-               "unused": true,
-               "undef": true,
-               "newcap": true
+                jshintrc: ".jshintrc"
             }
         },
         nodeunit: {
-            all: ['tests/*.js']
+            all: ["tests/*.js"]
         }
     });
 
@@ -27,4 +22,5 @@ module.exports = function(grunt) {
 
     // Default task(s).
     grunt.registerTask("default", ["jshint", "nodeunit"]);
+
 };

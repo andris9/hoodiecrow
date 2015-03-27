@@ -15,16 +15,16 @@
   ],
   "dependencies": {
     "imap-handler": "~0.1.11",
-    "big.js": "~2.4.0"
+    "big.js": "~3.0.1"
   },
   "optionalDependencies": {
-    "optimist": "~0.6.0",
-    "simplesmtp": "~0.3.10"
+    "optimist": "~0.6.1",
+    "simplesmtp": "~0.3.35"
   },
   "devDependencies": {
-    "grunt": "~0.4.1",
-    "grunt-contrib-jshint": "~0.6.4",
-    "grunt-contrib-nodeunit": "~0.2.0",
+    "grunt": "~0.4.5",
+    "grunt-contrib-jshint": "~0.11.1",
+    "grunt-contrib-nodeunit": "~0.4.1",
     "inbox": "*"
   },
   "author": "Andris Reinman",

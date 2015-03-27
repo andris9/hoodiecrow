@@ -5,47 +5,46 @@ var IMAP_PORT = 4143,
     instance = 0;
 
 module.exports["Hoodiecrow tests"] = {
-    setUp: function(done){
+    setUp: function(done) {
         this.server = hoodiecrow({
             plugins: "UNSELECT",
-            id:{
+            id: {
                 name: "hoodiecrow",
                 version: "0.1"
             },
-            storage:{
-                "INBOX":{
-                    messages: [
-                        {
-                            raw: "Subject: hello 1\r\n\r\nWorld 1!",
-                            internaldate: "14-Sep-2013 21:22:28 -0300",
-                            flags: "\\Deleted"
-                        }
-                    ]
+            storage: {
+                "INBOX": {
+                    messages: [{
+                        raw: "Subject: hello 1\r\n\r\nWorld 1!",
+                        internaldate: "14-Sep-2013 21:22:28 -0300",
+                        flags: "\\Deleted"
+                    }]
                 }
             }
         });
 
         this.instanceId = ++instance;
-        this.server.listen(IMAP_PORT, (function(){
+        this.server.listen(IMAP_PORT, (function() {
             done();
         }).bind(this));
     },
 
-    tearDown: function(done){
-        this.server.close((function(){
+    tearDown: function(done) {
+        this.server.close((function() {
             done();
         }).bind(this));
     },
 
-    "CLOSE and \\Deleted": function(test){
+    "CLOSE and \\Deleted": function(test) {
         var cmds = ["A1 CAPABILITY",
-                "A2 LOGIN testuser testpass",
-                "A3 SELECT INBOX",
-                "A4 CLOSE",
-                "A5 SELECT INBOX",
-                "ZZ LOGOUT"];
+            "A2 LOGIN testuser testpass",
+            "A3 SELECT INBOX",
+            "A4 CLOSE",
+            "A5 SELECT INBOX",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
             test.equal((resp.match(/1 EXISTS/g) || []).length, 1);
             test.equal((resp.match(/0 EXISTS/g) || []).length, 1);
@@ -53,15 +52,16 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "UNSELECT and \\Deleted": function(test){
+    "UNSELECT and \\Deleted": function(test) {
         var cmds = ["A1 CAPABILITY",
-                "A2 LOGIN testuser testpass",
-                "A3 SELECT INBOX",
-                "A4 UNSELECT",
-                "A5 SELECT INBOX",
-                "ZZ LOGOUT"];
+            "A2 LOGIN testuser testpass",
+            "A3 SELECT INBOX",
+            "A4 UNSELECT",
+            "A5 SELECT INBOX",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds,  false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
             test.equal((resp.match(/1 EXISTS/g) || []).length, 2);
             test.equal((resp.match(/0 EXISTS/g) || []).length, 0);
