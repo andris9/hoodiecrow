@@ -5,37 +5,43 @@ var IMAP_PORT = 4143,
     instance = 0;
 
 module.exports["Hoodiecrow tests"] = {
-    setUp: function(done){
+    setUp: function(done) {
         this.server = hoodiecrow({
-            storage:{
-                "INBOX":{
-                    messages: [
-                        {uid: 31, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]},
-                        {uid: 32, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen", "\\Deleted"]}
-                    ]
+            storage: {
+                "INBOX": {
+                    messages: [{
+                        uid: 31,
+                        raw: "Subject: hello 1\r\n\r\nWorld 1!",
+                        flags: ["\\Seen"]
+                    }, {
+                        uid: 32,
+                        raw: "Subject: hello 1\r\n\r\nWorld 1!",
+                        flags: ["\\Seen", "\\Deleted"]
+                    }]
                 }
             }
         });
 
         this.instanceId = ++instance;
-        this.server.listen(IMAP_PORT, (function(){
+        this.server.listen(IMAP_PORT, (function() {
             done();
         }).bind(this));
     },
 
-    tearDown: function(done){
-        this.server.close((function(){
+    tearDown: function(done) {
+        this.server.close((function() {
             done();
         }).bind(this));
     },
 
-    "Add flags": function(test){
+    "Add flags": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 31 +FLAGS (\\Deleted)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 31 +FLAGS (\\Deleted)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -45,13 +51,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Invalid system flag": function(test){
+    "Invalid system flag": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 31 +FLAGS (\\XNotValid)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 31 +FLAGS (\\XNotValid)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 BAD") >= 0);
@@ -61,13 +68,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Custom flag": function(test){
+    "Custom flag": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 31 +FLAGS (\"Custom Flag\")",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 31 +FLAGS (\"Custom Flag\")",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -77,13 +85,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Remove flags": function(test){
+    "Remove flags": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 32 -FLAGS (\\Seen)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 32 -FLAGS (\\Seen)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -93,13 +102,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Set flags": function(test){
+    "Set flags": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 32 FLAGS (MyFlag $My$Flag)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 32 FLAGS (MyFlag $My$Flag)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -109,13 +119,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Add flags silent": function(test){
+    "Add flags silent": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 31 +FLAGS.SILENT (\\Deleted)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 31 +FLAGS.SILENT (\\Deleted)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -125,13 +136,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Remove flags silent": function(test){
+    "Remove flags silent": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 32 -FLAGS.SILENT (\\Seen)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 32 -FLAGS.SILENT (\\Seen)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -141,13 +153,14 @@ module.exports["Hoodiecrow tests"] = {
         }).bind(this));
     },
 
-    "Set flags silent": function(test){
+    "Set flags silent": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 32 FLAGS.SILENT (MyFlag $My$Flag)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 32 FLAGS.SILENT (MyFlag $My$Flag)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -159,37 +172,40 @@ module.exports["Hoodiecrow tests"] = {
 }
 
 module.exports["Custom flags not allowed"] = {
-    setUp: function(done){
+    setUp: function(done) {
         this.server = hoodiecrow({
-            storage:{
-                "INBOX":{
+            storage: {
+                "INBOX": {
                     allowPermanentFlags: false,
-                    messages: [
-                        {uid: 31, raw: "Subject: hello 1\r\n\r\nWorld 1!", flags: ["\\Seen"]}
-                    ]
+                    messages: [{
+                        uid: 31,
+                        raw: "Subject: hello 1\r\n\r\nWorld 1!",
+                        flags: ["\\Seen"]
+                    }]
                 }
             }
         });
 
         this.instanceId = ++instance;
-        this.server.listen(IMAP_PORT, (function(){
+        this.server.listen(IMAP_PORT, (function() {
             done();
         }).bind(this));
     },
 
-    tearDown: function(done){
-        this.server.close((function(){
+    tearDown: function(done) {
+        this.server.close((function() {
             done();
         }).bind(this));
     },
 
-    "System flag": function(test){
+    "System flag": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 31 +FLAGS (\\Deleted)",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 31 +FLAGS (\\Deleted)",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);
@@ -199,13 +215,14 @@ module.exports["Custom flags not allowed"] = {
         }).bind(this));
     },
 
-    "Custom flag": function(test){
+    "Custom flag": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
-                "A2 SELECT INBOX",
-                "A3 UID STORE 31 +FLAGS (\"Custom Flag\")",
-                "ZZ LOGOUT"];
+            "A2 SELECT INBOX",
+            "A3 UID STORE 31 +FLAGS (\"Custom Flag\")",
+            "ZZ LOGOUT"
+        ];
 
-        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp){
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
 
             test.ok(resp.indexOf("\nA3 OK") >= 0);

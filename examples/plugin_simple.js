@@ -6,7 +6,7 @@ hoodiecrow({
 
 // Plugin handler
 
-function myAwesomePlugin(server){
+function myAwesomePlugin(server) {
 
     // Add a string to the capability listing
     server.registerCapability("XSUM");
@@ -25,14 +25,14 @@ function myAwesomePlugin(server){
      * @param {String} data - Input command as a binary string
      * @param {Function} callback - callback function to run
      */
-    server.setCommandHandler("XSUM", function(connection, parsed, data, callback){
+    server.setCommandHandler("XSUM", function(connection, parsed, data, callback) {
 
         // Send untagged XSUM response
         connection.send({
             tag: "*",
             command: "XSUM",
-            attributes:[
-                [].concat(parsed.attributes || []).reduce(function(prev, cur){
+            attributes: [
+                [].concat(parsed.attributes || []).reduce(function(prev, cur) {
                     return prev + Number(cur.value);
                 }, 0)
             ]
@@ -42,9 +42,10 @@ function myAwesomePlugin(server){
         connection.send({
             tag: parsed.tag,
             command: "OK",
-            attributes:[
-                {type: "TEXT", value: "XSUM completed"}
-            ]
+            attributes: [{
+                type: "TEXT",
+                value: "XSUM completed"
+            }]
         }, "XSUM", parsed, data);
         callback();
     });

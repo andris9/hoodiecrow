@@ -17,6 +17,8 @@
     "undef": true,
     "unused": true,
     "-W100": true,
+    "quotmark": "double",
+    "bitwise": true,
 
     "globals": {
         "define": true
