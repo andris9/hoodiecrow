@@ -1,17 +1,17 @@
 {
-  "name": "hoodiecrow",
-  "version": "1.2.0",
-  "description": "Scriptable IMAP mock server for testing purposes",
+  "name": "imapper",
+  "version": "0.1.0",
+  "description": "IMAP server for real usage, inspired by Haraka for SMTP and descended from Hoodiecrow",
   "main": "lib/server.js",
   "scripts": {
     "test": "grunt"
   },
   "bin": {
-    "hoodiecrow": "./bin/hoodiecrow"
+    "imapper": "./bin/imapper"
   },
-  "repository": "git@github.com:andris9/hoodiecrow.git",
+  "repository": "git@github.com:deitch/imapper.git",
   "keywords": [
-    "IMAP"
+    "IMAP", "Email"
   ],
   "dependencies": {
     "imap-handler": "~0.1.11",
@@ -27,6 +27,6 @@
     "grunt-contrib-nodeunit": "~0.4.1",
     "inbox": "*"
   },
-  "author": "Andris Reinman",
+  "author": "Avi Deitcher http://github.com/deitch",
   "license": "MIT"
 }
