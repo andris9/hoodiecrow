@@ -30,61 +30,26 @@ The MSD interface uses four concepts:
 
 ## Interface
 
-### Initial Access
-The plugin is accessed by calling `require(plugin)`, where `plugin` is the name of the plugin as provided in the imapper configuration. Thus, if you have a config as follows:
-
-````json
-{
-	storage: {
-		name: 'my-storage-plugin'
-	}
-}
-````
-
-Then the plugin will activate it by calling `require('my-storage-plugin)`.
-
-The plugin is `require`d only once, upon launching. Do not put ongoing refresh code into the initial require.
-
-The plugin is expected to return a single function.
-
-### Initiation
-The plugin is initiated by calling the function return by `require()`. The function is passed a single argument, the `options` object from the configuration.
-
-The details of that configuration, what the plugin expects, and how it processes that data are **entirely** up to the plugin itself. Imapper makes no demands of the options.
-
-The function returns synchronously.
-
-The return from the function is expected to be an object, the `connection`.
-
-The `connection` object has the following methods:
-
-* `connection.mailbox(name,user)`: prepare to use an individual mailbox by a given user
-
-
-For example, using the config below:
-
-````json
-{
-	users: 'my-storage-plugin'
-	config: {
-		a: true
-		accessKey: 'Specialuser',
-		secretKey: 'abcd1234'
-	}
-}
-````
-
-Imapper will instantiate and initialize the plugin as follows:
+Like all plugins, a users plugin should provide an initialized and instantiated object to imapper:
 
 ````javascript
-var storagePlugin = require('my-storage-plugin'),
-connection = storagePlugin({
-	a: true
-	accessKey: 'Specialuser',
-	secretKey: 'abcd1234'
+var storage = require('imapper-storage-memory')({
+  "INBOX":{},
+  "INBOX.Trash":{}
 });
-// connection must be an object
+
+// you now can pass storage to imapper
+server = require('imapper')({
+	storage: storage
+});
+
 ````
+
+### Initiation
+
+The `storage` connection object passed to imapper as the value of the key `storage`, hereinafter referred to as a `connection` has the following methods:
+
+* `connection.mailbox(name,user)`: prepare to use an individual mailbox by a given user
 
 
 ### Mailbox

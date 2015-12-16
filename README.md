@@ -58,7 +58,7 @@ See [complete.js](https://github.com/deitch/imapper/blob/master/examples/complet
 Imapper requires configuration to tell it how to work. 
 
 
-### Providing COnfiguration
+### Providing Configuration
 The configuration is provided either as a JSON config file or a configuration object, depending on how Imapper is launched. In both ways, the structure of the configuration is identical and is described below.
 
 #### Command-Line
@@ -84,43 +84,38 @@ The configuration object or file contains information on how to configure, launc
 
 ````json
 {
-  port: 143,
 	tls: true,
-	ssl: 993,
-	authentication: {
-		name: 'imapper_ldap;
-		config: {...}
-	},
-	storage: {
-		name: 'imapper_file'
-		config: {...}
-	}
+	ssl: true,
+	users: authModule,
+	storage: storageModule
 }
 ````
 
 Each key in the configuration represents a configurable element of Imapper.
 
-* `port`: The port to listen for in-the-clear or TLS-upgradable IMAP. Optional. Defaults to `143`.
-* `tls`: Whether to support upgradable TLS connections. Optional. Defaults to `false`.
-* `ssl`: The port to listen for SSL connections. Optional. If not present, will not listen for SSL.
-* `authentication`: Configuration for the plugin to use for authentication. Required. Object. See below.
-* `storage`: Configuration for the plugin to use for message and folder storage. Required. Object. See below.
+* `tls`: Whether to support upgradable TLS connections. Optional. Defaults to `false`. Relevant only if option `ssl` is not `true`.
+* `ssl`: Whether to run in SSL or clear mode. Optional. Defaults to `false`.
+* `users`: Plugin to use for user authentication. Required. See below.
+* `storage`: Plugin to use for message and folder storage. Required. See below.
 
-Each section of configuration that represents a plugin is represented as an object with two parts:
+Each section of configuration that represents a plugin is a function that is returned by an appropriate plugin. You are expected to `require()` and configure the plugin appropriately.
 
-* `name`: The name of the plugin to use for configuration. This must be a plugin available by installing via `npm install`.
-* `config`: The configuration to pass to the plugin. Unique for each plugin.
+For example:
 
-Note that a plugin need not be distributed to the central npm store to be usable. The [npm site](npmjs.com) provides multiple ways to include a package, including directly from github, your local filesystem or other methods. 
+````javascript
+var storagePlugin = require('imapper-file-storage')({basedir: '/var/spool/mail'}), imapper = require('imapper'),
+server = imapper({
+	storage: storagePlugin
+});
 
-For a plugin to be usable, the module named in the `name` section **must** be installed in the local `node_modules/` via `npm install`. For example, if you intend to use a storage engine called `'imapper_file'`', the module `'imapper_file'` must already be installed. **Imapper does not do `npm install` for you.**
+````
 
 
 ### Available Plugins
 
-The following plugins are available in npm as of this writing.
+The following plugins are available in npm as of this writing. By convention, all imapper plugins should be named according to `imapper-`*type*`-`*name*`.
 
-#### imapper_memoryStorage
+#### imapper-storage-memory
 A simple plugin that stores all mail messages in memory. Terminating the server means they are lost.
 
 This plugin supports reading its initial data from a file or object. In the `config` object, provide one of the following:
@@ -130,64 +125,53 @@ This plugin supports reading its initial data from a file or object. In the `con
 
 Note that this plugin replicates the behaviour of the original hoodiecrow.
 
-````json
-// straight data
-{
-	storage: {
-		name: 'imapper_memoryStorage'
-		config: {
-			data: {
-		    "INBOX":{},
-		    "INBOX.Trash":{}
-			}
-		}
-	}
-}
+````javascript
+var storage = require('imapper-storage-memory')({
+  "INBOX":{},
+  "INBOX.Trash":{}
+});
 
+// you now can pass storage to imapper
+server = require('imapper')({
+	storage: storage
+});
 
-// from the configuration file
-{
-	storage: {
-		name: 'imapper_memoryStorage'
-		config: {
-			file: '/path/to/config/file.json
-		}
-	}
-}
 ````
 
-#### imapper_htpasswdUsers
+#### imapper-users-htpasswd
 Read usernames for authentication from an htpasswd file.
 
 Provide the path to the htpasswd file in the `config` as the option `file`.
 
-````json
-{
-	authentication: {
-		name: 'imapper_htpasswdUsers'
-		config: {
-			file: '/path/to/htpasswd'
-		}
-	}
-}
+````javascript
+var users = require('imapper-users-htpasswd')({
+	file: '/path/to/htpasswd'
+});
+
+// you now can pass storage to imapper
+server = require('imapper')({
+	users: users
+});
+
 ````
 
-#### imapper_staticUsers
+#### imapper-users-static
 Include users directly in the configuration. 
 
 In the `config`, each key is a username, while each value is a Bcrypt encrypted password.
 
 
-````json
-{
-	authentication: {
-		name: 'imapper_staticUsers'
-		config: {
-			john: 'dasabsb657223asasa',
-			jill: 'sasaswqwdbsb657223'
-		}
-	}
-}
+````javascript
+var users = require('imapper-users-static')({
+	john: 'dasabsb657223asasa',
+	jill: 'sasaswqwdbsb657223'
+});
+
+// you now can pass storage to imapper
+server = require('imapper')({
+	users: users
+});
+
 ````
 
 

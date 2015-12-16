@@ -4,55 +4,24 @@ This document describes how to write a user plugin. The purpose of a user plugin
 
 ## Interface
 
-### Initial Access
-The plugin is accessed by calling `require(plugin)`, where `plugin` is the name of the plugin as provided in the imapper configuration. Thus, if you have a config as follows:
-
-````json
-{
-	users: {
-		name: 'my-user-plugin'
-	}
-}
-````
-
-Then the plugin will activate it by calling `require('my-user-plugin)`.
-
-The plugin is `require`d only once, upon launching. Do not put ongoing refresh code into the initial require.
-
-The plugin is expected to return a single function.
-
-### Initiation
-The plugin is initiated by calling the function return by `require()`. The function is passed a single argument, the `options` object from the configuration.
-
-The details of that configuration, what the plugin expects, and how it processes that data are **entirely** up to the plugin itself. Imapper makes no demands of the options.
-
-The return from the function is expected to be an object, called the `usersManager` by Imapper.
-
-For example, using the config below:
-
-````json
-{
-	users: 'my-user-plugin'
-	config: {
-		a: true
-		someVar: 'Login'
-	}
-}
-````
-
-Imapper will instantiate and initialize the plugin as follows:
+Like all plugins, a users plugin should provide an initialized and instantiated object to imapper:
 
 ````javascript
-var usersPlugin = require('my-user-plugin'),
-usersManager = usersPlugin({
-	a: true
-	someVar: 'Login'
+var users = require('imapper-users-static')({
+	john: 'dasabsb657223asasa',
+	jill: 'sasaswqwdbsb657223'
 });
-// usersManager must be an object
+
+// you now can pass storage to imapper
+server = require('imapper')({
+	users: users
+});
+
 ````
 
+
 ### Authentication
-The `usersManager` object returned by initiating the users plugin is expected to have a single property, a function called `authenticate()`. 
+The object passed to imapper as the value of the `users` key on configuration is expected to have a single property, a function called `authenticate()`. 
 
 When Imapper needs to authenticate a user, it will call `authenticate(opts,callback)`. The `authenticate()` call has two parameters:
 
