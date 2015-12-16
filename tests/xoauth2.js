@@ -1,4 +1,4 @@
-var hoodiecrow = require("../lib/server"),
+var imapper = require("./resources/init"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
@@ -6,7 +6,7 @@ var IMAP_PORT = 4143,
 
 module.exports["XOAUTH2"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             plugins: ["SASL-IR", "XOAUTH2"]
         });
 
@@ -74,4 +74,4 @@ module.exports["XOAUTH2"] = {
             test.done();
         }).bind(this));
     }
-}
+};

@@ -1,4 +1,4 @@
-var hoodiecrow = require("../lib/server"),
+var imapper = require("./resources/init"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
@@ -6,7 +6,7 @@ var IMAP_PORT = 4143,
 
 module.exports["Literalplus disabled"] = {
     setUp: function(done) {
-        this.server = hoodiecrow();
+        this.server = imapper();
 
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
@@ -33,11 +33,11 @@ module.exports["Literalplus disabled"] = {
             test.done();
         }).bind(this));
     }
-}
+};
 
 module.exports["Literalplus enabled"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             plugins: "literalplus"
         });
 
@@ -82,4 +82,4 @@ module.exports["Literalplus enabled"] = {
             test.done();
         }).bind(this));
     }
-}
+};

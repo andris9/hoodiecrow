@@ -1,12 +1,13 @@
-var hoodiecrow = require("../lib/server"),
+var imapper = require("./resources/init"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
     instance = 0;
 
+
 module.exports["Auth Plain disabled"] = {
     setUp: function(done) {
-        this.server = hoodiecrow();
+        this.server = imapper();
 
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
@@ -33,11 +34,11 @@ module.exports["Auth Plain disabled"] = {
             test.done();
         }).bind(this));
     }
-}
+};
 
 module.exports["Auth Plain enabled"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             plugins: ["AUTH-PLAIN"]
         });
 
@@ -102,7 +103,7 @@ module.exports["Auth Plain enabled"] = {
 
 module.exports["Auth Plain with SASL-IR"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             plugins: ["SASL-IR", "AUTH-PLAIN"]
         });
 
@@ -164,4 +165,4 @@ module.exports["Auth Plain with SASL-IR"] = {
             test.done();
         }).bind(this));
     }
-}
+};

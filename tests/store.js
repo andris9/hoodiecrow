@@ -1,12 +1,12 @@
-var hoodiecrow = require("../lib/server"),
+var imapper = require("./resources/init"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
     instance = 0;
 
-module.exports["Hoodiecrow tests"] = {
+module.exports["imapper tests"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             storage: {
                 "INBOX": {
                     messages: [{
@@ -171,7 +171,7 @@ module.exports["Hoodiecrow tests"] = {
 
 module.exports["Custom flags not allowed"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             storage: {
                 "INBOX": {
                     allowPermanentFlags: false,
@@ -228,4 +228,4 @@ module.exports["Custom flags not allowed"] = {
             test.done();
         }).bind(this));
     }
-}
+};

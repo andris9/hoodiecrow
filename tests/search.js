@@ -1,4 +1,4 @@
-var hoodiecrow = require("../lib/server"),
+var imapper = require("./resources/init"),
     mockClient = require("../lib/mock-client");
 
 var IMAP_PORT = 4143,
@@ -6,10 +6,10 @@ var IMAP_PORT = 4143,
 
 module.exports["Search tests"] = {
     setUp: function(done) {
-        this.server = hoodiecrow({
+        this.server = imapper({
             plugins: ["ID", "STARTTLS" /*, "LOGINDISABLED"*/ , "AUTH-PLAIN", "NAMESPACE", "IDLE", "ENABLE", "CONDSTORE", "XTOYBIRD"],
             id: {
-                name: "hoodiecrow",
+                name: "imapper",
                 version: "0.1"
             },
             storage: {
@@ -629,4 +629,4 @@ module.exports["Search tests"] = {
             test.done();
         }).bind(this));
     }
-}
+};
