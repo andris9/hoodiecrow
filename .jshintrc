@@ -1,7 +1,5 @@
 {
     "indent": 4,
-    "strict": true,
-    "globalstrict": true,
     "node": true,
     "browser": true,
     "nonew": true,
@@ -17,7 +15,7 @@
     "undef": true,
     "unused": true,
     "-W100": true,
-    "quotmark": "double",
+    "-W068": true,
     "bitwise": true,
 
     "globals": {
