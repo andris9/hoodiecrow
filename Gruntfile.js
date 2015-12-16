@@ -23,4 +23,15 @@ module.exports = function(grunt) {
     // Default task(s).
     grunt.registerTask("default", ["jshint", "nodeunit"]);
 
+		// give ability to run individual tests
+		grunt.registerTask('test', function() {
+		  var tests = Array.prototype.slice.call(arguments, 0).map(function(test) {
+		    return 'tests/' + test + '.js';
+		  });
+		  if (tests.length > 0) {
+				grunt.config('nodeunit.all', tests);
+		  }
+		  grunt.task.run('nodeunit');
+		});
+
 };
