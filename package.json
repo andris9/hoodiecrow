@@ -1,6 +1,6 @@
 {
   "name": "imapper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "IMAP server for real usage, inspired by Haraka for SMTP and descended from Hoodiecrow",
   "main": "lib/server.js",
   "scripts": {
@@ -11,7 +11,8 @@
   },
   "repository": "git@github.com:deitch/imapper.git",
   "keywords": [
-    "IMAP", "Email"
+    "IMAP",
+    "Email"
   ],
   "dependencies": {
     "imap-handler": "~0.1.11",
@@ -25,7 +26,8 @@
     "grunt": "~0.4.5",
     "grunt-contrib-jshint": "~0.11.1",
     "grunt-contrib-nodeunit": "~0.4.1",
-    "inbox": "*"
+    "inbox": "*",
+    "sinon": "^1.17.2"
   },
   "author": "Avi Deitcher http://github.com/deitch",
   "license": "MIT"
