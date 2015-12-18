@@ -70,7 +70,7 @@ The mailbox is returned synchronously, as no connection is created as of yet. Th
 The returned `mailbox` object has the following properties and methods. All callbacks are of the signature `function(err,data)`
 
 * `folders(callback)`: retrieve all folders for this mailbox. Will pass `data` to the callback as an array of `folder` objects, or an empty array if none found.
-* `find(name,callback)`: search for folders in this mailbox whose name matches `name`. Will pass `data` to the callback as an array of `folder` objects, or an empty array if none found.
+* `select(name,callback)`: select folder in this mailbox whose name matches `name`. Will pass `data` to the callback as an array of `folder` objects, or an empty array if none found. If the folder cannot be selected, callback `err` as `{noselect: true}`
 * `create(name,callback)`: create a new folder in this mailbox with the name `name`. Will pass `data` to the callback as a new `folder` object. If creation fails, pass an error to the callback.
 
 ### Folder
@@ -78,13 +78,27 @@ Managing an individual folder and working with the messages in that folder requi
 
 The returned `folder` object has the following properties and methods. All callbacks are of the signature `function(err,data)`
 
-* `properties`: returns an object with all of the properties of the folder, e.g. `name`, `id`, etc. Synchronous.
+* `properties`: an object with all of the properties of the folder, e.g. `name`, `id`, etc. Synchronous.
+* `status`: an object with status of the folder information. Synchronous. See below.
+* `allowPermanentFlags`: boolean whether or not this folder allows permanent flags.
+* `messages`: integer, total number of messages in this folder.
+* `uidnext`: string. The next available UID.
+* `uidvalidity`: string. The UID for this session.
 * `del(callback)`: delete this folder with all of its messages. If it fails, pass an error to the `err` argument of the callback.
 * `rename(name,callback)`: change the name of this folder to `name`. If it fails, pass an error to the `err` argument of the callback.
 * `createMessage(content,callback)`: add a message to this folder with the content object `content`. If it fails, pass an error to the `err` argument of the callback. 
 * `list(callback)`: retrieve an array of the IDs of all messages in this folder, or an empty array for none. Pass the array to the callback as the `data` argument.
 * `search(pattern,callback)`: retrieve an array of the IDs of all messages in this folder that match the search pattern, or an empty array for none. Pass the array to the callback as the `data` argument. See below for search details.
 * `get(ids,[options,]callback)`: retrieve actual message objects with their data for the given `ids`. Pass the resultant `message` objects to the `data` argument of the callback. See below for details.
+
+
+#### status
+`folder.status` is an object with status information about the folder. Its properties are as follows:
+
+* `flags`: object with a key representing the name of each flag on a message in the folder, and the value an integer of the number of messages on which it appears.
+* `seen`: integer with the number of messages that have the `Seen` flag set
+* `unseen`: integer with the number of messages that do not have the `Seen` flag set
+* `permanentFlags`: array of strings, with each element representing a unique permanent flag in this folder
 
 
 #### search
