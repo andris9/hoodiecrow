@@ -1,28 +1,26 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+		data = require('./resources/memory-storage-plugin');
+
 
 var IMAP_PORT = 4143,
-    instance = 0;
+    instance = 0,
+		MSGS = {
+      "INBOX": {
+          messages: [{
+              raw: "Subject: hello 1\r\n\r\nWorld 1!",
+              internaldate: "14-Sep-2013 21:22:28 -0300",
+              flags: "\\Deleted"
+          }]
+      }
+  };
 
 module.exports["imapper tests"] = {
     setUp: function(done) {
         this.server = imapper({
-            plugins: "UNSELECT",
-            id: {
-                name: "imapper",
-                version: "0.1"
-            },
-            storage: {
-                "INBOX": {
-                    messages: [{
-                        raw: "Subject: hello 1\r\n\r\nWorld 1!",
-                        internaldate: "14-Sep-2013 21:22:28 -0300",
-                        flags: "\\Deleted"
-                    }]
-                }
-            }
+            plugins: "UNSELECT"
         });
-
+				data.load(MSGS);
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();

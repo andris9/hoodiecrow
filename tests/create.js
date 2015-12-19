@@ -1,18 +1,20 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+		data = require('./resources/memory-storage-plugin');
+
 
 var IMAP_PORT = 4143,
-    instance = 0;
+    instance = 0,
+		MSGS = {
+      "#news": {
+          type: "shared"
+      }
+  };
 
 module.exports["Create"] = {
     setUp: function(done) {
-        this.server = imapper({
-            storage: {
-                "#news": {
-                    type: "shared"
-                }
-            }
-        });
+        this.server = imapper({});
+				data.load(MSGS);
 
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {

@@ -1,37 +1,38 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+		data = require('./resources/memory-storage-plugin');
 
 var IMAP_PORT = 4143,
-    instance = 0;
+    instance = 0,
+		MSGS = {
+        "": {
+            folders: {
+                "testfold": {
+                    uidnext: 234,
+                    folders: {
+                        "sub": {
+                            uidnext: 567
+                        }
+                    }
+                }
+            }
+        },
+        "#news.": {
+            type: "shared",
+            separator: "."
+        },
+        "#juke?": {
+            type: "shared",
+            separator: "?"
+        }
+    };
 
 module.exports["Delete"] = {
     setUp: function(done) {
         this.server = imapper({
-            plugins: "XTOYBIRD",
-            storage: {
-                "": {
-                    folders: {
-                        "testfold": {
-                            uidnext: 234,
-                            folders: {
-                                "sub": {
-                                    uidnext: 567
-                                }
-                            }
-                        }
-                    }
-                },
-                "#news.": {
-                    type: "shared",
-                    separator: "."
-                },
-                "#juke?": {
-                    type: "shared",
-                    separator: "?"
-                }
-            }
+            plugins: "XTOYBIRD"
         });
-
+				data.load(MSGS);
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();

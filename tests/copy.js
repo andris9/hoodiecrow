@@ -1,18 +1,10 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+	data = require('./resources/memory-storage-plugin');
 
 var IMAP_PORT = 4143,
-    instance = 0;
-
-module.exports["imapper tests"] = {
-    setUp: function(done) {
-        this.server = imapper({
-            plugins: "UNSELECT",
-            id: {
-                name: "imapper",
-                version: "0.1"
-            },
-            storage: {
+    instance = 0,
+	MSGS = {
                 "INBOX": {
                     messages: [{
                         raw: "Subject: hello 1\r\n\r\nWorld 1!",
@@ -22,13 +14,15 @@ module.exports["imapper tests"] = {
                         raw: "Subject: hello 1\r\n\r\nWorld 2!"
                     }]
                 },
-                "": {
-                    folders: {
-                        "target": {}
-                    }
-                }
-            }
+								"target": {}
+            };
+
+module.exports["imapper tests"] = {
+    setUp: function(done) {
+        this.server = imapper({
+            plugins: "UNSELECT"
         });
+				data.load(MSGS);
 
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
@@ -49,7 +43,6 @@ module.exports["imapper tests"] = {
             "A4 SELECT target",
             "ZZ LOGOUT"
         ];
-
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
             test.ok(resp.indexOf("\r\nA3 OK") >= 0);

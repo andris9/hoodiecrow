@@ -1,5 +1,7 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+	data = require('./resources/memory-storage-plugin')
+;
 
 var IMAP_PORT = 4143,
     instance = 0;
@@ -19,7 +21,6 @@ module.exports["Normal login"] = {
             done();
         }).bind(this));
     },
-
     "Append simple": function(test) {
         var message = "From: sender <sender@example.com>\r\nTo: receiver@example.com\r\nSubject: HELLO!\r\n\r\nWORLD!";
         var cmds = ["A1 CAPABILITY",
@@ -42,6 +43,7 @@ module.exports["Normal login"] = {
     },
 
     "Append flags": function(test) {
+			data.reset();
         var message = "From: sender <sender@example.com>\r\nTo: receiver@example.com\r\nSubject: HELLO!\r\n\r\nWORLD!";
         var cmds = ["A1 CAPABILITY",
             "A2 LOGIN testuser testpass",
@@ -64,6 +66,7 @@ module.exports["Normal login"] = {
     },
 
     "Append internaldate": function(test) {
+			data.reset();
         var message = "From: sender <sender@example.com>\r\nTo: receiver@example.com\r\nSubject: HELLO!\r\n\r\nWORLD!";
         var cmds = ["A1 CAPABILITY",
             "A2 LOGIN testuser testpass",
@@ -86,6 +89,7 @@ module.exports["Normal login"] = {
     },
 
     "Append full": function(test) {
+			data.reset();
         var message = "From: sender <sender@example.com>\r\nTo: receiver@example.com\r\nSubject: HELLO!\r\n\r\nWORLD!";
         var cmds = ["A1 CAPABILITY",
             "A2 LOGIN testuser testpass",
@@ -107,4 +111,4 @@ module.exports["Normal login"] = {
             test.done();
         }).bind(this));
     }
-}
+};

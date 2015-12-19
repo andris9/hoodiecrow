@@ -1,51 +1,53 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+	data = require('./resources/memory-storage-plugin');
+
 
 var IMAP_PORT = 4143,
-    instance = 0;
-
-module.exports["Rename"] = {
-    setUp: function(done) {
-        this.server = imapper({
-            plugins: "XTOYBIRD",
-            storage: {
-                "": {
-                    folders: {
-                        "level1": {
-                            folders: {
-                                "level2": {
-                                    folders: {
-                                        "level3": {
-                                            folders: {
-                                                "level4": {
-                                                    folders: {}
-                                                }
-                                            }
-                                        }
+    instance = 0,
+	MSGS = {
+    "": {
+        folders: {
+            "level1": {
+                folders: {
+                    "level2": {
+                        folders: {
+                            "level3": {
+                                folders: {
+                                    "level4": {
+                                        folders: {}
                                     }
-                                }
-                            }
-                        },
-                        "level5": {
-                            folders: {
-                                "level6": {
-                                    folders: {}
                                 }
                             }
                         }
                     }
-                },
-                "#news.": {
-                    type: "shared",
-                    separator: "."
-                },
-                "#juke?": {
-                    type: "shared",
-                    separator: "?"
+                }
+            },
+            "level5": {
+                folders: {
+                    "level6": {
+                        folders: {}
+                    }
                 }
             }
-        });
+        }
+    },
+    "#news.": {
+        type: "shared",
+        separator: "."
+    },
+    "#juke?": {
+        type: "shared",
+        separator: "?"
+    }
+	};
 
+module.exports["Rename"] = {
+    setUp: function(done) {
+        this.server = imapper({
+            plugins: "XTOYBIRD"
+        });
+				data.load(MSGS);
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();
