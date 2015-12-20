@@ -13,7 +13,8 @@ module.exports["No users plugin defined"] = {
 			// make sure that calling authenticate does the right thing
 			stub.callsArg(1);
       this.server = imapper({
-          plugins: ["AUTH-PLAIN"]
+          plugins: ["AUTH-PLAIN"],
+					storage : require('./resources/memory-storage-plugin')
       });
 
         this.instanceId = ++instance;
@@ -65,7 +66,8 @@ module.exports["Users plugin defined"] = {
 			users.authenticate.callsArg(1);
       this.server = imapper({
           plugins: ["AUTH-PLAIN"],
-        	users: users
+        	users: users,
+					storage : require('./resources/memory-storage-plugin')
       });
 
         this.instanceId = ++instance;

@@ -1,5 +1,7 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+data = require('./resources/memory-storage-plugin');
+
 
 var IMAP_PORT = 4143,
     instance = 0;
@@ -7,12 +9,9 @@ var IMAP_PORT = 4143,
 module.exports["Search tests"] = {
     setUp: function(done) {
         this.server = imapper({
-            plugins: ["ID", "STARTTLS" /*, "LOGINDISABLED"*/ , "AUTH-PLAIN", "NAMESPACE", "IDLE", "ENABLE", "CONDSTORE", "XTOYBIRD"],
-            id: {
-                name: "imapper",
-                version: "0.1"
-            },
-            storage: {
+            plugins: ["ID", "STARTTLS" /*, "LOGINDISABLED"*/ , "AUTH-PLAIN", "NAMESPACE", "IDLE", "ENABLE", "CONDSTORE", "XTOYBIRD"]
+        });
+				data.load({
                 "INBOX": {
                     messages: [{
                         raw: "Subject: hello 1\r\n\r\nWorld 1!",
@@ -53,9 +52,7 @@ module.exports["Search tests"] = {
                     type: "shared",
                     separator: "?"
                 }
-            }
-        });
-
+            });
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();

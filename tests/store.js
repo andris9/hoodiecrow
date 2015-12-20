@@ -1,13 +1,14 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+		data = require('./resources/memory-storage-plugin');
 
 var IMAP_PORT = 4143,
     instance = 0;
 
 module.exports["imapper tests"] = {
     setUp: function(done) {
-        this.server = imapper({
-            storage: {
+        this.server = imapper({});
+				data.load({
                 "INBOX": {
                     messages: [{
                         raw: "Subject: hello 1\r\n\r\nWorld 1!",
@@ -17,9 +18,7 @@ module.exports["imapper tests"] = {
                         flags: ["\\Seen", "\\Deleted"]
                     }]
                 }
-            }
-        });
-
+            });
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();
@@ -41,7 +40,6 @@ module.exports["imapper tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
-
             test.ok(resp.indexOf("\nA3 OK") >= 0);
             test.ok(resp.indexOf("FLAGS (\\Seen \\Deleted)") >= 0);
 
@@ -58,7 +56,6 @@ module.exports["imapper tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
-
             test.ok(resp.indexOf("\nA3 BAD") >= 0);
             test.ok(resp.indexOf("FLAGS (\\Seen \\XNotValid)") < 0);
 
@@ -167,12 +164,12 @@ module.exports["imapper tests"] = {
             test.done();
         }).bind(this));
     }
-}
+};
 
 module.exports["Custom flags not allowed"] = {
     setUp: function(done) {
-        this.server = imapper({
-            storage: {
+        this.server = imapper({});
+				data.load({
                 "INBOX": {
                     allowPermanentFlags: false,
                     messages: [{
@@ -180,9 +177,7 @@ module.exports["Custom flags not allowed"] = {
                         flags: ["\\Seen"]
                     }]
                 }
-            }
-        });
-
+            });
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();

@@ -24,6 +24,23 @@ getMailbox = function(path) {
     return folderCache[path];
 },
 
+checkFolderExists = function (folder) {
+	return folderCache[folder] !== undefined;
+},
+checkMessagesExist = function (folder,messages) {
+	var valid = true;
+	_.each(messages,function (item) {
+		if (folderCache[folder].messages.length < item) {
+			valid = false;
+			return false;
+		}
+	});
+	return valid;
+},
+
+
+
+
 /**
  * Ensures that a list of flags includes selected flag
  *
@@ -454,6 +471,77 @@ makeMailbox = function () {
 	    data[f].messages.push(message);
 	    processMessage(message, data[f]);
 			cb();
+		},
+		addFlags : function (folder,messages,flags,cb) {
+			var ret = [];
+			// check that the folder and messages exist and system flags
+			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
+			if (!checkMessagesExist(folder,messages)) {return cb("Invalid messages");}
+			// now add the flags
+			_.each(messages,function (msg) {
+				var message = folderCache[folder].messages[msg-1];
+		    [].concat(flags).forEach(function(flag) {
+
+		        // Ignore if it is not in allowed list and only permament flags are allowed to use
+		        if (folderCache[folder].permanentFlags.indexOf(flag) < 0 && !folderCache[folder].allowPermanentFlags) {
+		            return;
+		        }
+
+		        if (message.flags.indexOf(flag) < 0) {
+		            message.flags.push(flag);
+		        }
+		    });
+				ret.push({index: msg, uid: message.uid, flags: message.flags});
+			});
+			cb(null,ret);
+		},
+		removeFlags : function (folder,messages,flags,cb) {
+			var ret = [];
+			// check that the folder and messages exist
+			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
+			if (!checkMessagesExist(folder,messages)) {return cb("Invalid messages");}
+			_.each(messages,function (msg) {
+				var message = folderCache[folder].messages[msg-1];
+		    [].concat(flags).forEach(function(flag) {
+						
+		        if (message.flags.indexOf(flag) >= 0) {
+		            for (var i = 0; i < message.flags.length; i++) {
+		                if (message.flags[i] === flag) {
+		                    message.flags.splice(i, 1);
+		                    break;
+		                }
+		            }
+		        }
+		    });
+				ret.push({index: msg, uid: message.uid, flags: message.flags});
+			});
+			// callback without error, but with the new data
+			cb(null,ret);
+		},
+		replaceFlags : function (folder,messages,flags,cb) {
+			var ret = [];
+			// check that the folder and messages exist
+			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
+			if (!checkMessagesExist(folder,messages)) {return cb("Invalid messages");}
+			
+			// now replace all of the flags
+			_.each(messages,function (msg) {
+		    var messageFlags = [], message = folderCache[folder].messages[msg-1];
+		    [].concat(flags).forEach(function(flag) {
+
+		        // Ignore if it is not in allowed list and only permament flags are allowed to use
+		        if (folderCache[folder].permanentFlags.indexOf(flag) < 0 && !folderCache[folder].allowPermanentFlags) {
+		            return;
+		        }
+
+		        if (messageFlags.indexOf(flag) < 0) {
+		            messageFlags.push(flag);
+		        }
+		    });
+		    message.flags = messageFlags;
+				ret.push({index: msg, uid: message.uid, flags: message.flags});
+			});
+			cb(null, ret);
 		},
 		listMessages: function (folder,cb) {
 			cb();
