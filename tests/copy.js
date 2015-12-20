@@ -14,7 +14,11 @@ var IMAP_PORT = 4143,
                         raw: "Subject: hello 1\r\n\r\nWorld 2!"
                     }]
                 },
-								"target": {}
+                "": {
+                    folders: {
+                        "target": {}
+                    }
+                }
             };
 
 module.exports["imapper tests"] = {

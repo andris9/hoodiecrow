@@ -236,20 +236,19 @@ makeMessage = function () {
 	};
 },
 makeFolder = function (f) {
-	data[f] = data[f] || {};
-	data[f].messages = data[f].messages || [];
-	var total = data[f].messages.length,
-	seen = _.reduce(data[f].messages,function (total,msg) {
+	var folder = folderCache[f],
+	total = folder.messages.length,
+	seen = _.reduce(folder.messages,function (total,msg) {
 		return total + (_.contains(msg.flags||[],"\\Seen") ? 1 : 0);
 	},0), unseen = total - seen;
 	return {
 		name: f,
 		path: f,
-    flags: {"abc":1},
+    flags: folder.flags,
     seen: seen,
     unseen: unseen,
 		messages: total,
-    permanentFlags: ["Deleted","Seen","abc"]
+    permanentFlags: folder.permanentFlags
 	};
 },
 makeMailbox = function () {
@@ -258,7 +257,7 @@ makeMailbox = function () {
 			cb(null,_.keys(data));
 		},
 		getFolder: function (folder,cb) {
-			if (data[folder]) {
+			if (folderCache[folder]) {
 				cb(null,makeFolder(folder));
 			} else {
 				cb("no folder");
@@ -465,11 +464,9 @@ makeMailbox = function () {
 	        flags: msg.flags,
 	        internaldate: msg.internaldate,
 	        raw: msg.raw
-	    };
-			data[f] = data[f] || {};
-			data[f].messages = data[f].messages || [];
-	    data[f].messages.push(message);
-	    processMessage(message, data[f]);
+	    }, folder = folderCache[f];
+	    folder.messages.push(message);
+	    processMessage(message, folder);
 			cb();
 		},
 		addFlags : function (folder,messages,flags,cb) {
@@ -709,5 +706,6 @@ module.exports.reset = function () {
 };
 module.exports.load = function (d) {
 	data = _.cloneDeep(d);
+	indexFolders();
 };
 
