@@ -27,16 +27,6 @@ getMailbox = function(path) {
 checkFolderExists = function (folder) {
 	return folderCache[folder] !== undefined;
 },
-checkMessagesExist = function (folder,messages) {
-	var valid = true;
-	_.each(messages,function (item) {
-		if (folderCache[folder].messages.length < item) {
-			valid = false;
-			return false;
-		}
-	});
-	return valid;
-},
 
 
 
@@ -469,76 +459,89 @@ makeMailbox = function () {
 	    processMessage(message, folder);
 			cb();
 		},
-		addFlags : function (folder,messages,flags,cb) {
+		addFlags : function (folder,messages,isUid,flags,cb) {
 			var ret = [];
-			// check that the folder and messages exist and system flags
+			// check that the folder exists
 			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
-			if (!checkMessagesExist(folder,messages)) {return cb("Invalid messages");}
 			// now add the flags
-			_.each(messages,function (msg) {
-				var message = folderCache[folder].messages[msg-1];
-		    [].concat(flags).forEach(function(flag) {
+			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				// make sure that the messages exist
+				if (!messages || messages.length <= 0) {
+					return cb("Invalid messages");
+				}
+				_.each(messages,function (message) {
+			    [].concat(flags).forEach(function(flag) {
 
-		        // Ignore if it is not in allowed list and only permament flags are allowed to use
-		        if (folderCache[folder].permanentFlags.indexOf(flag) < 0 && !folderCache[folder].allowPermanentFlags) {
-		            return;
-		        }
+			        // Ignore if it is not in allowed list and only permament flags are allowed to use
+			        if (folderCache[folder].permanentFlags.indexOf(flag) < 0 && !folderCache[folder].allowPermanentFlags) {
+			            return;
+			        }
 
-		        if (message.flags.indexOf(flag) < 0) {
-		            message.flags.push(flag);
-		        }
-		    });
-				ret.push({index: msg, uid: message.uid, flags: message.flags});
+			        if (message[1].flags.indexOf(flag) < 0) {
+			            message[1].flags.push(flag);
+			        }
+			    });
+					ret.push({index: message[0], uid: message[1].uid, flags: message[1].flags});
+				});
+				cb(null,ret);
 			});
-			cb(null,ret);
 		},
-		removeFlags : function (folder,messages,flags,cb) {
+		removeFlags : function (folder,messages,isUid,flags,cb) {
 			var ret = [];
-			// check that the folder and messages exist
+			// check that the folder exists
 			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
-			if (!checkMessagesExist(folder,messages)) {return cb("Invalid messages");}
-			_.each(messages,function (msg) {
-				var message = folderCache[folder].messages[msg-1];
-		    [].concat(flags).forEach(function(flag) {
+			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				// make sure that the messages exist
+				if (!messages || messages.length <= 0) {
+					return cb("Invalid messages");
+				}
+				_.each(messages,function (message) {
+					[].concat(flags).forEach(function(flag) {
 						
-		        if (message.flags.indexOf(flag) >= 0) {
-		            for (var i = 0; i < message.flags.length; i++) {
-		                if (message.flags[i] === flag) {
-		                    message.flags.splice(i, 1);
+		        if (message[1].flags.indexOf(flag) >= 0) {
+		            for (var i = 0; i < message[1].flags.length; i++) {
+		                if (message[1].flags[i] === flag) {
+		                    message[1].flags.splice(i, 1);
 		                    break;
 		                }
 		            }
-		        }
-		    });
-				ret.push({index: msg, uid: message.uid, flags: message.flags});
+			        }
+			    });
+					ret.push({index: message[0], uid: message[1].uid, flags: message[1].flags});
+				});
+				cb(null,ret);
 			});
 			// callback without error, but with the new data
-			cb(null,ret);
 		},
-		replaceFlags : function (folder,messages,flags,cb) {
+		replaceFlags : function (folder,messages,isUid,flags,cb) {
 			var ret = [];
-			// check that the folder and messages exist
+			// check that the folder exists
 			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
-			if (!checkMessagesExist(folder,messages)) {return cb("Invalid messages");}
 			
 			// now replace all of the flags
-			_.each(messages,function (msg) {
-		    var messageFlags = [], message = folderCache[folder].messages[msg-1];
-		    [].concat(flags).forEach(function(flag) {
+			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				// make sure that the messages exist
+				if (!messages || messages.length <= 0) {
+					return cb("Invalid messages");
+				}
+				_.each(messages,function (message) {
+			    var messageFlags = [];
+			    [].concat(flags).forEach(function(flag) {
 
-		        // Ignore if it is not in allowed list and only permament flags are allowed to use
-		        if (folderCache[folder].permanentFlags.indexOf(flag) < 0 && !folderCache[folder].allowPermanentFlags) {
-		            return;
-		        }
+			        // Ignore if it is not in allowed list and only permament flags are allowed to use
+			        if (folderCache[folder].permanentFlags.indexOf(flag) < 0 && !folderCache[folder].allowPermanentFlags) {
+			            return;
+			        }
 
-		        if (messageFlags.indexOf(flag) < 0) {
-		            messageFlags.push(flag);
-		        }
-		    });
-		    message.flags = messageFlags;
-				ret.push({index: msg, uid: message.uid, flags: message.flags});
+			        if (messageFlags.indexOf(flag) < 0) {
+			            messageFlags.push(flag);
+			        }
+			    });
+			    message[1].flags = messageFlags;
+					ret.push({index: message[0], uid: message[1].uid, flags: message[1].flags});
+				});
+				cb(null, ret);
 			});
-			cb(null, ret);
 		},
 		listMessages: function (folder,cb) {
 			cb();
