@@ -4,28 +4,44 @@ var imapper = require("./resources/init"),
 	FOLDER = "INBOX",
 	MAILBOX = "testuser",
 	TS = new Date().getTime(),
-	storage = {mailbox: sinon.stub()},
+	mstub = sinon.stub(),
+	storage = function () {
+		return {mailbox: mstub};
+	},
 	mailboxStub = {
 		folders: sinon.stub(),
-		get: sinon.stub(),
-		create: sinon.stub()
+		getFolder: sinon.stub(),
+		createFolder: sinon.stub(),
+		delFolder: sinon.stub(),
+		renameFolder: sinon.stub(),
+		createMessage: sinon.stub(),
+		listMessages: sinon.stub(),
+		getMessages: sinon.stub(),
+		getMessageRange: sinon.stub(),
+		delMessage: sinon.stub(),
+		moveMessage: sinon.stub(),
+		copyMessage: sinon.stub(),
+		addFlags: sinon.stub(),
+		replaceFlags: sinon.stub(),
+		removeFlags: sinon.stub(),
+		addProperties: sinon.stub(),
+		removeProperties: sinon.stub(),
+		replaceProperties: sinon.stub(),
+		setFolderSpecialUse: sinon.stub(),
+		expunge: sinon.stub(),
+		getNamespaces: sinon.stub(),
+		searchMessages: sinon.stub()
 	},
 	folderStub = {
-		properties: {
-			id: FOLDER
-		},
+		properties: {},
+		id: FOLDER,
+		flags: ["abc"],
 		status: {
       flags: {"abc":1},
       seen: 1,
       unseen: 0,
       permanentFlags: ["Deleted","Seen","abc"]
-    },
-		del: sinon.stub(),
-		rename: sinon.stub(),
-		createMessage: sinon.stub(),
-		list: sinon.stub(),
-		search: sinon.stub(),
-		get: sinon.stub()
+    }
 	},
 	messageStub = {
 		properties: {
@@ -37,27 +53,33 @@ var imapper = require("./resources/init"),
 		headers_url: "http://localhost/headers",
 		html: "<html><body><h1>Message</h1></body></html>",
 		html_url: "http://localhost/html",
-		attachments: ["Attachment1","Attachment2"],
-		del: sinon.stub(),
-		move: sinon.stub(),
-		read: sinon.stub(),
-		star: sinon.stub()
+		attachments: ["Attachment1","Attachment2"]
 	}
 ;
 
-storage.mailbox.returns(mailboxStub);
-mailboxStub.get.callsArgWith(1,null,folderStub);
-folderStub.del.callsArg(0);
-folderStub.rename.callsArg(1);
-folderStub.createMessage.callsArgWith(1,null,messageStub);
-folderStub.list.callsArgWith(0,null,[FOLDER]);
-folderStub.search.callsArgWith(1,null,[messageStub.id]);
-folderStub.get.callsArgWith(1,null,messageStub);
-messageStub.del.callsArg(0);
-messageStub.move.callsArg(1);
-messageStub.read.callsArg(1);
-messageStub.star.callsArg(1);
-
+mstub.returns(mailboxStub);
+mailboxStub.folders.callsArgWith(0,null,[folderStub]);
+mailboxStub.getFolder.callsArgWith(1,null,folderStub);
+mailboxStub.createFolder.callsArgWith(1,null,folderStub);
+mailboxStub.delFolder.callsArg(1);
+mailboxStub.renameFolder.callsArg(2);
+mailboxStub.createMessage.callsArg(2);
+mailboxStub.listMessages.callsArgWith(1,null,[messageStub]);
+mailboxStub.getMessages.callsArgWith(3,null,[messageStub]);
+mailboxStub.getMessageRange.callsArgWith(3,null,[messageStub]);
+mailboxStub.delMessage.callsArg(2);
+mailboxStub.moveMessage.callsArg(3);
+mailboxStub.copyMessage.callsArg(3);
+mailboxStub.addFlags.callsArg(4);
+mailboxStub.replaceFlags.callsArg(4);
+mailboxStub.removeFlags.callsArg(4);
+mailboxStub.addProperties.callsArg(5);
+mailboxStub.replaceProperties.callsArg(5);
+mailboxStub.removeProperties.callsArg(5);
+mailboxStub.setFolderSpecialUse.callsArg(2);
+mailboxStub.expunge.callsArg(3);
+mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
+mailboxStub.searchMessages.callsArgWith(2,null,[messageStub]);
 
 
 
@@ -91,12 +113,12 @@ module.exports["Storage plugin defined"] = {
 	        "ZZ LOGOUT"
 	    ];
 
-			storage.mailbox.reset();
+			mstub.reset();
 	    mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
 	        resp = resp.toString();
 	        test.ok(resp.indexOf("\nA2 OK") >= 0);
-					test.ok(storage.mailbox.calledOnce);
-					test.equal(storage.mailbox.getCall(0).args[0],MAILBOX);
+					test.ok(mstub.calledOnce);
+					test.equal(mstub.getCall(0).args[0],MAILBOX);
 	        test.done();
 	    }).bind(this));
     },
@@ -107,29 +129,28 @@ module.exports["Storage plugin defined"] = {
 	        "ZZ LOGOUT"
 	    ];
 
-			storage.mailbox.reset();
+			mstub.reset();
 	    mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
 	        resp = resp.toString();
 	        test.ok(resp.indexOf("\nA2 OK") >= 0);
-					test.ok(storage.mailbox.calledOnce);
-					test.equal(storage.mailbox.getCall(0).args[0],MAILBOX);
+					test.ok(mstub.calledOnce);
+					test.equal(mstub.getCall(0).args[0],MAILBOX);
 	        test.done();
 	    }).bind(this));
     },
 		
-		"SELECT should call mailbox.get": function (test) {
+		"SELECT should call mailbox.getFolder": function (test) {
 	    var user = "testuser", pass = "testpass", cmds = ["A1 CAPABILITY",
 	        "A2 LOGIN "+user+' '+pass,
 					"A3 SELECT INBOX",
 	        "ZZ LOGOUT"
 	    ];
-
-			mailboxStub.get.reset();
+			mailboxStub.getFolder.reset();
 	    mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
 	        resp = resp.toString();
 	        test.ok(resp.indexOf("\nA3 OK") >= 0);
-					test.ok(mailboxStub.get.calledOnce);
-					test.equal(mailboxStub.get.getCall(0).args[0],"INBOX");
+					test.ok(mailboxStub.getFolder.calledOnce);
+					test.equal(mailboxStub.getFolder.getCall(0).args[0],"INBOX");
 	        test.done();
 	    }).bind(this));
 		}
