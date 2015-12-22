@@ -49,7 +49,7 @@ module.exports["imapper tests"] = {
             test.done();
         }).bind(this));
     },
-
+/*
     "SEARCH X-GM-MSGID": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
@@ -64,7 +64,7 @@ module.exports["imapper tests"] = {
 
             test.done();
         }).bind(this));
-    },
+    },*/
 
     "SEARCH X-GM-LABELS": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",

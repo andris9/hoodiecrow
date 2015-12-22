@@ -29,6 +29,7 @@
     "grunt-contrib-nodeunit": "~0.4.1",
     "inbox": "*",
     "lodash": "^3.10.1",
+    "moment": "^2.10.6",
     "sinon": "^1.17.2"
   },
   "author": "Avi Deitcher http://github.com/deitch",

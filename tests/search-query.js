@@ -39,7 +39,7 @@ module.exports["Query parsing tests"] = {
     },
 
     "SINCE": function(test) {
-			test.deepEqual(query("SINCE \"14-Sep-2013\""),{date:{gt:"14-Sep-2013"}});
+			test.deepEqual(query("SINCE \"14-Sep-2013\""),{date:{ge:"14-Sep-2013"}});
 			test.done();
     },
 
@@ -174,17 +174,17 @@ module.exports["Query parsing tests"] = {
     },
 
     "SENTBEFORE": function(test) {
-			test.deepEqual(query("SENTBEFORE \"14-Sep-2013\""),{headers:{sent:{lt:"14-Sep-2013"}}});
+			test.deepEqual(query("SENTBEFORE \"14-Sep-2013\""),{headers:{date:{lt:"14-Sep-2013"}}});
 			test.done();
     },
 
     "SENTON": function(test) {
-			test.deepEqual(query("SENTON \"14-Sep-2013\""),{headers:{sent:{eq:"14-Sep-2013"}}});
+			test.deepEqual(query("SENTON \"14-Sep-2013\""),{headers:{date:{eq:"14-Sep-2013"}}});
 			test.done();
     },
 
     "SENTSINCE": function(test) {
-			test.deepEqual(query("SENTSINCE \"14-Sep-2013\""),{headers:{sent:{gt:"14-Sep-2013"}}});
+			test.deepEqual(query("SENTSINCE \"14-Sep-2013\""),{headers:{date:{ge:"14-Sep-2013"}}});
 			test.done();
     },
 

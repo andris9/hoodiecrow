@@ -149,7 +149,7 @@ Regular expression searching is **not** supported.
 Date searches, notably `{"headers":{"date":value}}` (`Date:` header) and `{"date":value}` (internal date), the `value` accepted is an object that can have one of three options:
 
 * `{"lt": date}`: item is before `date`, ignoring time and timezone
-* `{"gt": date}`: item is after `date`, ignoring time and timezone
+* `{"ge": date}`: item is on or after `date`, ignoring time and timezone
 * `{"eq": date}`: item is on `date`, ignoring time and timezone
 
 E.g.

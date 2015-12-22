@@ -1,4 +1,6 @@
-var _ = require('lodash'), async = require('async'),
+var _ = require('lodash'), async = require('async'), moment = require('moment'),
+mimeParser = require("../../lib/mimeparser"),
+
 
 server,
 messageHandlers,
@@ -27,6 +29,322 @@ getMailbox = function(path) {
 
 checkFolderExists = function (folder) {
 	return folderCache[folder] !== undefined;
+},
+
+getMessageRange = function (messages,range, isUid) {
+  range = (range || "").toString();
+  var result = [],
+      rangeParts = range.split(","),
+      uid,
+      totalMessages = messages.length,
+      maxUid = 0,
+
+      inRange = function(nr, ranges, total) {
+          var range, from, to;
+          for (var i = 0, len = ranges.length; i < len; i++) {
+              range = ranges[i];
+              to = range.split(":");
+              from = to.shift();
+              if (from === "*") {
+                  from = total;
+              }
+              from = Number(from) || 1;
+              to = to.pop() || from;
+              to = Number(to === "*" && total || to) || from;
+
+              if (nr >= Math.min(from, to) && nr <= Math.max(from, to)) {
+                  return true;
+              }
+          }
+          return false;
+      };
+  messages.forEach(function(message) {
+      if (message.uid > maxUid) {
+          maxUid = message.uid;
+      }
+  });
+
+  for (var i = 0, len = messages.length; i < len; i++) {
+      uid = messages[i].uid || 1;
+      if (inRange(isUid ? uid : i + 1, rangeParts, isUid ? maxUid : totalMessages)) {
+          result.push([i + 1, messages[i]]);
+      }
+  }
+	return result;
+},
+
+search = function (folder,query) {
+	var messageSource = (folderCache[folder.path]||{}).messages, indexCache = {},
+	totalResults = [],
+  searchFlags = function(messages, flag, negate) {
+      var results = [];
+      messages.forEach(function(message) {
+          if (
+              (!negate && message.flags.indexOf(flag) >= 0) ||
+              (negate && message.flags.indexOf(flag) < 0)) {
+              results.push(message);
+          }
+      });
+      return results;
+  },
+
+  searchHeaders = function(key, value, includeEmpty) {
+      var results = [], compfn, date;
+      key = (key || "").toString().toLowerCase();
+			if (key === "date") {
+				if (value.lt) {
+					date = moment(value.lt);
+					compfn = function (d) {
+						var m = moment(d);
+						return m.diff(date) < 0 && m.date() !== date.date();
+					};
+				} else if (value.ge) {
+					date = moment(value.ge);
+					compfn = function (d) {
+						var m = moment(d);
+						return m.diff(date,'days') > 0 || (m.diff(date,'days') === 0 && m.date() === date.date());
+					};
+				} else if (value.eq) {
+					date = moment(value.eq);
+					compfn = function (d) {
+						var m = moment(d);
+						return m.diff(date,'days') === 0 && m.date() === date.date();
+					};
+				}
+				if (compfn) {
+	        results = _.reduce(messageSource,function(total, message) {
+	            if (!message.parsed) {
+	                message.parsed = mimeParser(message.raw || "");
+	            }
+	            var messageDate = message.parsed.parsedHeader.date || message.internaldate;
+	            if (compfn(messageDate)) {
+	                total.push(message);
+	            }
+							return total;
+	        },[]);
+				}
+			} else {
+	      value = (value || "").toString();
+	      if (!value && !includeEmpty) {
+	          return [];
+	      }
+
+	      messageSource.forEach(function(message) {
+	          if (!message.parsed) {
+	              message.parsed = mimeParser(message.raw || "");
+	          }
+	          var headers = (message.parsed.header || []),
+	              parts,
+	              lineKey, lineValue;
+
+	          for (var j = 0, len = headers.length; j < len; j++) {
+	              parts = headers[j].split(":");
+	              lineKey = (parts.shift() || "").trim().toLowerCase();
+	              lineValue = (parts.join(":") || "");
+
+	              if (lineKey === key && (!value || lineValue.toLowerCase().indexOf(value.toLowerCase()) >= 0)) {
+	                  results.push(message);
+	                  return;
+	              }
+	          }
+	      });
+			}
+      return results;
+  },
+
+  queryHandlers = {
+
+
+			"index": function (value) {
+        return getMessageRange(messageSource, value, false).map(function(item) {
+            return item[1];
+        });
+			},
+			"uid": function (value) {
+        return getMessageRange(messageSource, value, true).map(function(item) {
+            return item[1];
+        });
+			},
+			"headers": function (value) {
+				var results = [];
+				if (value) {
+					results = _.reduce(value,function (total, val, header) {
+						return total.concat(searchHeaders(header,val));
+					},[]);
+				}
+				return results;
+			},
+			"date": function (value) {
+        var results = [], date, compfn = null;
+				if (value) {
+					if (value.ge) {
+						date = moment(value.ge);
+						compfn = function (d) {
+							var m = moment(d);
+							return m.diff(date,'days') > 0 || (m.diff(date,'days') === 0 && m.date() === date.date());
+						};
+					} else if (value.lt) {
+						date = moment(value.lt);
+						compfn = function (d) {
+							var m = moment(d);
+							return m.diff(date) < 0 && m.date() !== date.date();
+						};
+					} else if (value.eq) {
+						date = moment(value.eq);
+						compfn = function (d) {
+							var m = moment(d);
+							return m.diff(date,'days') === 0 && m.date() === date.date();
+						};
+					}
+				}
+				if (compfn) {
+	        messageSource.forEach(function(message) {
+	            if (compfn(message.internaldate)) {
+	                results.push(message);
+	            }
+	        });
+				}
+        return results;
+			},
+			"body": function (value) {
+        var results = [];
+        value = (value || "").toString();
+        if (!value) {
+            return [];
+        }
+
+        messageSource.forEach(function(message) {
+            if (!message.parsed) {
+                message.parsed = mimeParser(message.raw || "");
+            }
+            if ((message.parsed.text || "").toLowerCase().indexOf(value.toLowerCase()) >= 0) {
+                results.push(message);
+            }
+        });
+        return results;
+			},
+			"text": function (value) {
+        var results = [];
+        value = (value || "").toString();
+        if (!value) {
+            return [];
+        }
+
+        messageSource.forEach(function(message) {
+            if ((message.raw || "").toString().toLowerCase().indexOf(value.toLowerCase()) >= 0) {
+                results.push(message);
+            }
+        });
+        return results;
+			},
+			"flags": function (value) {
+        var messages = messageSource, result = _.reduce([].concat(value || []), function (total,flag) {
+					var ret = [];
+					if (typeof(flag) === "string") {
+						ret = searchFlags(total, flag, false);
+					} else if (flag.not) {
+						ret = searchFlags(total, flag.not, true);
+					}
+        	return (ret || []);
+        },messages);
+				return result;
+			},
+			"size":function (value) {
+        var results = [], compfn = null, size;
+				if (value) {
+					if (value.gt) {
+						size = Number(value.gt);
+						compfn = function (c) {
+							return c > size;
+						};
+					} else if (value.lt) {
+						size = Number(value.lt);
+						compfn = function (c) {
+							return c < size;
+						};
+					} else if (value.eq) {
+						size = Number(value.eq);
+						compfn = function (c) {
+							return c === size;
+						};
+					}
+				}
+				if (compfn) {
+	        messageSource.forEach(function(message) {
+	            if (compfn((message.raw || "").length)) {
+	                results.push(message);
+	            }
+	        });
+				}
+        return results;
+			},
+			"or": function (value) {
+				// just take the results of either of 2 of them
+				var results = _.reduce(value,function (total,val,key) {
+					return total.concat( queryHandlers[key] ? queryHandlers[key](val)||[] : []  );
+				},[]);
+				return results;
+			}
+  };
+	
+	
+/*	
+  Object.keys(connection.server.searchHandlers).forEach(function(key) {
+
+      // if handler takes more than 3 params (mailbox, message, i), use the remaining as value params
+      if (!(key in queryParams) && connection.server.searchHandlers[key].length > 3) {
+          queryParams[key] = [];
+          for (var i = 0, len = connection.server.searchHandlers[key].length - 3; i < len; i++) {
+              queryParams[key].push("VALUE");
+          }
+      }
+
+      queryHandlers[key] = function() {
+          var args = Array.prototype.slice.call(arguments),
+              results = [];
+
+          // check all messages against the user defined function
+          messageSource.forEach(function(message, i) {
+              if (connection.server.searchHandlers[key].apply(null, [connection, message, i + 1].concat(args))) {
+                  nrCache[message.uid] = i + 1;
+                  results.push(message);
+              }
+          });
+          return results;
+      };
+
+  });
+	*/
+	
+	// now need to do correct processing
+  _.forIn(query,function(value, key) {
+
+      if (!queryHandlers[key]) {
+          totalResults = null;
+					return false;
+      } else {
+		    var handler = queryHandlers[key],
+		        currentResult = handler && handler(value) || [];
+
+        totalResults = totalResults.concat(currentResult || []);
+      }
+
+  });
+	if (totalResults === null) {
+		return null;
+	} else {
+		// build the indexCache
+		totalResults = _.uniq(totalResults);
+		_.each(messageSource,function (message,i) {
+			if (_.includes(totalResults,message)) {
+				indexCache[message.uid] = i+1;
+			}
+		});
+	  return {
+				list: totalResults,
+	      numbers: indexCache
+	  };	
+	}
 },
 
 
@@ -551,6 +869,7 @@ makeMailbox = function () {
 			});
 		},
 		addProperties : function (folder,messages,isUid,properties,cb) {
+			var ret = [];
 			// check that the folder exists
 			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
 			// now add the flags
@@ -560,12 +879,24 @@ makeMailbox = function () {
 					return cb("Invalid messages");
 				}
 				_.each(messages,function (message) {
-					message[1].properties = _.extend(message[1].properties,properties);
+					_.each(properties,function (value,key) {
+						if (!message[1].properties[key]) {
+							message[1].properties[key] = value;
+						} else if (_.isArray(message[1].properties[key])) {
+							message[1].properties[key] = message[1].properties[key].concat(value||[]);
+						} else if (typeof(message[1].properties[key]) === "string") {
+							message[1].properties[key] = [].concat(message[1].properties[key],value||[]);
+						} else {
+							message[1].properties[key] = value;
+						}
+					});
+					ret.push({index: message[0], uid: message[1].uid, properties: message[1].properties});
 				});
-				cb(null);
+				cb(null,ret);
 			});
 		},
 		removeProperties : function (folder,messages,isUid,properties,cb) {
+			var ret = [];
 			// check that the folder exists
 			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
 			this.getMessageRange(folder,messages, isUid, function (err,messages) {
@@ -574,9 +905,14 @@ makeMailbox = function () {
 					return cb("Invalid messages");
 				}
 				_.each(messages,function (message) {
-					message[1].properties = _.omit(message[1].properties,properties);
+					_.each(properties,function (value,key) {
+						message[1].properties[key] = _.reduce([].concat(value||[]),function (list,toRemove) {
+							return _.without(list,toRemove);
+						},message[1].properties[key] || []);
+					});
+					ret.push({index: message[0], uid: message[1].uid, properties: message[1].properties});
 				});
-				cb(null);
+				cb(null,ret);
 			});
 			// callback without error, but with the new data
 		},
@@ -586,66 +922,37 @@ makeMailbox = function () {
 			
 			// now replace all of the flags
 			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				var ret = [];
 				// make sure that the messages exist
 				if (!messages || messages.length <= 0) {
 					return cb("Invalid messages");
 				}
 				_.each(messages,function (message) {
-			    message[1].properties = properties;
+					_.each(properties,function (value,key) {
+						message[1].properties[key] = value;
+					});
+					ret.push({index: message[0], uid: message[1].uid, properties: message[1].properties});
 				});
-				cb(null);
+				cb(null,ret);
 			});
 		},
 		listMessages: function (folder,cb) {
 			cb();
 		},
-		searchMessages: function (folder,search,cb) {
-			cb();
+		searchMessages: function (folder,query,cb) {
+			var results = search(folder,query);
+			if (results) {
+				cb(null,results);
+			} else {
+				cb("Bad search term");
+			}
 		},
 		getMessages: function (folder,msg,cb) {
 			cb(null,makeMessage());
 		},
-		getMessageRange: function (f,range, isUid, cb) {
-	    range = (range || "").toString();
-	    var result = [],
-	        rangeParts = range.split(","),
-	        messages = data[f].messages || [],
-	        uid,
-	        totalMessages = messages.length,
-	        maxUid = 0,
-
-	        inRange = function(nr, ranges, total) {
-	            var range, from, to;
-	            for (var i = 0, len = ranges.length; i < len; i++) {
-	                range = ranges[i];
-	                to = range.split(":");
-	                from = to.shift();
-	                if (from === "*") {
-	                    from = total;
-	                }
-	                from = Number(from) || 1;
-	                to = to.pop() || from;
-	                to = Number(to === "*" && total || to) || from;
-
-	                if (nr >= Math.min(from, to) && nr <= Math.max(from, to)) {
-	                    return true;
-	                }
-	            }
-	            return false;
-	        };
-	    messages.forEach(function(message) {
-	        if (message.uid > maxUid) {
-	            maxUid = message.uid;
-	        }
-	    });
-
-	    for (var i = 0, len = messages.length; i < len; i++) {
-	        uid = messages[i].uid || 1;
-	        if (inRange(isUid ? uid : i + 1, rangeParts, isUid ? maxUid : totalMessages)) {
-	            result.push([i + 1, messages[i]]);
-	        }
-	    }
-			cb(null,result);
+		getMessageRange: function (folder, range, isUid, cb) {
+			var messages = folderCache[folder].messages || [];
+			return cb(null,getMessageRange(messages,range,isUid,cb));
 		},
 		matchFolders : function(reference, match, callback) {
 		    var includeINBOX = false;
