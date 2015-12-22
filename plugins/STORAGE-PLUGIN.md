@@ -74,7 +74,6 @@ The returned `mailbox` object has the following properties and methods. All call
 * `renameFolder(folder,name,callback)`: change the name of the named folder to `newName`. If it fails, pass an error to the `err` argument of the callback.
 * `createMessage(folder,content,callback)`: add a message to the named folder with the content object `content`. If it fails, pass an error to the `err` argument of the callback. 
 * `listMessages(folder,callback)`: retrieve an array of the IDs of all messages in the named folder, or an empty array for none. Pass the array to the callback as the `data` argument.
-* `searchMessages(folder,pattern,callback)`: retrieve an array of the IDs of all messages in the named folder that match the search pattern, or an empty array for none. Pass the array to the callback as the `data` argument. See below for search details.
 * `getMessages(folder,ids,[options,]callback)`: retrieve actual message objects with their data for the given `ids` from the named folder. Pass the resultant `message` objects to the `data` argument of the callback. See below for details.
 * `getMessageRange(folder,range,isUid,callback)`: retrieve actual message objects with their data based on a `range` from a given folder. The `range` is index, unless `isUid` is `true`, in which case it is UID(s). Pass the resultant `message` objects to the `data` argument of the callback. See below for details.
 * `delMessage(folder,id,callback)`: delete this message. If it deletes or moves to trash is dependent on the implementation. 
@@ -85,9 +84,13 @@ The returned `mailbox` object has the following properties and methods. All call
 * `addFlags(folder,id,isUid,flags,callback)`: add the flags in `flags` to message(s) `id` in folder `folder`. `id` is index in the folder if `isUid` is false or undefined, UID if `true`. `flags` must be an array of String flags. `id` must be array of IDs. If the message(s) or folder do not exist, return an error. If the flags already exist on message, do not return an error, as this call should be idempotent. `data` returned in the callback should be an array of changed messages, each of which should be an object with the properties `index`, `uid` and `flags`.
 * `replaceFlags(folder,id,isUid,flags,callback)`: replace all of the flags in `flags` on message `id` in folder `folder` with `flags`. `id` is index in the folder if `isUid` is false or undefined, UID if `true`. `flags` must be an array of String flags. `id` must be an array of IDs. If the message(s) or folder do not exist, return an error. `data` returned in the callback should be an array of changed messages, each of which should be an object with the properties `index`, `uid` and `flags`.
 * `removeFlags(folder,id,isUid,flags,callback)`: remove the flags in `flags` from message `id` in folder `folder`. `id` is index in the folder if `isUid` is false or undefined, UID if `true`. `flags` must be an array of String flags. `id` must be an array of IDs. If the message(s) or folder do not exist, return an error. If the flags do not exist on message, do not return an error, as this call should be idempotent. `data` returned in the callback should be an array of changed messages, each of which should be an object with the properties `index`, `uid` and `flags`.
+* `addProperties(folder,id,isUid,properties,callback)`: add the properties in `properties` to message(s) `id` in folder `folder`. `id` is index in the folder if `isUid` is false or undefined, UID if `true`. `properties` must be a hash of String properties. `id` must be array of IDs. If the message(s) or folder do not exist, return an error. If the properties already exist on message, do not return an error, as this call should be idempotent. 
+* `replaceProperties(folder,id,isUid,properties,callback)`: replace all of the properties in `properties` on message `id` in folder `folder` with `properties`. `id` is index in the folder if `isUid` is false or undefined, UID if `true`. `properties` must be a hash of String flags. `id` must be an array of IDs. 
+* `removeProperties(folder,id,isUid,properties,callback)`: remove the properties in `properties` from message `id` in folder `folder`. `id` is index in the folder if `isUid` is false or undefined, UID if `true`. `properties` must be an array of String properties. `id` must be an array of IDs. If the message(s) or folder do not exist, return an error. 
 * `setFolderSpecialUse(folder,flags,callback)`: Set this folder to be special use, per RFC6514, for the given array of flags.
 * `expunge(folder,ignoreSelf,ignoreExists,callback)`: Expunge deleted messages from a given folder. 
 * `getNamespaces(callback)`: List the available namespaces.
+* `searchMessages(folder,query,callback)`: retrieve an array of the IDs - both index and UID - of all messages in the named `folder` that match the search `query`, or an empty array for none. Pass an array of objects to the callback as the `data` argument. See below for search details.
 
 #### Methods
 
@@ -105,12 +108,271 @@ If the executed command failed because it called for a missing item, the `err` i
 
 
 ##### searchMessages
+`searchMessages()` is a method to search for messages in a given folder and return the matched IDs. This section describes how to implement `searchMessages()`.
 
-The `pattern` argument to `search()` is an object each of whose keys is a field to match, while each value is a string that will be matched to that field in the message, if the field *contains* that string. For example, `{to:'mith'}` will match the following recipients: mith, smith, jim@smith.com.
+###### query parameters
+
+The `query` argument to `searchMessages()` is an object structured as follows. Each of the following is a key in the object. The value depends on the key type. If a key does not exist, then it is ignored, and any value is matched. The list is based on [rfc3501](https://tools.ietf.org/html/rfc3501#section-6.4.4).
+
+
+* `headers`: Object. Keys are headers to be checked, case-insensitive. Values are the value of the header. To check for presence of a header independent of its value, use a blank string `""`. Currently included headers:
+    * `bcc`: String.
+    * `cc`: String.
+    * `from`: String.
+    * `subject`: String.
+    * `to`: String.
+    * `date`: Object. `Date:` header is before, on or after the specified date. Matches date search format (see below).
+* `date`: Object. Return message whose internal calendar date - **not** the `From:` header - (ignoring time) is before, on or after the specified date. Matches date search format (see below).
+* `body`: String. Return messages whose body contains the given string.
+* `flags`: Array. Each element in the array is a string whose value is a flag that is set. Return messages with the specified flag set. Case-sensitive. Any flag can be included. Current global flags are:
+    * `"\Deleted"`
+    * `"\Draft"`
+    * `"\Flagged"`
+    * `"\Recent"`
+    * `"\Seen"`
+* `size`: Object. Return messages larger or smaller than the given number of bytes, depending on the object:
+    * `{'gt':bytes}`: messages larger than `bytes`
+    * `{'lt':bytes}`: messages smaller than `bytes`
+* `text`: String. Return messages whose heaers or body contain the given string.
+* `index`: String. Return messages whose index in the mailbox matches the given range. Identical to `getMessageRange(range,false)`.
+* `uid`: String. Return messages whose UID matches the given range. Syntax is identical to `getMessageRange(range,true)`.
+
+
+###### String searches
+
+For **all** search values where a string is accepted, notably `body`, `text`, and any headers, it should match if the field *contains* that string. For example, `{to:'mith'}` will match the following recipients: mith, smith, jim@smith.com.
 
 Regular expression searching is **not** supported.
 
-As of this writing, only the `subject`, `to` and `from` fields are searched. `body` and `text` will be added later.
+###### Date searches
+
+Date searches, notably `{"headers":{"date":value}}` (`Date:` header) and `{"date":value}` (internal date), the `value` accepted is an object that can have one of three options:
+
+* `{"lt": date}`: item is before `date`, ignoring time and timezone
+* `{"gt": date}`: item is after `date`, ignoring time and timezone
+* `{"eq": date}`: item is on `date`, ignoring time and timezone
+
+E.g.
+
+````json
+{
+  "headers": {"date": {"eq":"23-Nov-2013"}}
+}
+````
+
+###### Flags
+Flag searches check for a flag that is set. 
+
+Example 1: Search for all messages that have "MyFlag" and "\Deleted" set.
+
+````json
+{
+  "flags": ["MyFlag","\Deleted"]
+}
+````
+
+Example 2: Search for all messages that have "MyFlag" set and "\Deleted" not set
+
+````json
+{
+  "flags": [
+		"MyFlag",
+		{"not":"\Deleted"}
+	],
+}
+````
+
+
+**Warning:** As global flags start with a '\' character, be careful escaping them out of strings.
+
+
+###### Headers
+Search for a header that matches a particular value, or exists.
+
+Example 1: Search for all messages that have the header "X-HDG" set to "abc":
+
+````json
+{
+  "headers": {
+		"X-HDG": "abc"
+	}
+}
+````
+
+Example 2: Search for all messages that have the header "X-HDG" set to "abc", and "X-IMP" present:
+
+````json
+{
+  "headers": {
+		"X-HDG": "abc",
+		"X-IMP": "",
+	}
+}
+````
+
+Example 3: Search for all messages that have the header "X-HDG" set to "abc", and "X-IMP" not present:
+
+````json
+{
+  "headers": {
+		"X-HDG": "abc"
+		"X-IMP": {not:""},
+	}
+}
+````
+
+
+
+###### Logical NOT
+
+The default for all fields is a match, you can negate fields by changing any string value to an object with a key of `"not"` and the value matching the normal search value.
+
+The following search terms do not support logical NOT and will be ignored:
+
+* Any date searches
+* Sequence/Range searches
+* UID searches
+* ALL
+
+Examples:
+
+Match any email that has a bcc to "jason":
+
+````json
+{
+	"headers": {
+		"bcc":"jason"
+	}
+}
+````
+
+Match any email that does not have a bcc to "jason":
+
+````json
+{
+	"headers": {
+		"bcc":{"not":"jason"}
+	}
+}
+````
+
+Match any email that has a bcc to "jason" and is not from "jim":
+
+````json
+{
+	"headers": {
+		"bcc":"jason",
+		"from":{"not":"jim"}
+	}
+}
+````
+
+Match any email that has flag "ABC" set:
+
+````json
+{
+	flags: ["ABC"]
+}
+````
+
+Match any email that has flag "ABC" and "DEF" set:
+
+````json
+{
+	flags: ["ABC","DEF"]
+}
+````
+
+Match any email that has flag "ABC" or "DEF" set:
+
+````json
+{
+	flags: {or: ["ABC","DEF"]}
+}
+````
+
+Match any email that has flag "ABC" set and "DEF" not set:
+
+````json
+{
+	flags: ["ABC",{not:"DEF"}]
+}
+````
+
+Match any email that has flag "ABC" set or "DEF" not set:
+
+````json
+{
+	flags: {or: ["ABC",{not:"DEF"}]}
+}
+````
+
+
+###### Logical OR
+The default for multiple search terms is to logically AND them together. You can logically OR terms by wrapping them in an object with the key `"or"`.
+
+
+Examples:
+
+Match any email that has a bcc to "jason" or cc to "jill":
+
+````json
+{
+	"headers": {
+		"or":{
+			"bcc":"jason",
+			"cc":"jill"
+		}
+	}
+}
+````
+
+Match any email that has a bcc to "jason" or cc to "jill", and is from "sally"
+
+````json
+{
+	"headers": {
+		"or":{
+			"bcc":"jason",
+			"cc":"jill"
+		},
+		"from":"sally"
+	}
+}
+````
+
+Match any email that has a bcc to "jason" or "jill"
+
+````json
+{
+	"headers": {
+		"bcc": {"or": ["jason","jill"]}
+	}
+}
+````
+
+
+###### results
+The callback from `searchMessages()` should match the normal `function(err,data)` signature. Any error should be placed in `err`. If there is no error, `data` is expected to contain the results.
+
+* If no results match, `data` should be an empty array.
+* If there are results, `data` should be an array of objects.
+
+Each object represents a single matching message. The object must have only two properties:
+
+* `index`: The index of this message in the folder.
+* `uid`: The UID for this message.
+
+Examples:
+
+````json
+[
+  {"index":1,"uid":36578},
+  {"index":6,"uid":367722},
+  {"index":7,"uid":367723}
+]
+````
+
 
 ##### getMessages
 
@@ -206,14 +468,15 @@ The methods that return folders are expected to return objects that have the fol
 ##### Message
 The methods that return messages are expected to return objects that have the following properties:
 
-* `properties`: object with the properties of the message. Synchronous.
-* `raw`: the raw text body of the message, if option `raw` or `all` is `true`. Synchronous.
-* `raw_url`: URL to retrieve the text body of the message, if available. Synchronous.
-* `headers`: the raw text headers of the message, if option `headers` or `all` is `true`. Synchronous.
-* `headers_url`: URL to retrieve the headers of the message, if available. Synchronous.
-* `html`: the html body of the message, if option `html` or `all` is `true`. Synchronous.
-* `html_url`: URL to retrieve the html form of the message, if available. Synchronous.
-* `attachments`: an array with the attachments of the message. See below. Synchronous.
+* `properties`: Object with arbitrary properties of the message.
+* `raw`: the raw text body of the message, if option `raw` or `all` is `true`.
+* `raw_url`: URL to retrieve the text body of the message, if available.
+* `headers`: the raw text headers of the message, if option `headers` or `all` is `true`.
+* `headers_url`: URL to retrieve the headers of the message, if available.
+* `html`: the html body of the message, if option `html` or `all` is `true`.
+* `html_url`: URL to retrieve the html form of the message, if available.
+* `attachments`: an array with the attachments of the message. See below.
+* `flags`: flags of the message. Array of string.
 
 
 ###### Attachments

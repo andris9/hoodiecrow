@@ -1,6 +1,7 @@
 var _ = require('lodash'), async = require('async'),
 
 server,
+messageHandlers,
 
 rawData = {
     "INBOX": {
@@ -94,6 +95,12 @@ processMessage = function(message, mailbox) {
     }
     message.flags = [].concat(message.flags || []);
     message.uid = message.uid || mailbox.uidnext++;
+		message.properties = _.extend(message.properties||{});
+
+    // Allow plugins to process messages
+		_.each(messageHandlers,function (handler) {
+      handler(message, mailbox);
+		});
 
 },
 
@@ -456,7 +463,7 @@ makeMailbox = function () {
 	        raw: msg.raw
 	    }, folder = folderCache[f];
 	    folder.messages.push(message);
-	    processMessage(message, folder);
+			indexFolders();
 			cb();
 		},
 		addFlags : function (folder,messages,isUid,flags,cb) {
@@ -541,6 +548,52 @@ makeMailbox = function () {
 					ret.push({index: message[0], uid: message[1].uid, flags: message[1].flags});
 				});
 				cb(null, ret);
+			});
+		},
+		addProperties : function (folder,messages,isUid,properties,cb) {
+			// check that the folder exists
+			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
+			// now add the flags
+			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				// make sure that the messages exist
+				if (!messages || messages.length <= 0) {
+					return cb("Invalid messages");
+				}
+				_.each(messages,function (message) {
+					message[1].properties = _.extend(message[1].properties,properties);
+				});
+				cb(null);
+			});
+		},
+		removeProperties : function (folder,messages,isUid,properties,cb) {
+			// check that the folder exists
+			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
+			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				// make sure that the messages exist
+				if (!messages || messages.length <= 0) {
+					return cb("Invalid messages");
+				}
+				_.each(messages,function (message) {
+					message[1].properties = _.omit(message[1].properties,properties);
+				});
+				cb(null);
+			});
+			// callback without error, but with the new data
+		},
+		replaceProperties : function (folder,messages,isUid,properties,cb) {
+			// check that the folder exists
+			if (!checkFolderExists(folder)) {return cb("Invalid folder");}
+			
+			// now replace all of the flags
+			this.getMessageRange(folder,messages, isUid, function (err,messages) {
+				// make sure that the messages exist
+				if (!messages || messages.length <= 0) {
+					return cb("Invalid messages");
+				}
+				_.each(messages,function (message) {
+			    message[1].properties = properties;
+				});
+				cb(null);
 			});
 		},
 		listMessages: function (folder,cb) {
@@ -697,7 +750,8 @@ makeMailbox = function () {
 module.exports = function (s) {
 	server = s;
 	return {
-		mailbox: function () {
+		mailbox: function (box,user,handlers) {
+			messageHandlers = handlers;
 			indexFolders();
 			return makeMailbox();
 		}

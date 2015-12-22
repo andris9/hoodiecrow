@@ -1,5 +1,6 @@
 var imapper = require("./resources/init"),
-    mockClient = require("../lib/mock-client");
+    mockClient = require("../lib/mock-client"),
+		data = require('./resources/memory-storage-plugin');
 
 var IMAP_PORT = 4143,
     instance = 0;
@@ -7,8 +8,9 @@ var IMAP_PORT = 4143,
 module.exports["imapper tests"] = {
     setUp: function(done) {
         this.server = imapper({
-            plugins: ["X-GM-EXT-1"],
-            storage: {
+            plugins: ["X-GM-EXT-1"]
+        });
+				data.load({
                 "INBOX": {
                     messages: [{
                         raw: "Subject: hello 1\r\n\r\nWorld 1!",
@@ -18,9 +20,7 @@ module.exports["imapper tests"] = {
                         flags: ["\\Seen", "\\Deleted"]
                     }]
                 }
-            }
-        });
-
+            });
         this.instanceId = ++instance;
         this.server.listen(IMAP_PORT, (function() {
             done();
@@ -42,7 +42,6 @@ module.exports["imapper tests"] = {
 
         mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
             resp = resp.toString();
-
             test.ok(resp.indexOf("\nA3 OK") >= 0);
             test.ok(resp.indexOf("\n* 1 FETCH (X-GM-MSGID 1278455344230334866)\r\n" +
                 "* 2 FETCH (X-GM-MSGID 1278455344230334867)\r\n") >= 0);
