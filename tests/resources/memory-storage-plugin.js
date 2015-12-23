@@ -999,6 +999,13 @@ makeMailbox = function () {
 
 		    callback(null,result);
 		},
+		subscribeFolder: function (path,callback) {
+			if (!folderCache[path] || folderCache[path].flags.indexOf("\\Noselect") >= 0) {
+				return callback("Invalid folder");
+			}
+			folderCache[path].subscribed = true;
+			callback(null);
+		},
 		setFolderSpecialUse: function (path,attrs,callback) {
 			if (folderCache[path]) {
 				folderCache[path]["special-use"] = attrs;

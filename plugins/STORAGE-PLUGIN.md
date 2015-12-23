@@ -92,6 +92,7 @@ The returned `mailbox` object has the following properties and methods. All call
 * `expunge(folder,ignoreSelf,ignoreExists,callback)`: Expunge deleted messages from a given folder. 
 * `getNamespaces(callback)`: List the available namespaces.
 * `searchMessages(folder,query,callback)`: retrieve an array of the IDs - both index and UID - of all messages in the named `folder` that match the search `query`, or an empty array for none. Pass an array of objects to the callback as the `data` argument. See below for search details.
+* `subscribeFolder(path,callback)`: subscribe to a given folder. Should return `err` if there is an error, specifically if the folder is invalid, does not exist or is not selectable or subscribable, `null` otherwise.
 
 #### Methods
 
@@ -467,6 +468,7 @@ The methods that return folders are expected to return objects that have the fol
 * `permanentFlags`: array of strings, with each element representing a unique permanent flag in this folder
 * `messages`: integer, total number of messages in this folder.
 * `separator`: character, the separator for this folder. Separators normally are by namespace. It is up to the implementation to ensure the separator is listed on each folder object that it returns.
+* `subscribed`: boolean. Should be `true` if the user has subscribed to this folder, thus indicating it will show up in `LSUB` commands. `false` or `undefined` otherwise.
 
 ##### Message
 The methods that return messages are expected to return objects that have the following properties:
