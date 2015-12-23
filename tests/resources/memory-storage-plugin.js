@@ -335,15 +335,13 @@ search = function (folder,query) {
 	} else {
 		// build the indexCache
 		totalResults = _.uniq(totalResults);
-		_.each(messageSource,function (message,i) {
+		indexCache = _.reduce(messageSource,function (total,message,i) {
 			if (_.includes(totalResults,message)) {
-				indexCache[message.uid] = i+1;
+				total.push({uid:message.uid,index:i+1});
 			}
-		});
-	  return {
-				list: totalResults,
-	      numbers: indexCache
-	  };	
+			return total;
+		},[]);
+	  return _.uniq(indexCache);	
 	}
 },
 
