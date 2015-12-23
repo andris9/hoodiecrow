@@ -152,6 +152,8 @@ Date searches, notably `{"headers":{"date":value}}` (`Date:` header) and `{"date
 * `{"ge": date}`: item is on or after `date`, ignoring time and timezone
 * `{"eq": date}`: item is on `date`, ignoring time and timezone
 
+The value of the `date` to compare the search **must** match [RFC3501](https://tools.ietf.org/html/rfc3501#section-9) date format, which is `DD-MMM-YYYY`, e.g. "23-Nov-2015" or "01-Jan-1994".
+
 E.g.
 
 ````json

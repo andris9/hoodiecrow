@@ -20,6 +20,30 @@ uidnextCache = {}, // keep nextuid values if mailbox gets deleted
 folderCache = {},
 
 
+dateCompare = {
+	lt: function (date) {
+		date = moment(date,"DD-MMM-YYYY");
+		return function (d,format) {
+			var m = moment(d,format);
+			return m.diff(date) < 0 && m.date() !== date.date();
+		};
+	},
+	ge: function (date) {
+		date = moment(date,"DD-MMM-YYYY");
+		return function (d,format) {
+			var m = moment(d,format);
+			return m.diff(date,'days') > 0 || (m.diff(date,'days') === 0 && m.date() === date.date());
+		};
+	},
+	eq: function (date) {
+		date = moment(date,"DD-MMM-YYYY");
+		return function (d,format) {
+			var m = moment(d,format);
+			return m.diff(date,'days') === 0 && m.date() === date.date();
+		};
+	}
+},
+
 getMailbox = function(path) {
     if (path.toUpperCase() === "INBOX") {
         return folderCache.INBOX;
@@ -89,35 +113,30 @@ search = function (folder,query) {
   },
 
   searchHeaders = function(key, value, includeEmpty) {
-      var results = [], compfn, date;
+      var results = [], compfn;
       key = (key || "").toString().toLowerCase();
 			if (key === "date") {
 				if (value.lt) {
-					date = moment(value.lt);
-					compfn = function (d) {
-						var m = moment(d);
-						return m.diff(date) < 0 && m.date() !== date.date();
-					};
+					compfn = dateCompare.lt(value.lt);
 				} else if (value.ge) {
-					date = moment(value.ge);
-					compfn = function (d) {
-						var m = moment(d);
-						return m.diff(date,'days') > 0 || (m.diff(date,'days') === 0 && m.date() === date.date());
-					};
+					compfn = dateCompare.ge(value.ge);
 				} else if (value.eq) {
-					date = moment(value.eq);
-					compfn = function (d) {
-						var m = moment(d);
-						return m.diff(date,'days') === 0 && m.date() === date.date();
-					};
+					compfn = dateCompare.eq(value.eq);
 				}
 				if (compfn) {
 	        results = _.reduce(messageSource,function(total, message) {
+						var messageDate, format;
 	            if (!message.parsed) {
 	                message.parsed = mimeParser(message.raw || "");
 	            }
-	            var messageDate = message.parsed.parsedHeader.date || message.internaldate;
-	            if (compfn(messageDate)) {
+							if (message.parsed.parsedHeader.date) {
+								messageDate = message.parsed.parsedHeader.date;
+								format = "DD MMM YYYY";
+							} else {
+								messageDate = message.internaldate;
+								format = "DD-MMM-YYYY";
+							}
+	            if (compfn(messageDate,format)) {
 	                total.push(message);
 	            }
 							return total;
@@ -175,31 +194,19 @@ search = function (folder,query) {
 				return results;
 			},
 			"date": function (value) {
-        var results = [], date, compfn = null;
+        var results = [], compfn = null;
 				if (value) {
 					if (value.ge) {
-						date = moment(value.ge);
-						compfn = function (d) {
-							var m = moment(d);
-							return m.diff(date,'days') > 0 || (m.diff(date,'days') === 0 && m.date() === date.date());
-						};
+						compfn = dateCompare.ge(value.ge);
 					} else if (value.lt) {
-						date = moment(value.lt);
-						compfn = function (d) {
-							var m = moment(d);
-							return m.diff(date) < 0 && m.date() !== date.date();
-						};
+						compfn = dateCompare.lt(value.lt);
 					} else if (value.eq) {
-						date = moment(value.eq);
-						compfn = function (d) {
-							var m = moment(d);
-							return m.diff(date,'days') === 0 && m.date() === date.date();
-						};
+						compfn = dateCompare.eq(value.eq);
 					}
 				}
 				if (compfn) {
 	        messageSource.forEach(function(message) {
-	            if (compfn(message.internaldate)) {
+	            if (compfn(message.internaldate,"DD-MMM-YYYY")) {
 	                results.push(message);
 	            }
 	        });

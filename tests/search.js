@@ -128,7 +128,7 @@ module.exports["Search tests"] = {
     "SEARCH BEFORE": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
-            "A3 SEARCH BEFORE \"14-Sep-2013 UTC\"",
+            "A3 SEARCH BEFORE \"14-Sep-2013\"",
             "ZZ LOGOUT"
         ];
 
@@ -325,7 +325,7 @@ module.exports["Search tests"] = {
     "SEARCH ON": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
-            "A3 SEARCH ON \"14-Sep-2013 UTC\"",
+            "A3 SEARCH ON \"14-Sep-2013\"",
             "ZZ LOGOUT"
         ];
 
@@ -385,7 +385,7 @@ module.exports["Search tests"] = {
     "SEARCH SENTBEFORE": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
-            "A3 SEARCH SENTBEFORE \"14-Sep-2013 UTC\"",
+            "A3 SEARCH SENTBEFORE \"14-Sep-2013\"",
             "ZZ LOGOUT"
         ];
 
@@ -400,7 +400,7 @@ module.exports["Search tests"] = {
     "SEARCH SENTON": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
-            "A3 SEARCH SENTON \"13-Sep-2013 UTC\"",
+            "A3 SEARCH SENTON \"13-Sep-2013\"",
             "ZZ LOGOUT"
         ];
 
@@ -415,7 +415,7 @@ module.exports["Search tests"] = {
     "SEARCH SENTSINCE": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
-            "A3 SEARCH SENTSINCE \"14-Sep-2013 UTC\"",
+            "A3 SEARCH SENTSINCE \"14-Sep-2013\"",
             "ZZ LOGOUT"
         ];
 
@@ -430,7 +430,7 @@ module.exports["Search tests"] = {
     "SEARCH SINCE": function(test) {
         var cmds = ["A1 LOGIN testuser testpass",
             "A2 SELECT INBOX",
-            "A3 SEARCH SINCE \"14-Sep-2013 UTC\"",
+            "A3 SEARCH SINCE \"14-Sep-2013\"",
             "ZZ LOGOUT"
         ];
 
