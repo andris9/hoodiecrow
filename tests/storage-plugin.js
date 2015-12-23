@@ -53,7 +53,8 @@ var imapper = require("./resources/init"),
 		headers_url: "http://localhost/headers",
 		html: "<html><body><h1>Message</h1></body></html>",
 		html_url: "http://localhost/html",
-		attachments: ["Attachment1","Attachment2"]
+		attachments: ["Attachment1","Attachment2"],
+		uid: 265
 	}
 ;
 
@@ -79,7 +80,7 @@ mailboxStub.removeProperties.callsArg(5);
 mailboxStub.setFolderSpecialUse.callsArg(2);
 mailboxStub.expunge.callsArg(3);
 mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
-mailboxStub.searchMessages.callsArgWith(2,null,[messageStub]);
+mailboxStub.searchMessages.callsArgWith(2,null,[{index:1,uid:messageStub.uid}]);
 
 
 
@@ -143,6 +144,21 @@ module.exports["Storage plugin defined"] = {
 	    var user = "testuser", pass = "testpass", cmds = ["A1 CAPABILITY",
 	        "A2 LOGIN "+user+' '+pass,
 					"A3 SELECT INBOX",
+	        "ZZ LOGOUT"
+	    ];
+			mailboxStub.getFolder.reset();
+	    mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+	        resp = resp.toString();
+	        test.ok(resp.indexOf("\nA3 OK") >= 0);
+					test.ok(mailboxStub.getFolder.calledOnce);
+					test.equal(mailboxStub.getFolder.getCall(0).args[0],"INBOX");
+	        test.done();
+	    }).bind(this));
+		},
+		"EXAMINE should call mailbox.getFolder": function (test) {
+	    var user = "testuser", pass = "testpass", cmds = ["A1 CAPABILITY",
+	        "A2 LOGIN "+user+' '+pass,
+					"A3 EXAMINE INBOX",
 	        "ZZ LOGOUT"
 	    ];
 			mailboxStub.getFolder.reset();
