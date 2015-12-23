@@ -10,6 +10,8 @@ var imapper = require("./resources/init"),
 	},
 	mailboxStub = {
 		folders: sinon.stub(),
+		matchFolders: sinon.stub(),
+		namespace: sinon.stub(),
 		getFolder: sinon.stub(),
 		createFolder: sinon.stub(),
 		delFolder: sinon.stub(),
@@ -41,7 +43,9 @@ var imapper = require("./resources/init"),
       seen: 1,
       unseen: 0,
       permanentFlags: ["Deleted","Seen","abc"]
-    }
+    },
+		separator: '/',
+		path: 'INBOX'
 	},
 	messageStub = {
 		properties: {
@@ -60,6 +64,8 @@ var imapper = require("./resources/init"),
 
 mstub.returns(mailboxStub);
 mailboxStub.folders.callsArgWith(0,null,[folderStub]);
+mailboxStub.matchFolders.callsArgWith(2,null,[folderStub]);
+mailboxStub.namespace.callsArgWith(1,null,{separator:'/'});
 mailboxStub.getFolder.callsArgWith(1,null,folderStub);
 mailboxStub.createFolder.callsArgWith(1,null,folderStub);
 mailboxStub.delFolder.callsArg(1);
@@ -169,10 +175,64 @@ module.exports["Storage plugin defined"] = {
 					test.equal(mailboxStub.getFolder.getCall(0).args[0],"INBOX");
 	        test.done();
 	    }).bind(this));
+		},
+		"LIST with argument should call mailbox.matchFolders": function (test) {
+	    var user = "testuser", pass = "testpass", cmds = ["A1 CAPABILITY",
+	        "A2 LOGIN "+user+' '+pass,
+          "A3 LIST \"\" \"*\"",
+	        "ZZ LOGOUT"
+	    ];
+			mailboxStub.matchFolders.reset();
+	    mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+	        resp = resp.toString();
+	        test.ok(resp.indexOf("\nA3 OK") >= 0);
+					test.ok(mailboxStub.matchFolders.calledOnce);
+					test.equal(mailboxStub.matchFolders.getCall(0).args[0],"");
+					test.equal(mailboxStub.matchFolders.getCall(0).args[1],"*");
+	        test.done();
+	    }).bind(this));
+		},
+		"LIST without argument should call mailbox.namespace": function (test) {
+	    var user = "testuser", pass = "testpass", cmds = ["A1 CAPABILITY",
+	        "A2 LOGIN "+user+' '+pass,
+          "A3 LIST \"\" \"\"",
+	        "ZZ LOGOUT"
+	    ];
+			mailboxStub.namespace.reset();
+	    mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+	        resp = resp.toString();
+	        test.ok(resp.indexOf("\nA3 OK") >= 0);
+					test.ok(mailboxStub.namespace.calledOnce);
+					test.equal(mailboxStub.namespace.getCall(0).args[0],"");
+	        test.done();
+	    }).bind(this));
 		}
 };
 
 /*
    CREATE, DELETE, RENAME, SUBSCRIBE, UNSUBSCRIBE, LIST, LSUB,
    STATUS, APPEND, SEARCH, FETCH
+
+mailboxStub.createFolder.callsArgWith(1,null,folderStub);
+mailboxStub.delFolder.callsArg(1);
+mailboxStub.renameFolder.callsArg(2);
+mailboxStub.createMessage.callsArg(2);
+mailboxStub.listMessages.callsArgWith(1,null,[messageStub]);
+mailboxStub.getMessages.callsArgWith(3,null,[messageStub]);
+mailboxStub.getMessageRange.callsArgWith(3,null,[messageStub]);
+mailboxStub.delMessage.callsArg(2);
+mailboxStub.moveMessage.callsArg(3);
+mailboxStub.copyMessage.callsArg(3);
+mailboxStub.addFlags.callsArg(4);
+mailboxStub.replaceFlags.callsArg(4);
+mailboxStub.removeFlags.callsArg(4);
+mailboxStub.addProperties.callsArg(5);
+mailboxStub.replaceProperties.callsArg(5);
+mailboxStub.removeProperties.callsArg(5);
+mailboxStub.setFolderSpecialUse.callsArg(2);
+mailboxStub.expunge.callsArg(3);
+mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
+mailboxStub.searchMessages.callsArgWith(2,null,[{index:1,uid:messageStub.uid}]);
+
+
 */

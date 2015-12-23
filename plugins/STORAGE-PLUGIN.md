@@ -67,8 +67,9 @@ The mailbox is returned synchronously, as no connection is created as of yet. Th
 
 The returned `mailbox` object has the following properties and methods. All callbacks are of the signature `function(err,data)`
 
-* `folders(callback)`: retrieve all folders for this mailbox. Will pass `data` to the callback as an array of `folder` objects, or an empty array if none found.
 * `getFolder(name,callback)`: get folder in this mailbox whose name matches `name`. Will pass `data` to the callback as an array of folder objects, or an empty array if none found. If the folder cannot be selected, callback `err` as `{noselect: true}`
+* `namespace(path,callback)`: get the namespace for the given path. Returned object should be null if not found, or an object with a `separator` property to indicate the separator.
+* `matchFolders(namespace,name,callback)`: search for folders whose name includes `name` in namespace `namespace`. If `namespace` is blank, searches the default namespace for this user, including INBOX. Should return folder objects.
 * `createFolder(name,callback)`: create a new folder in this mailbox with the name `name`. Will pass `data` to the callback as a new `folder` object. If creation fails, pass an error to the callback.
 * `delFolder(name, callback)`: delete the named folder with all of its messages. If it fails, pass an error to the `err` argument of the callback.
 * `renameFolder(folder,name,callback)`: change the name of the named folder to `newName`. If it fails, pass an error to the `err` argument of the callback.
@@ -456,7 +457,7 @@ The methods that return folders are expected to return objects that have the fol
 
 * `name`: name of the folder
 * `id`: unique ID of the folder, if relevant
-* `path`: full path to the folder
+* `path`: The separator-sensitive path to this folder, e.g. "INBOX" or "sub/my/folders".
 * `allowPermanentFlags`: boolean whether or not this folder allows permanent flags.
 * `uidnext`: string. The next available UID.
 * `uidvalidity`: string. The UID for this session.
@@ -478,7 +479,7 @@ The methods that return messages are expected to return objects that have the fo
 * `html`: the html body of the message, if option `html` or `all` is `true`.
 * `html_url`: URL to retrieve the html form of the message, if available.
 * `attachments`: an array with the attachments of the message. See below.
-* `flags`: flags of the message. Array of string.
+* `flags`: flags of the message. Array of string. String.
 
 
 ###### Attachments
