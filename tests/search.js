@@ -16,13 +16,16 @@ module.exports["Search tests"] = {
                     messages: [{
                         raw: "Subject: hello 1\r\n\r\nWorld 1!",
                         internaldate: "14-Sep-2013 18:22:28 +0300",
-                        flags: ["\\Flagged"]
+                        flags: ["\\Flagged"],
+												uid: 67
                     }, {
                         raw: "Subject: hello 2\r\nCC: test\r\n\r\nWorld 2!",
-                        flags: ["\\Recent", "\\Seen", "MyFlag"]
+                        flags: ["\\Recent", "\\Seen", "MyFlag"],
+												uid: 68
                     }, {
                         raw: "Subject: hello 3\r\nDate: Fri, 13 Sep 2013 15:01:00 +0300\r\nBCC: test\r\n\r\nWorld 3!",
-                        flags: ["\\Draft"]
+                        flags: ["\\Draft"],
+												uid: 69
                     }, {
                         raw: "From: sender name <sender@example.com>\r\n" +
                             "To: Receiver name <receiver@example.com>\r\n" +
@@ -31,10 +34,12 @@ module.exports["Search tests"] = {
                             "Date: Fri, 13 Sep 2013 15:01:00 +0300\r\n" +
                             "\r\n" +
                             "World 4!",
-                        internaldate: "13-Sep-2013 18:22:28 +0300"
+                        internaldate: "13-Sep-2013 18:22:28 +0300",
+												uid: 70
                     }, {
                         raw: "Subject: hello 5\r\nfrom: test\r\n\r\nWorld 5!",
-                        flags: ["\\Deleted", "\\Recent"]
+                        flags: ["\\Deleted", "\\Recent"],
+												uid: 71
                     }, {
                         raw: "Subject: hello 6\r\n\r\nWorld 6!",
                         flags: "\\Answered",
