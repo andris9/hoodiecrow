@@ -785,9 +785,13 @@ makeMailbox = function () {
 	        internaldate: msg.internaldate,
 	        raw: msg.raw
 	    }, folder = folderCache[f];
-	    folder.messages.push(message);
-			indexFolders();
-			cb();
+			if (!folder) {
+				return cb("Invalid folder");
+			} else {
+		    folder.messages.push(message);
+				indexFolders();
+				cb();
+			}
 		},
 		addFlags : function (folder,messages,isUid,flags,cb) {
 			var ret = [];
