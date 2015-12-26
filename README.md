@@ -29,7 +29,7 @@ sudo imapper
 Sudo is needed to bind to port 143 (default for IMAP) or 993 (default for IMAP over SSL). If you choose to use a higher port, say 1143 (`imapper -p 1143`), you do not need to use sudo.
 
 `imapper` command also provides an incoming SMTP server which distributes all incoming messages
-appropriately. To use it, use *smtpPort* option (`hoodiecrow --smtpPort=1025`). **The SMTP server has no proper filtering, security and scaling. You should not use the SMTP server in any production environment.** If you need a production quality SMTP server in nodejs, check out Haraka.
+appropriately. To use it, use *smtpPort* option (`imapper --smtpPort=1025`). **The SMTP server has no proper filtering, security and scaling. You should not use the SMTP server in any production environment.** If you need a production quality SMTP server in nodejs, check out Haraka.
 
 > **Protip** Running `imapper --help` displays useful information about command line options for Imapper and some sample configuration data.
 
@@ -232,7 +232,7 @@ Available commands:
 Example usage for XTOYBIRD STORAGE:
 
 ```
-S: * Hoodiecrow ready for rumble
+S: * imapper ready for rumble
 C: A1 XTOYBIRD STORAGE
 S: * XTOYBIRD [XJSONDUMP] {3224}
 S: {
@@ -302,7 +302,7 @@ config.json:
 A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.
 
 ```javascript
-hoodiecrow({
+imapper({
     // Add two plugins, built in "IDLE" and custom function
     plugin: ["IDLE", myAwesomePlugin]
 });
@@ -435,7 +435,7 @@ connection.inputHandler = function(line){
 }
 ```
 
-See [idle.js](https://github.com/andris9/hoodiecrow/blob/master/lib/plugins/idle.js) for an example
+See [idle.js](https://github.com/deitch/imapper/blob/master/lib/plugins/idle.js) for an example
 
 #### Override output
 
@@ -458,6 +458,23 @@ server.outputHandlers.push(function(connection, response, description){
 #### Other possbile operations
 
 It is possible to append messages to a mailbox; create, delete and rename mailboxes; change authentication state and so on through the `server` and `connection` methods and properties. See existing command handlers and plugins for examples.
+
+## Debug
+Imapper has debug levels that dump output. As of this writing, the only supported debug level is `1`, which writes all received IMAP commands and sent IMAP responses, as well as errors, to the console. Each message is preceded by the unique connection ID - allowing you to filter the output sanely when multiple connections are in use - as well as `R` for received by imapper, `S` for sent by imapper, and `E` for error.
+
+Sample output:
+
+````
+123 S: imapper ready to rumble
+123 R: A1 Capability
+123 S: A1 AUTH-PLAIN
+123 S: A1 OK
+123 R: A2 LOGIN abc def
+123 S: A2 OK
+````
+
+All of the above are from the unique connection ID 123, and show which messages were sent by imapper or received by it.
+
 
 # License
 
