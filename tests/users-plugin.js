@@ -2,7 +2,8 @@ var imapper = require("../lib/server"),
     mockClient = require("../lib/mock-client"),
 	sinon = require('sinon'),
 	stub = sinon.stub(),
-	users = {authenticate: stub}
+	users = {authenticate: stub},
+	storage = require('imapper-storage-memory')
 ;
 
 var IMAP_PORT = 4143,
@@ -14,7 +15,7 @@ module.exports["No users plugin defined"] = {
 			stub.callsArg(1);
       this.server = imapper({
           plugins: ["AUTH-PLAIN"],
-					storage : require('./resources/memory-storage-plugin')
+					storage : storage
       });
 
         this.instanceId = ++instance;
@@ -67,7 +68,7 @@ module.exports["Users plugin defined"] = {
       this.server = imapper({
           plugins: ["AUTH-PLAIN"],
         	users: users,
-					storage : require('./resources/memory-storage-plugin')
+					storage : storage
       });
 
         this.instanceId = ++instance;

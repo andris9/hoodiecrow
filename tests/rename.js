@@ -1,6 +1,6 @@
 var imapper = require("./resources/init"),
     mockClient = require("../lib/mock-client"),
-	data = require('./resources/memory-storage-plugin');
+data = require('imapper-storage-memory');
 
 
 var IMAP_PORT = 4143,
