@@ -1,25 +1,34 @@
-<!DOCTYPE html>
-<html lang="en-us">
+<!doctype html>
+<html>
   <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
     <title>Hoodiecrow IMAP server by andris9</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
   </head>
   <body>
-    <section class="page-header">
-      <h1 class="project-name">Hoodiecrow IMAP server</h1>
-      <h2 class="project-tagline">Scriptable IMAP server for client integration testing</h2>
-      <a href="https://github.com/andris9/hoodiecrow" class="btn">View on GitHub</a>
-      <a href="https://github.com/andris9/hoodiecrow/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/andris9/hoodiecrow/tarball/master" class="btn">Download .tar.gz</a>
-    </section>
+    <div class="wrapper">
+      <header>
+        <h1>Hoodiecrow IMAP server</h1>
+        <p>Scriptable IMAP server for client integration testing</p>
 
-    <section class="main-content">
-      <h1>
+        <p class="view"><a href="https://github.com/andris9/hoodiecrow">View the Project on GitHub <small>andris9/hoodiecrow</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/andris9/hoodiecrow/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/andris9/hoodiecrow/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/andris9/hoodiecrow">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
 <a id="hoodiecrow" class="anchor" href="#hoodiecrow" aria-hidden="true"><span class="octicon octicon-link"></span></a>Hoodiecrow</h1>
 
 <p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg" alt="Hoodiecrow"></p>
@@ -41,7 +50,7 @@
 
 <p>If you have Node.js installed, install Hoodiecrow with the <code>npm</code> command and run it:</p>
 
-<div class="highlight highlight-bash"><pre>npm install -g hoodiecrow
+<div class="highlight highlight-source-shell"><pre>npm install -g hoodiecrow
 sudo hoodiecrow</pre></div>
 
 <p>Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143 (<code>hoodiecrow -p 1143</code>), you do not need to use sudo.</p>
@@ -60,13 +69,13 @@ automatically to INBOX. To use it, use <em>smtpPort</em> option (<code>hoodiecro
 
 <p>Add <code>hoodiecrow</code> dependency</p>
 
-<div class="highlight highlight-bash"><pre>npm install hoodiecrow</pre></div>
+<div class="highlight highlight-source-shell"><pre>npm install hoodiecrow</pre></div>
 
 <p>Create and start an IMAP server</p>
 
-<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow<span class="pl-pds">"</span></span>),
-    server <span class="pl-k">=</span> hoodiecrow(options);
-server.listen(<span class="pl-c1">143</span>);</pre></div>
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow<span class="pl-pds">"</span></span>),
+    server <span class="pl-k">=</span> <span class="pl-en">hoodiecrow</span>(options);
+<span class="pl-smi">server</span>.<span class="pl-en">listen</span>(<span class="pl-c1">143</span>);</pre></div>
 
 <p>See <a href="https://github.com/andris9/hoodiecrow/blob/master/examples/complete.js">complete.js</a> for an example.</p>
 
@@ -268,7 +277,7 @@ S: A1 OK XTOYBIRD Completed
 
 <p>config.json:</p>
 
-<div class="highlight highlight-json"><pre>{
+<div class="highlight highlight-source-json"><pre>{
     <span class="pl-s"><span class="pl-pds">"</span>INBOX<span class="pl-pds">"</span></span>:{},
     <span class="pl-s"><span class="pl-pds">"</span>INBOX.<span class="pl-pds">"</span></span>:{},
     <span class="pl-s"><span class="pl-pds">"</span>user.<span class="pl-pds">"</span></span>:{
@@ -284,7 +293,7 @@ S: A1 OK XTOYBIRD Completed
 
 <p>config.json:</p>
 
-<div class="highlight highlight-json"><pre>{
+<div class="highlight highlight-source-json"><pre>{
     <span class="pl-s"><span class="pl-pds">"</span>INBOX<span class="pl-pds">"</span></span>:{},
     <span class="pl-s"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>:{
         <span class="pl-s"><span class="pl-pds">"</span>separator<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>/<span class="pl-pds">"</span></span>,
@@ -324,23 +333,23 @@ S: A1 OK XTOYBIRD Completed
 
 <p>Creating your tests in Node.js is a piece of cake, you do not even need to run the <code>hoodiecrow</code> command. Here is a sample [nodeunit] test.</p>
 
-<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow<span class="pl-pds">"</span></span>),
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow<span class="pl-pds">"</span></span>),
     myIMAPCLient <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>../my-imap-client<span class="pl-pds">"</span></span>);
 
-<span class="pl-c1">module</span>.exports[<span class="pl-s"><span class="pl-pds">"</span>IMAP tests<span class="pl-pds">"</span></span>] <span class="pl-k">=</span> {
+<span class="pl-smi">module</span>.<span class="pl-smi">exports</span>[<span class="pl-s"><span class="pl-pds">"</span>IMAP tests<span class="pl-pds">"</span></span>] <span class="pl-k">=</span> {
 
     <span class="pl-c">// Executed before every test</span>
     <span class="pl-c">// creates a new blank IMAP server</span>
-    <span class="pl-en">setUp</span>: <span class="pl-k">function</span>(<span class="pl-smi">callback</span>){
-        <span class="pl-v">this</span>.server <span class="pl-k">=</span> hoodiecrow();
-        <span class="pl-v">this</span>.server.listen(<span class="pl-c1">1143</span>);
-        callback();
+    <span class="pl-en">setUp</span><span class="pl-k">:</span> <span class="pl-k">function</span>(<span class="pl-smi">callback</span>){
+        <span class="pl-v">this</span>.<span class="pl-smi">server</span> <span class="pl-k">=</span> <span class="pl-en">hoodiecrow</span>();
+        <span class="pl-v">this</span>.<span class="pl-smi">server</span>.<span class="pl-en">listen</span>(<span class="pl-c1">1143</span>);
+        <span class="pl-en">callback</span>();
     },
 
     <span class="pl-c">// Executed after every test</span>
     <span class="pl-c">// Closes the IMAP server created for the test</span>
-    <span class="pl-en">tearDown</span>: <span class="pl-k">function</span>(<span class="pl-smi">callback</span>){
-        <span class="pl-v">this</span>.server.<span class="pl-c1">close</span>(callback);
+    <span class="pl-en">tearDown</span><span class="pl-k">:</span> <span class="pl-k">function</span>(<span class="pl-smi">callback</span>){
+        <span class="pl-v">this</span>.<span class="pl-smi">server</span>.<span class="pl-c1">close</span>(callback);
     },
 
     <span class="pl-c">/**</span>
@@ -348,11 +357,11 @@ S: A1 OK XTOYBIRD Completed
 <span class="pl-c">     * to the IMAP server. If client is connected the test is considered</span>
 <span class="pl-c">     * as passed.</span>
 <span class="pl-c">     */</span>
-    <span class="pl-s"><span class="pl-pds">"</span><span class="pl-en">Connect to the server</span><span class="pl-pds">"</span></span>: <span class="pl-k">function</span>(<span class="pl-smi">test</span>){
-        <span class="pl-k">var</span> client <span class="pl-k">=</span> myIMAPCLient.connect(<span class="pl-s"><span class="pl-pds">"</span>localhost<span class="pl-pds">"</span></span>, <span class="pl-c1">1143</span>);
-        client.on(<span class="pl-s"><span class="pl-pds">"</span>ready<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(){
-            client.disconnect();
-            test.done();
+    <span class="pl-s"><span class="pl-pds">"</span><span class="pl-en">Connect to the server</span><span class="pl-pds">"</span></span><span class="pl-k">:</span> <span class="pl-k">function</span>(<span class="pl-smi">test</span>){
+        <span class="pl-k">var</span> client <span class="pl-k">=</span> <span class="pl-smi">myIMAPCLient</span>.<span class="pl-en">connect</span>(<span class="pl-s"><span class="pl-pds">"</span>localhost<span class="pl-pds">"</span></span>, <span class="pl-c1">1143</span>);
+        <span class="pl-smi">client</span>.<span class="pl-en">on</span>(<span class="pl-s"><span class="pl-pds">"</span>ready<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(){
+            <span class="pl-smi">client</span>.<span class="pl-en">disconnect</span>();
+            <span class="pl-smi">test</span>.<span class="pl-en">done</span>();
         });
     }
 }</pre></div>
@@ -362,7 +371,7 @@ S: A1 OK XTOYBIRD Completed
 
 <p>A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.</p>
 
-<div class="highlight highlight-javascript"><pre>hoodiecrow({
+<div class="highlight highlight-source-js"><pre><span class="pl-en">hoodiecrow</span>({
     <span class="pl-c">// Add two plugins, built in "IDLE" and custom function</span>
     plugin<span class="pl-k">:</span> [<span class="pl-s"><span class="pl-pds">"</span>IDLE<span class="pl-pds">"</span></span>, myAwesomePlugin]
 });
@@ -371,7 +380,7 @@ S: A1 OK XTOYBIRD Completed
 <span class="pl-k">function</span> <span class="pl-en">myAwesomePlugin</span>(<span class="pl-smi">server</span>){
 
     <span class="pl-c">// Add a string to the capability listing</span>
-    server.registerCapability(<span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>);
+    <span class="pl-smi">server</span>.<span class="pl-en">registerCapability</span>(<span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>);
 
     <span class="pl-c">/**</span>
 <span class="pl-c">     * Add a new command XSUM</span>
@@ -382,34 +391,34 @@ S: A1 OK XTOYBIRD Completed
 <span class="pl-c">     * * XSUM 15</span>
 <span class="pl-c">     * A1 OK SUM completed</span>
 <span class="pl-c">     *</span>
-<span class="pl-c">     * @param {Object} connection - Session instance</span>
-<span class="pl-c">     * @param {Object} parsed - Input from the client in structured form</span>
-<span class="pl-c">     * @param {String} data - Input command as a binary string</span>
-<span class="pl-c">     * @param {Function} callback - callback function to run</span>
+<span class="pl-c">     * <span class="pl-k">@param</span> {Object} connection - Session instance</span>
+<span class="pl-c">     * <span class="pl-k">@param</span> {Object} parsed - Input from the client in structured form</span>
+<span class="pl-c">     * <span class="pl-k">@param</span> {String} data - Input command as a binary string</span>
+<span class="pl-c">     * <span class="pl-k">@param</span> {Function} callback - callback function to run</span>
 <span class="pl-c">     */</span>
-    server.setCommandHandler(<span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(<span class="pl-smi">connection</span>, <span class="pl-smi">parsed</span>, <span class="pl-smi">data</span>, <span class="pl-smi">callback</span>){
+    <span class="pl-smi">server</span>.<span class="pl-en">setCommandHandler</span>(<span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(<span class="pl-smi">connection</span>, <span class="pl-smi">parsed</span>, <span class="pl-smi">data</span>, <span class="pl-smi">callback</span>){
 
         <span class="pl-c">// Send untagged XSUM response</span>
-        connection.<span class="pl-c1">send</span>({
+        <span class="pl-smi">connection</span>.<span class="pl-c1">send</span>({
             tag<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>*<span class="pl-pds">"</span></span>,
             command<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>,
             attributes<span class="pl-k">:</span>[
-                [].<span class="pl-c1">concat</span>(parsed.<span class="pl-c1">attributes</span> <span class="pl-k">||</span> []).reduce(<span class="pl-k">function</span>(<span class="pl-smi">prev</span>, <span class="pl-smi">cur</span>){
-                    <span class="pl-k">return</span> prev <span class="pl-k">+</span> <span class="pl-c1">Number</span>(cur.<span class="pl-c1">value</span>);
+                [].<span class="pl-c1">concat</span>(<span class="pl-smi">parsed</span>.<span class="pl-c1">attributes</span> <span class="pl-k">||</span> []).<span class="pl-en">reduce</span>(<span class="pl-k">function</span>(<span class="pl-smi">prev</span>, <span class="pl-smi">cur</span>){
+                    <span class="pl-k">return</span> prev <span class="pl-k">+</span> <span class="pl-c1">Number</span>(<span class="pl-smi">cur</span>.<span class="pl-c1">value</span>);
                 }, <span class="pl-c1">0</span>)
             ]
         }, <span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>, parsed, data);
 
         <span class="pl-c">// Send tagged OK response</span>
-        connection.<span class="pl-c1">send</span>({
-            tag<span class="pl-k">:</span> parsed.tag,
+        <span class="pl-smi">connection</span>.<span class="pl-c1">send</span>({
+            tag<span class="pl-k">:</span> <span class="pl-smi">parsed</span>.<span class="pl-smi">tag</span>,
             command<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>OK<span class="pl-pds">"</span></span>,
             attributes<span class="pl-k">:</span>[
                 <span class="pl-c">// TEXT allows to send unquoted</span>
                 {type<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>TEXT<span class="pl-pds">"</span></span>, value<span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">"</span>XSUM completed<span class="pl-pds">"</span></span>}
             ]
         }, <span class="pl-s"><span class="pl-pds">"</span>XSUM<span class="pl-pds">"</span></span>, parsed, data);
-        callback();
+        <span class="pl-en">callback</span>();
     });
 }</pre></div>
 
@@ -433,9 +442,9 @@ S: A1 OK XTOYBIRD Completed
 
 <p>Example</p>
 
-<div class="highlight highlight-javascript"><pre><span class="pl-c">// Display in CAPABILITY only in Not Authenticated state</span>
-server.registerCapability(<span class="pl-s"><span class="pl-pds">"</span>XAUTH<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(<span class="pl-smi">connection</span>){
-    <span class="pl-k">return</span> connection.state <span class="pl-k">==</span> <span class="pl-s"><span class="pl-pds">"</span>Not Authenticated<span class="pl-pds">"</span></span>;
+<div class="highlight highlight-source-js"><pre><span class="pl-c">// Display in CAPABILITY only in Not Authenticated state</span>
+<span class="pl-smi">server</span>.<span class="pl-en">registerCapability</span>(<span class="pl-s"><span class="pl-pds">"</span>XAUTH<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(<span class="pl-smi">connection</span>){
+    <span class="pl-k">return</span> <span class="pl-smi">connection</span>.<span class="pl-smi">state</span> <span class="pl-k">==</span> <span class="pl-s"><span class="pl-pds">"</span>Not Authenticated<span class="pl-pds">"</span></span>;
 });</pre></div>
 
 <h4>
@@ -503,12 +512,12 @@ server.registerCapability(<span class="pl-s"><span class="pl-pds">"</span>XAUTH<
 
 <p>Example</p>
 
-<div class="highlight highlight-javascript"><pre><span class="pl-k">var</span> list <span class="pl-k">=</span> server.getCommandHandler(<span class="pl-s"><span class="pl-pds">"</span>LIST<span class="pl-pds">"</span></span>);
-server.setCommandHandler(<span class="pl-s"><span class="pl-pds">"</span>LIST<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(<span class="pl-smi">connection</span>, <span class="pl-smi">parsed</span>, <span class="pl-smi">data</span>, <span class="pl-smi">callback</span>){
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> list <span class="pl-k">=</span> <span class="pl-smi">server</span>.<span class="pl-en">getCommandHandler</span>(<span class="pl-s"><span class="pl-pds">"</span>LIST<span class="pl-pds">"</span></span>);
+<span class="pl-smi">server</span>.<span class="pl-en">setCommandHandler</span>(<span class="pl-s"><span class="pl-pds">"</span>LIST<span class="pl-pds">"</span></span>, <span class="pl-k">function</span>(<span class="pl-smi">connection</span>, <span class="pl-smi">parsed</span>, <span class="pl-smi">data</span>, <span class="pl-smi">callback</span>){
     <span class="pl-c">// do something</span>
-    <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Received LIST request<span class="pl-pds">"</span></span>);
+    <span class="pl-en">console</span>.<span class="pl-c1">log</span>(<span class="pl-s"><span class="pl-pds">"</span>Received LIST request<span class="pl-pds">"</span></span>);
     <span class="pl-c">// run the cached command</span>
-    list(connection, parsed, data, callback);
+    <span class="pl-en">list</span>(connection, parsed, data, callback);
 });</pre></div>
 
 <h4>
@@ -534,11 +543,11 @@ server.setCommandHandler(<span class="pl-s"><span class="pl-pds">"</span>LIST<sp
 
 <p><code>response</code> arguments from <code>connection.send</code> is an object and thus any modifications will be passed on. If <code>skipResponse</code> property is added to the response object, the data is not sent to the client.</p>
 
-<div class="highlight highlight-javascript"><pre><span class="pl-c">// All untagged responses are ignored and not passed to the client</span>
-server.outputHandlers.<span class="pl-c1">push</span>(<span class="pl-k">function</span>(<span class="pl-smi">connection</span>, <span class="pl-smi">response</span>, <span class="pl-smi">description</span>){
-    <span class="pl-k">if</span>(response.tag <span class="pl-k">==</span> <span class="pl-s"><span class="pl-pds">"</span>*<span class="pl-pds">"</span></span>){
-        response.skipResponse <span class="pl-k">=</span> <span class="pl-c1">true</span>;
-        <span class="pl-en">console</span><span class="pl-c1">.log</span>(<span class="pl-s"><span class="pl-pds">"</span>Ignoring untagged response for %s<span class="pl-pds">"</span></span>, description);
+<div class="highlight highlight-source-js"><pre><span class="pl-c">// All untagged responses are ignored and not passed to the client</span>
+<span class="pl-smi">server</span>.<span class="pl-smi">outputHandlers</span>.<span class="pl-c1">push</span>(<span class="pl-k">function</span>(<span class="pl-smi">connection</span>, <span class="pl-smi">response</span>, <span class="pl-smi">description</span>){
+    <span class="pl-k">if</span>(<span class="pl-smi">response</span>.<span class="pl-smi">tag</span> <span class="pl-k">==</span> <span class="pl-s"><span class="pl-pds">"</span>*<span class="pl-pds">"</span></span>){
+        <span class="pl-smi">response</span>.<span class="pl-smi">skipResponse</span> <span class="pl-k">=</span> <span class="pl-c1">true</span>;
+        <span class="pl-en">console</span>.<span class="pl-c1">log</span>(<span class="pl-s"><span class="pl-pds">"</span>Ignoring untagged response for %s<span class="pl-pds">"</span></span>, description);
     }
 });</pre></div>
 
@@ -551,16 +560,14 @@ server.outputHandlers.<span class="pl-c1">push</span>(<span class="pl-k">functio
 <a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h1>
 
 <p><strong>MIT</strong></p>
-
-      <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/andris9/hoodiecrow">Hoodiecrow IMAP server</a> is maintained by <a href="https://github.com/andris9">andris9</a>.</span>
-
-        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/andris9">andris9</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
       </footer>
-
-    </section>
-
-            <script type="text/javascript">
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+              <script type="text/javascript">
             var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
             document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
           </script>
@@ -573,4 +580,3 @@ server.outputHandlers.<span class="pl-c1">push</span>(<span class="pl-k">functio
 
   </body>
 </html>
-
