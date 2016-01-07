@@ -1,18 +1,15 @@
-Hoodiecrow (v__VERSION__)
+Imapper (v__VERSION__)
 =============__VBAR__=
-hoodiecrow starts an IMAP server that is suitable for running client
-integration tests. Nothing is written to disk, all operations are
-performed on memory and the changes are lost after restart, so the
-initial state is always guaranteed when running your tests.
+imapper starts a production quality, multi-user, integratable IMAP server.
 
-Additionally Hoodiecrow offers an incoming SMTP server - every mail
+Imapper also offers an incoming SMTP server suitable for testing *only* - every mail
 sent to it, is appended to INBOX. To use the incoming SMTP server,
 use smtpPort option.
 
-Usage: hoodiecrow [OPTS]
+Usage: imapper [OPTS]
 
-  -p <port>, --port=<port> Port number to listen to, defaults to 143
-  -s, --secure=true        Starts a secure server, defaults port to 993
+  -p <port>, --port=<port> Port number to listen to, defaults to 143 unless secure option is selected
+  -s, --ssl=true           Starts a secure server, defaults port to 993
   -d, --debug=true         Writes IMAP traffic to console
   --storage=<path>         Path to JSON file with the directory tree
   --config=<config>        Path to config JSON file
@@ -27,8 +24,8 @@ use sudo or run the command in Administrator rights.
 Available plugins
 -----------------
 
-Usage: hoodiecrow [OPTS] --plugin=ID --plugin=IDLE
-or:    hoodiecrow [OPTS] --plugin=ID,IDLE
+Usage: imapper [OPTS] --plugin=ID --plugin=IDLE
+or:    imapper [OPTS] --plugin=ID,IDLE
 
 __PLUGINS__
 
@@ -43,42 +40,18 @@ Configuration file takes the following structure
     "secureConnection": false,
     "port": 143,
     "id":{
-        "name": "hoodecrow",
+        "name": "imapper",
         "version": "__VERSION__",
         "key": "value"
     }
 }
 
-Storage file is a tree like structure starting with namespace values.
-INBOX has its own namespace.
 
-{
-    "INBOX":{
-        "nextuid": 123,
-        "messages": [
-            {"raw": "Subject: Test\r\n\r\nHello world!"}
-        ]
-    },
-    "":{
-        "separator": "/",
-        "folders": {
-            "Parent folder":{
-                "folders":{
-                    "Subfolder": {}
-                }
-            }
-        }
-    },
-    "#news":{
-        type: "shared"
-    }
-}
-
-If not storage file is specified, an empty "INBOX" is used
-
-Project homepage: http://hoodiecrow.com/
-Report issues at: https://github.com/andris9/hoodiecrow/issues
+Project homepage: https://github.com/deitch/imapper/issues
+Report issues at: https://github.com/deitch/imapper/issues
 
 License: MIT
 
-(c) 2013 Andris Reinman
+(c) 2015-2016 Avi Deitcher
+
+Built by serious surgery to http://hoodiecrow.com by https://github.com/andris9

@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 
-var hoodiecrow = require("../lib/server"),
+var imapper = require("../lib/server"),
     packageData = require("../package"),
     fs = require("fs"),
     argv = require('optimist').argv,
     simplesmtp = require("simplesmtp"),
 
-    configLocation = argv.config || process.env.HOODIECROW_CONFIG,
+    configLocation = argv.config || process.env.IMAP_CONFIG,
     storageLocation = argv.storage || process.env.HOODIECROW_STORAGE,
-    port = argv.port || argv.p || process.env.HOODIECROW_PORT,
+    port = argv.port || argv.p || process.env.IMAP_PORT,
 
-    smtpPort = argv.smtpPort || process.env.HOODIECROW_SMTPPORT,
+    smtpPort = argv.smtpPort || process.env.IMAP_SMTPPORT,
 
     pluginsList = [].concat.apply([], [].concat(argv.plugin || process.env.HOODIECROW_PLUGINS || []).map(function(plugin){
-        return (plugin || "").toUpperCase().trim().split(/\s*,\s*/)
+        return (plugin || "").toUpperCase().trim().split(/\s*,\s*/);
     })),
 
-    secure = (argv.secure || argv.s || process.env.HOODIECROW_SECURE || "").toString().trim().toLowerCase() == "true",
+    secure = (argv.ssl || argv.s || process.env.IMAP_SSL || "").toString().trim().toLowerCase() === "true",
 
-    debug = (argv.debug || argv.d || process.env.HOODIECROW_DEBUG || "").toString().trim().toLowerCase() == "true",
+    debug = (argv.debug || argv.d || process.env.IMAP_DEBUG || "").toString().trim().toLowerCase() === "true",
 
     config = {};
 
@@ -35,7 +35,7 @@ if(pluginsList && pluginsList.length){
 }
 
 if(secure){
-    config.secureConnection = true;
+    config.ssl = true;
 }
 
 if(debug){
@@ -61,7 +61,7 @@ if(argv.h || argv.help){
         pluginText = [];
 
     list.forEach(function(plugin){
-        var match, text = [], file;
+        var text = [], file;
 
         file = fs.readFileSync(__dirname + "/../lib/plugins/" + plugin, "utf-8");
 
@@ -96,14 +96,14 @@ if(argv.h || argv.help){
         );
 
 }else{
-    var server = hoodiecrow(config);
-    console.log("Starting Hoodiecrow ...");
+    var server = imapper(config);
+    console.log("Starting Imapper ...");
     server.listen(port, function(){
-        console.log("Hoodiecrow successfully%s listening on port %s", secure ? " and securely" : "", port);
+        console.log("Imapper successfully%s listening on port %s", secure ? " and securely" : "", port);
     });
 
     if(smtpPort){
-        simplesmtp.createSimpleServer({SMTPBanner:"Hoodiecrow"}, function(req){
+        simplesmtp.createSimpleServer({SMTPBanner:"Imapper"}, function(req){
             var data = [], dataLen = 0;
             req.on("data", function(chunk){
                 if(!chunk || !chunk.length){
@@ -114,7 +114,7 @@ if(argv.h || argv.help){
             });
             req.on("end", function(){
                 var message = Buffer.concat(data, dataLen);
-                server.appendMessage("INBOX", [], false, message.toString("binary"));
+                server.createMessage("INBOX", message.toString("binary"),function(){});
             });
             req.accept();
         }).listen(smtpPort, function(){
