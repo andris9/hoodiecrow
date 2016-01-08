@@ -7,12 +7,12 @@ var imapper = require("../lib/server"),
     simplesmtp = require("simplesmtp"),
 
     configLocation = argv.config || process.env.IMAP_CONFIG,
-    storageLocation = argv.storage || process.env.HOODIECROW_STORAGE,
+    storageLocation = argv.storage || process.env.IMAP_STORAGE,
     port = argv.port || argv.p || process.env.IMAP_PORT,
 
     smtpPort = argv.smtpPort || process.env.IMAP_SMTPPORT,
 
-    pluginsList = [].concat.apply([], [].concat(argv.plugin || process.env.HOODIECROW_PLUGINS || []).map(function(plugin){
+    pluginsList = [].concat.apply([], [].concat(argv.plugin || process.env.IMAP_PLUGINS || []).map(function(plugin){
         return (plugin || "").toUpperCase().trim().split(/\s*,\s*/);
     })),
 
@@ -20,14 +20,17 @@ var imapper = require("../lib/server"),
 
     debug = (argv.debug || argv.d || process.env.IMAP_DEBUG || "").toString().trim().toLowerCase() === "true",
 
-    config = {};
+    config = {},
+		storageData = null;
 
 if(configLocation){
     config = JSON.parse(fs.readFileSync(configLocation, "utf-8"));
 }
 
+config.storage = require('imapper-storage-memory');
+
 if(storageLocation){
-    config.storage = JSON.parse(fs.readFileSync(storageLocation, "utf-8"));
+    storageData = JSON.parse(fs.readFileSync(storageLocation, "utf-8"));
 }
 
 if(pluginsList && pluginsList.length){
@@ -97,6 +100,9 @@ if(argv.h || argv.help){
 
 }else{
     var server = imapper(config);
+		if (storageData) {
+	    config.storage.load(storageData);
+		}
     console.log("Starting Imapper ...");
     server.listen(port, function(){
         console.log("Imapper successfully%s listening on port %s", secure ? " and securely" : "", port);

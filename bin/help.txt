@@ -37,7 +37,7 @@ Configuration file takes the following structure
 {
     "plugins": ["ID", "IDLE"],
     "debug": false,
-    "secureConnection": false,
+    "ssl": false,
     "port": 143,
     "id":{
         "name": "imapper",
@@ -45,6 +45,33 @@ Configuration file takes the following structure
         "key": "value"
     }
 }
+
+Storage file is a tree like structure starting with namespace values.
+INBOX has its own namespace.
+
+{
+    "INBOX":{
+        "nextuid": 123,
+        "messages": [
+            {"raw": "Subject: Test\r\n\r\nHello world!"}
+        ]
+    },
+    "":{
+        "separator": "/",
+        "folders": {
+            "Parent folder":{
+                "folders":{
+                    "Subfolder": {}
+                }
+            }
+        }
+    },
+    "#news":{
+        type: "shared"
+    }
+}
+
+If no storage file is specified, an empty "INBOX" is used
 
 
 Project homepage: https://github.com/deitch/imapper/issues

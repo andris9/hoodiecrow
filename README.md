@@ -35,6 +35,8 @@ appropriately. To use it, use *smtpPort* option (`imapper --smtpPort=1025`). **T
 
 After you have started Imapper server, you can point your IMAP client to `<hostname>:143`. Use the correct username and password as configured.
 
+Note that the storage driver for imapper as a standalone server is the memory storage. All data will be lost after shutting down the server.
+
 #### Options
 
 The Imapper command-line supports several options. Each can be passed as an environment variable, set as a command-line argument, or left to the default. Command-line overrides environment variable overrides default.
@@ -43,6 +45,8 @@ The Imapper command-line supports several options. Each can be passed as an envi
 * `--smtpPort` or `IMAP_SMTPPORT=port`: which port to listen for SMTP delivered messages **for testing only**. Default is not to listen on SMTP.
 * `--ssl true` or `IMAP_SSL=true`: whether to listen over SSL on port 993 instead of clear on 143. Default is false.
 * `--debug true` or `IMAP_DEBUG=true`: whether to enable debug messages to console. Default is false.
+* `--storage path` or `IMAP_STORAGE=path`: path to a JSON file with the folders and messages to load on startup. Default is none.
+* `--plugin plugin --plugin plugin ...` or `IMAP_PLUGINS=plugina,pluginb,...,pluginn`: list of plugins to enable. 
 * `--config path` or `IMAP_CONFIG=path`: path to a json file with config options suited to the imapper as a module. Default is none.
 
 
