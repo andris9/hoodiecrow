@@ -8,31 +8,27 @@ var imapper = require("./resources/init"),
 	storage = function () {
 		return {mailbox: mstub};
 	},
+
 	mailboxStub = {
-		folders: sinon.stub(),
-		matchFolders: sinon.stub(),
-		namespace: sinon.stub(),
 		getFolder: sinon.stub(),
 		createFolder: sinon.stub(),
 		delFolder: sinon.stub(),
 		renameFolder: sinon.stub(),
 		createMessage: sinon.stub(),
-		listMessages: sinon.stub(),
-		getMessages: sinon.stub(),
-		getMessageRange: sinon.stub(),
-		delMessage: sinon.stub(),
-		moveMessage: sinon.stub(),
-		copyMessage: sinon.stub(),
 		addFlags: sinon.stub(),
-		replaceFlags: sinon.stub(),
 		removeFlags: sinon.stub(),
+		replaceFlags: sinon.stub(),
 		addProperties: sinon.stub(),
 		removeProperties: sinon.stub(),
 		replaceProperties: sinon.stub(),
-		setFolderSpecialUse: sinon.stub(),
-		expunge: sinon.stub(),
+		namespace: sinon.stub(),
 		getNamespaces: sinon.stub(),
-		searchMessages: sinon.stub()
+		matchFolders: sinon.stub(),
+		getMessageRange: sinon.stub(),
+		setFolderSpecialUse: sinon.stub(),
+		searchMessages: sinon.stub(),
+		subscribeFolder: sinon.stub(),
+		expunge: sinon.stub()
 	},
 	folderStub = {
 		properties: {},
@@ -52,41 +48,31 @@ var imapper = require("./resources/init"),
 			timestamp: TS
 		},
 		raw: "This is a message",
-		raw_url: "http://localhost/raw",
-		headers: "From: me@you.com\n\rTo: you@me.com",
-		headers_url: "http://localhost/headers",
-		html: "<html><body><h1>Message</h1></body></html>",
-		html_url: "http://localhost/html",
-		attachments: ["Attachment1","Attachment2"],
+		flags: ["\\Deleted","\\Seen","ABC"],
 		uid: 265
 	}
 ;
 
 mstub.returns(mailboxStub);
-mailboxStub.folders.callsArgWith(0,null,[folderStub]);
-mailboxStub.matchFolders.callsArgWith(2,null,[folderStub]);
-mailboxStub.namespace.callsArgWith(1,null,{separator:'/'});
 mailboxStub.getFolder.callsArgWith(1,null,folderStub);
 mailboxStub.createFolder.callsArgWith(1,null,folderStub);
 mailboxStub.delFolder.callsArg(1);
 mailboxStub.renameFolder.callsArg(2);
 mailboxStub.createMessage.callsArg(2);
-mailboxStub.listMessages.callsArgWith(1,null,[messageStub]);
-mailboxStub.getMessages.callsArgWith(3,null,[messageStub]);
-mailboxStub.getMessageRange.callsArgWith(3,null,[messageStub]);
-mailboxStub.delMessage.callsArg(2);
-mailboxStub.moveMessage.callsArg(3);
-mailboxStub.copyMessage.callsArg(3);
 mailboxStub.addFlags.callsArg(4);
 mailboxStub.replaceFlags.callsArg(4);
 mailboxStub.removeFlags.callsArg(4);
 mailboxStub.addProperties.callsArg(5);
 mailboxStub.replaceProperties.callsArg(5);
 mailboxStub.removeProperties.callsArg(5);
-mailboxStub.setFolderSpecialUse.callsArg(2);
-mailboxStub.expunge.callsArg(3);
+mailboxStub.namespace.callsArgWith(1,null,{separator:'/'});
 mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
+mailboxStub.matchFolders.callsArgWith(2,null,[folderStub]);
+mailboxStub.getMessageRange.callsArgWith(3,null,[messageStub]);
+mailboxStub.setFolderSpecialUse.callsArg(2);
 mailboxStub.searchMessages.callsArgWith(2,null,[{index:1,uid:messageStub.uid}]);
+mailboxStub.subscribeFolder.callsArg(1);
+mailboxStub.expunge.callsArg(1);
 
 
 
@@ -97,7 +83,7 @@ var IMAP_PORT = 4143,
 module.exports["Storage plugin defined"] = {
     setUp: function(done) {
       this.server = imapper({
-          plugins: ["AUTH-PLAIN"],
+          plugins: ["AUTH-PLAIN","NAMESPACE","SPECIAL-USE", "CREATE-SPECIAL-USE"],
         	storage: storage
       });
 
@@ -206,33 +192,204 @@ module.exports["Storage plugin defined"] = {
 					test.equal(mailboxStub.namespace.getCall(0).args[0],"");
 	        test.done();
 	    }).bind(this));
-		}
+		},
+
+    "CREATE should call mailbox.create": function(test) {
+        var folder = "sub/folder/name", cmds = ["A1 CAPABILITY",
+            "A2 LOGIN testuser testpass",
+            "A3 CREATE "+folder,
+            "A4 LIST \"\" \"*\"",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.createFolder.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+						test.ok(mailboxStub.createFolder.calledOnce);
+						test.equal(mailboxStub.createFolder.getCall(0).args[0],folder);
+            test.done();
+        }).bind(this));
+    },
+
+    "DELETE should call mailbox.delete": function(test) {
+        var folder = "sub/folder/name", cmds = ["A1 LOGIN testuser testpass",
+            "A2 CREATE "+folder,
+            "A3 DELETE "+folder,
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.delFolder.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA2 OK") >= 0);
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+						test.ok(mailboxStub.delFolder.calledOnce);
+						test.equal(mailboxStub.delFolder.getCall(0).args[0],folder);
+            test.done();
+        }).bind(this));
+    },
+
+    "RENAME should call mailbox.rename": function(test) {
+        var folder = "sub/folder/name", newfolder = "sub/folder/newname", cmds = ["A1 CAPABILITY",
+            "A2 LOGIN testuser testpass",
+            "A3 CREATE "+folder,
+            "A4 RENAME "+folder+" "+newfolder,
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.renameFolder.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+            test.ok(resp.indexOf("\nA4 OK") >= 0);
+						test.ok(mailboxStub.renameFolder.calledOnce);
+						test.equal(mailboxStub.renameFolder.getCall(0).args[0],folder);
+						test.equal(mailboxStub.renameFolder.getCall(0).args[1],newfolder);
+            test.done();
+        }).bind(this));
+    },
+		
+    "APPEND should call mailbox.createMessage": function(test) {
+        var message = "From: sender <sender@example.com>\r\nTo: receiver@example.com\r\nSubject: HELLO!\r\n\r\nWORLD!",
+				folder = "INBOX",
+        cmds = ["A1 CAPABILITY",
+            "A2 LOGIN testuser testpass",
+            "A3 SELECT "+folder,
+            "A4 APPEND "+folder+" {" + message.length + "}\r\n" + message,
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.createMessage.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+						var msg;
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA4 OK") >= 0);
+						test.ok(mailboxStub.createMessage.calledOnce);
+						test.equal(mailboxStub.createMessage.getCall(0).args[0],folder);
+						msg = mailboxStub.createMessage.getCall(0).args[1];
+						test.equal(msg.raw,message);
+            test.done();
+        }).bind(this));
+    },
+		
+    "FETCH should call mailbox.getMessageRange": function(test) {
+        var folder = "INBOX", range = "1:5,10,15:18", cmds = ["A1 LOGIN testuser testpass",
+            "A2 EXAMINE "+folder,
+            "A3 FETCH "+range+" (BODY)",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.getMessageRange.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.ok(mailboxStub.getMessageRange.calledOnce);
+						test.equal(mailboxStub.getMessageRange.getCall(0).args[0],folder);
+						test.equal(mailboxStub.getMessageRange.getCall(0).args[1],range);
+						test.equal(mailboxStub.getMessageRange.getCall(0).args[2],false);
+            test.done();
+        }).bind(this));
+    },
+    "UID FETCH should call mailbox.getMessageRange": function(test) {
+        var folder = "INBOX", range = "1:5,10,15:18", cmds = ["A1 LOGIN testuser testpass",
+            "A2 EXAMINE "+folder,
+            "A3 UID FETCH "+range+" (BODY)",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.getMessageRange.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.ok(mailboxStub.getMessageRange.calledOnce);
+						test.equal(mailboxStub.getMessageRange.getCall(0).args[0],folder);
+						test.equal(mailboxStub.getMessageRange.getCall(0).args[1],range);
+						test.equal(mailboxStub.getMessageRange.getCall(0).args[2],true);
+            test.done();
+        }).bind(this));
+    },
+
+    "NAMESPACE should call mailbox.getNamespaces": function(test) {
+        var cmds = ["A1 LOGIN testuser testpass",
+            "A2 NAMESPACE",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.getNamespaces.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA2 OK") >= 0);
+						test.ok(mailboxStub.getNamespaces.calledOnce);
+            test.done();
+        }).bind(this));
+    },
+		
+    "CREATE-SPECIAL-USE should call mailbox.setFolderSpecialUse": function(test) {
+        var folder = "MySpecial", cmds = ["A1 CAPABILITY",
+            "A2 LOGIN testuser testpass",
+            "A3 CREATE "+folder+" (USE (\\Sent \\Flagged))",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.setFolderSpecialUse.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+            test.ok(resp.indexOf("\nA3 OK") >= 0);
+						test.ok(mailboxStub.setFolderSpecialUse.calledOnce);
+						test.equal(mailboxStub.setFolderSpecialUse.getCall(0).args[0],folder);
+            test.done();
+        }).bind(this));
+    },
+		
+    "EXPUNGE should call mailbox.expunge": function(test) {
+        var folder = "INBOX", cmds = ["A1 CAPABILITY",
+            "A2 LOGIN testuser testpass",
+            "A3 SELECT "+folder,
+            "A4 EXPUNGE",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.expunge.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.ok(mailboxStub.expunge.calledOnce);
+						test.equal(mailboxStub.expunge.getCall(0).args[0],folder);
+            test.done();
+        }).bind(this));
+    },
+		
+    "SUBSCRIBE should call mailbox.subscribe": function(test) {
+        var folder = "Test", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SUBSCRIBE "+folder,
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.subscribeFolder.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.ok(mailboxStub.subscribeFolder.calledOnce);
+						test.equal(mailboxStub.subscribeFolder.getCall(0).args[0],folder);
+            test.done();
+        }).bind(this));
+    },
+
+    "SEARCH should call mailbox.searchMessages": function(test) {
+        var folder = "INBOX", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 SEARCH ANSWERED",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.searchMessages.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.searchMessages.getCall(0).args[0],folder);
+						// WE DO NOT CHECK THE SEARCH QUERY!!
+						// There already is tests/search-query.js to test conversions
+            test.done();
+        }).bind(this));
+    }
+		
+		
+		
 };
 
 /*
-   CREATE, DELETE, RENAME, SUBSCRIBE, UNSUBSCRIBE, LIST, LSUB,
-   STATUS, APPEND, SEARCH, FETCH
 
-mailboxStub.createFolder.callsArgWith(1,null,folderStub);
-mailboxStub.delFolder.callsArg(1);
-mailboxStub.renameFolder.callsArg(2);
-mailboxStub.createMessage.callsArg(2);
-mailboxStub.listMessages.callsArgWith(1,null,[messageStub]);
-mailboxStub.getMessages.callsArgWith(3,null,[messageStub]);
-mailboxStub.getMessageRange.callsArgWith(3,null,[messageStub]);
-mailboxStub.delMessage.callsArg(2);
-mailboxStub.moveMessage.callsArg(3);
-mailboxStub.copyMessage.callsArg(3);
 mailboxStub.addFlags.callsArg(4);
 mailboxStub.replaceFlags.callsArg(4);
 mailboxStub.removeFlags.callsArg(4);
 mailboxStub.addProperties.callsArg(5);
 mailboxStub.replaceProperties.callsArg(5);
 mailboxStub.removeProperties.callsArg(5);
-mailboxStub.setFolderSpecialUse.callsArg(2);
-mailboxStub.expunge.callsArg(3);
-mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
-mailboxStub.searchMessages.callsArgWith(2,null,[{index:1,uid:messageStub.uid}]);
 
 
 */
