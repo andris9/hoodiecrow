@@ -59,12 +59,12 @@ mailboxStub.createFolder.callsArgWith(1,null,folderStub);
 mailboxStub.delFolder.callsArg(1);
 mailboxStub.renameFolder.callsArg(2);
 mailboxStub.createMessage.callsArg(2);
-mailboxStub.addFlags.callsArg(4);
-mailboxStub.replaceFlags.callsArg(4);
-mailboxStub.removeFlags.callsArg(4);
-mailboxStub.addProperties.callsArg(5);
-mailboxStub.replaceProperties.callsArg(5);
-mailboxStub.removeProperties.callsArg(5);
+mailboxStub.addFlags.callsArgWith(4,[{id:1}]);
+mailboxStub.replaceFlags.callsArgWith(4,[{id:1}]);
+mailboxStub.removeFlags.callsArgWith(4,[{id:1}]);
+mailboxStub.addProperties.callsArgWith(4,[{id:1}]);
+mailboxStub.replaceProperties.callsArgWith(4,[{id:1}]);
+mailboxStub.removeProperties.callsArgWith(4,[{id:1}]);
 mailboxStub.namespace.callsArgWith(1,null,{separator:'/'});
 mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
 mailboxStub.matchFolders.callsArgWith(2,null,[folderStub]);
@@ -83,7 +83,7 @@ var IMAP_PORT = 4143,
 module.exports["Storage plugin defined"] = {
     setUp: function(done) {
       this.server = imapper({
-          plugins: ["AUTH-PLAIN","NAMESPACE","SPECIAL-USE", "CREATE-SPECIAL-USE"],
+          plugins: ["AUTH-PLAIN","NAMESPACE","SPECIAL-USE", "CREATE-SPECIAL-USE","X-GM-EXT-1"],
         	storage: storage
       });
 
@@ -376,20 +376,224 @@ module.exports["Storage plugin defined"] = {
 						// There already is tests/search-query.js to test conversions
             test.done();
         }).bind(this));
-    }
+    },
 		
+    "STORE +FLAGS should call mailbox.addFlags": function(test) {
+        var folder = "INBOX", range = "1:5", flags = "\\Deleted",
+				cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 STORE "+range+" +FLAGS ("+flags+")",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.addFlags.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.addFlags.getCall(0).args[0],folder);
+						test.equal(mailboxStub.addFlags.getCall(0).args[1],range);
+						test.equal(mailboxStub.addFlags.getCall(0).args[2],false);
+						test.deepEqual(mailboxStub.addFlags.getCall(0).args[3],[flags]);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID STORE +FLAGS should call mailbox.addFlags": function(test) {
+        var folder = "INBOX", range = "1:5", flags = "\\Deleted",
+				cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 UID STORE "+range+" +FLAGS ("+flags+")",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.addFlags.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.addFlags.getCall(0).args[0],folder);
+						test.equal(mailboxStub.addFlags.getCall(0).args[1],range);
+						test.equal(mailboxStub.addFlags.getCall(0).args[2],true);
+						test.deepEqual(mailboxStub.addFlags.getCall(0).args[3],[flags]);
+            test.done();
+        }).bind(this));
+    },
 		
+    "STORE FLAGS should call mailbox.replaceFlags": function(test) {
+        var folder = "INBOX", range = "1:5", flags = "\\Deleted",
+				cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 STORE "+range+" FLAGS ("+flags+")",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.replaceFlags.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.replaceFlags.getCall(0).args[0],folder);
+						test.equal(mailboxStub.replaceFlags.getCall(0).args[1],range);
+						test.equal(mailboxStub.replaceFlags.getCall(0).args[2],false);
+						test.deepEqual(mailboxStub.replaceFlags.getCall(0).args[3],[flags]);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID STORE FLAGS should call mailbox.replaceFlags": function(test) {
+        var folder = "INBOX", range = "1:5", flags = "\\Deleted",
+				cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 UID STORE "+range+" FLAGS ("+flags+")",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.replaceFlags.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.replaceFlags.getCall(0).args[0],folder);
+						test.equal(mailboxStub.replaceFlags.getCall(0).args[1],range);
+						test.equal(mailboxStub.replaceFlags.getCall(0).args[2],true);
+						test.deepEqual(mailboxStub.replaceFlags.getCall(0).args[3],[flags]);
+            test.done();
+        }).bind(this));
+    },
+
+    "STORE -FLAGS should call mailbox.removeFlags": function(test) {
+        var folder = "INBOX", range = "1:5", flags = "\\Deleted",
+				cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 STORE "+range+" -FLAGS ("+flags+")",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.removeFlags.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.removeFlags.getCall(0).args[0],folder);
+						test.equal(mailboxStub.removeFlags.getCall(0).args[1],range);
+						test.equal(mailboxStub.removeFlags.getCall(0).args[2],false);
+						test.deepEqual(mailboxStub.removeFlags.getCall(0).args[3],[flags]);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID STORE -FLAGS should call mailbox.removeFlags": function(test) {
+        var folder = "INBOX", range = "1:5", flags = "\\Deleted",
+				cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 UID STORE "+range+" -FLAGS ("+flags+")",
+            "ZZ LOGOUT"
+        ];
+				mailboxStub.removeFlags.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.removeFlags.getCall(0).args[0],folder);
+						test.equal(mailboxStub.removeFlags.getCall(0).args[1],range);
+						test.equal(mailboxStub.removeFlags.getCall(0).args[2],true);
+						test.deepEqual(mailboxStub.removeFlags.getCall(0).args[3],[flags]);
+            test.done();
+        }).bind(this));
+    },
 		
+
+
+    "STORE +PROPERTY should call mailbox.addProperties": function(test) {
+        var folder = "INBOX", range = "2:6", name = "X-GM-LABELS", props = "foo", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 STORE "+range+" +"+name+" ("+props+")",
+            "ZZ LOGOUT"
+        ], expect = {};
+				expect[name] = [props];
+				mailboxStub.addProperties.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.addProperties.getCall(0).args[0],folder);
+						test.equal(mailboxStub.addProperties.getCall(0).args[1],range);
+						test.equal(mailboxStub.addProperties.getCall(0).args[2],false);
+						test.deepEqual(mailboxStub.addProperties.getCall(0).args[3],expect);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID STORE +PROPERTY should call mailbox.addProperties": function(test) {
+        var folder = "INBOX", range = "2:6", name = "X-GM-LABELS", props = "foo", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 UID STORE "+range+" +"+name+" ("+props+")",
+            "ZZ LOGOUT"
+		    ], expect = {};
+				expect[name] = [props];
+				mailboxStub.addProperties.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.addProperties.getCall(0).args[0],folder);
+						test.equal(mailboxStub.addProperties.getCall(0).args[1],range);
+						test.equal(mailboxStub.addProperties.getCall(0).args[2],true);
+						test.deepEqual(mailboxStub.addProperties.getCall(0).args[3],expect);
+            test.done();
+        }).bind(this));
+    },
+
+    "STORE PROPERTY should call mailbox.replaceProperties": function(test) {
+        var folder = "INBOX", range = "2:6", name = "X-GM-LABELS", props = "foo", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 STORE "+range+" "+name+" ("+props+")",
+            "ZZ LOGOUT"
+		    ], expect = {};
+				expect[name] = [props];
+				mailboxStub.replaceProperties.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.replaceProperties.getCall(0).args[0],folder);
+						test.equal(mailboxStub.replaceProperties.getCall(0).args[1],range);
+						test.equal(mailboxStub.replaceProperties.getCall(0).args[2],false);
+						test.deepEqual(mailboxStub.replaceProperties.getCall(0).args[3],expect);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID STORE PROPERTY should call mailbox.replaceProperties": function(test) {
+        var folder = "INBOX", range = "2:6", name = "X-GM-LABELS", props = "foo", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 UID STORE "+range+" "+name+" ("+props+")",
+            "ZZ LOGOUT"
+		    ], expect = {};
+				expect[name] = [props];
+				mailboxStub.replaceProperties.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.replaceProperties.getCall(0).args[0],folder);
+						test.equal(mailboxStub.replaceProperties.getCall(0).args[1],range);
+						test.equal(mailboxStub.replaceProperties.getCall(0).args[2],true);
+						test.deepEqual(mailboxStub.replaceProperties.getCall(0).args[3],expect);
+            test.done();
+        }).bind(this));
+    },
+
+    "STORE -PROPERTY should call mailbox.removeProperties": function(test) {
+        var folder = "INBOX", range = "2:6", name = "X-GM-LABELS", props = "foo", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 STORE "+range+" -"+name+" ("+props+")",
+            "ZZ LOGOUT"
+	    ], expect = {};
+			expect[name] = [props];
+				mailboxStub.removeProperties.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.removeProperties.getCall(0).args[0],folder);
+						test.equal(mailboxStub.removeProperties.getCall(0).args[1],range);
+						test.equal(mailboxStub.removeProperties.getCall(0).args[2],false);
+						test.deepEqual(mailboxStub.removeProperties.getCall(0).args[3],expect);
+            test.done();
+        }).bind(this));
+    },
+
+    "UID STORE -PROPERTY should call mailbox.removeProperties": function(test) {
+        var folder = "INBOX", range = "2:6", name = "X-GM-LABELS", props = "foo", cmds = ["A1 LOGIN testuser testpass",
+            "A2 SELECT "+folder,
+            "A3 UID STORE "+range+" -"+name+" ("+props+")",
+            "ZZ LOGOUT"
+		    ], expect = {};
+				expect[name] = [props];
+				mailboxStub.removeProperties.reset();
+        mockClient(IMAP_PORT, "localhost", cmds, false, (function(resp) {
+            resp = resp.toString();
+						test.equal(mailboxStub.removeProperties.getCall(0).args[0],folder);
+						test.equal(mailboxStub.removeProperties.getCall(0).args[1],range);
+						test.equal(mailboxStub.removeProperties.getCall(0).args[2],true);
+						test.deepEqual(mailboxStub.removeProperties.getCall(0).args[3],expect);
+            test.done();
+        }).bind(this));
+    }	
 };
 
-/*
-
-mailboxStub.addFlags.callsArg(4);
-mailboxStub.replaceFlags.callsArg(4);
-mailboxStub.removeFlags.callsArg(4);
-mailboxStub.addProperties.callsArg(5);
-mailboxStub.replaceProperties.callsArg(5);
-mailboxStub.removeProperties.callsArg(5);
-
-
-*/

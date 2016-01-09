@@ -1,6 +1,6 @@
 {
   "name": "imapper",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "IMAP server for real usage, inspired by Haraka for SMTP and descended from Hoodiecrow",
   "main": "lib/server.js",
   "scripts": {
