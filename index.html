@@ -1,42 +1,44 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>Hoodiecrow IMAP server by andris9</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/github-light.css">
-    <meta name="viewport" content="width=device-width">
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
+
+    <title>Hoodiecrow IMAP server by andris9</title>
   </head>
+
   <body>
-    <div class="wrapper">
-      <header>
+    <header>
+      <div class="inner">
         <h1>Hoodiecrow IMAP server</h1>
-        <p>Scriptable IMAP server for client integration testing</p>
+        <h2>Scriptable IMAP server for client integration testing</h2>
+        <a href="https://github.com/andris9/hoodiecrow" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
 
-        <p class="view"><a href="https://github.com/andris9/hoodiecrow">View the Project on GitHub <small>andris9/hoodiecrow</small></a></p>
-
-
-        <ul>
-          <li><a href="https://github.com/andris9/hoodiecrow/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/andris9/hoodiecrow/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/andris9/hoodiecrow">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h1>
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
 <a id="hoodiecrow" class="anchor" href="#hoodiecrow" aria-hidden="true"><span class="octicon octicon-link"></span></a>Hoodiecrow</h1>
 
 <p><img src="https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg" alt="Hoodiecrow"></p>
 
+<p><em>Image by yours truly, see the original in <a href="http://instagram.com/p/el_FOIo_tB/#">Instagram</a></em></p>
+
 <p>Hoodiecrow is a scriptable IMAP server for client integration testing. It offers <a href="http://tools.ietf.org/html/rfc3501">IMAP4ver1</a> support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.</p>
 
 <p><a href="http://travis-ci.org/andris9/hoodiecrow"><img src="https://secure.travis-ci.org/andris9/hoodiecrow.png" alt="Build Status"></a>
-<a href="http://badge.fury.io/js/hoodiecrow"><img src="https://badge.fury.io/js/hoodiecrow.png" alt="NPM version"></a></p>
+<a href="http://badge.fury.io/js/hoodiecrow-imap"><img src="https://badge.fury.io/js/hoodiecrow-imap.png" alt="NPM version"></a></p>
 
 <p>STARTTLS requires Node <em>0.12</em> or <em>iojs</em> as it uses <a href="https://nodejs.org/api/tls.html#tls_class_tls_tlssocket">tls.TLSSocket</a> API.</p>
 
@@ -50,7 +52,7 @@
 
 <p>If you have Node.js installed, install Hoodiecrow with the <code>npm</code> command and run it:</p>
 
-<div class="highlight highlight-source-shell"><pre>npm install -g hoodiecrow
+<div class="highlight highlight-source-shell"><pre>npm install -g hoodiecrow-imap
 sudo hoodiecrow</pre></div>
 
 <p>Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143 (<code>hoodiecrow -p 1143</code>), you do not need to use sudo.</p>
@@ -67,13 +69,13 @@ automatically to INBOX. To use it, use <em>smtpPort</em> option (<code>hoodiecro
 <h3>
 <a id="include-as-a-nodejs-module" class="anchor" href="#include-as-a-nodejs-module" aria-hidden="true"><span class="octicon octicon-link"></span></a>Include as a Node.js module</h3>
 
-<p>Add <code>hoodiecrow</code> dependency</p>
+<p>Add <code>hoodiecrow-imap</code> dependency</p>
 
-<div class="highlight highlight-source-shell"><pre>npm install hoodiecrow</pre></div>
+<div class="highlight highlight-source-shell"><pre>npm install hoodiecrow-imap</pre></div>
 
 <p>Create and start an IMAP server</p>
 
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow<span class="pl-pds">"</span></span>),
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow-imap<span class="pl-pds">"</span></span>),
     server <span class="pl-k">=</span> <span class="pl-en">hoodiecrow</span>(options);
 <span class="pl-smi">server</span>.<span class="pl-en">listen</span>(<span class="pl-c1">143</span>);</pre></div>
 
@@ -333,7 +335,7 @@ S: A1 OK XTOYBIRD Completed
 
 <p>Creating your tests in Node.js is a piece of cake, you do not even need to run the <code>hoodiecrow</code> command. Here is a sample [nodeunit] test.</p>
 
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow<span class="pl-pds">"</span></span>),
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> hoodiecrow <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>hoodiecrow-imap<span class="pl-pds">"</span></span>),
     myIMAPCLient <span class="pl-k">=</span> <span class="pl-c1">require</span>(<span class="pl-s"><span class="pl-pds">"</span>../my-imap-client<span class="pl-pds">"</span></span>);
 
 <span class="pl-smi">module</span>.<span class="pl-smi">exports</span>[<span class="pl-s"><span class="pl-pds">"</span>IMAP tests<span class="pl-pds">"</span></span>] <span class="pl-k">=</span> {
@@ -560,14 +562,26 @@ S: A1 OK XTOYBIRD Completed
 <a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h1>
 
 <p><strong>MIT</strong></p>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/andris9">andris9</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/andris9/hoodiecrow/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/andris9/hoodiecrow/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/andris9/hoodiecrow"></a> is maintained by <a href="https://github.com/andris9">andris9</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
     </div>
-    <script src="javascripts/scale.fix.js"></script>
-              <script type="text/javascript">
+
+            <script type="text/javascript">
             var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
             document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
           </script>
