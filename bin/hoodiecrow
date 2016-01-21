@@ -114,7 +114,17 @@ if(argv.h || argv.help){
             });
             req.on("end", function(){
                 var message = Buffer.concat(data, dataLen);
-                server.appendMessage("INBOX", [], false, message.toString("binary"));
+                var dotsNotHandled = message.toString('utf-8');
+                var textSurroundingFirstCharacterDots = dotsNotHandled.split('\r\n.');
+                var intermediate = textSurroundingFirstCharacterDots.map(function(lineFollowingStartingDot) {
+                  if (lineFollowingStartingDot.indexOf('\r\n') === 0) {
+                    return '\r\n.' + lineFollowingStartingDot;
+                  } else {
+                    return lineFollowingStartingDot;
+                  }
+                });
+                var messageInUTF8 = intermediate.join('\r\n');
+                server.appendMessage("INBOX", [], false, new Buffer(messageInUTF8).toString("binary"));
             });
             req.accept();
         }).listen(smtpPort, function(){
