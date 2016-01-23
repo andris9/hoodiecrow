@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "grunt": "~0.4.5",
-    "grunt-contrib-jshint": "~0.11.3",
+    "grunt-contrib-jshint": "~0.12.0",
     "grunt-contrib-nodeunit": "~0.4.1",
     "inbox": "~1.1.59"
   },
