@@ -4,7 +4,7 @@ var hoodiecrow = require("../lib/server"),
     packageData = require("../package"),
     fs = require("fs"),
     argv = require('optimist').argv,
-    simplesmtp = require("simplesmtp"),
+    smtpServer = require("../lib/hoodiecrowSMTPServer"),
 
     configLocation = argv.config || process.env.HOODIECROW_CONFIG,
     storageLocation = argv.storage || process.env.HOODIECROW_STORAGE,
@@ -103,23 +103,7 @@ if(argv.h || argv.help){
     });
 
     if(smtpPort){
-        simplesmtp.createSimpleServer({SMTPBanner:"Hoodiecrow"}, function(req){
-            var data = [], dataLen = 0;
-            req.on("data", function(chunk){
-                if(!chunk || !chunk.length){
-                    return;
-                }
-                data.push(chunk);
-                dataLen += chunk.length;
-            });
-            req.on("end", function(){
-                var message = Buffer.concat(data, dataLen);
-                server.appendMessage("INBOX", [], false, message.toString("binary"));
-            });
-            req.accept();
-        }).listen(smtpPort, function(){
-            console.log("Incoming SMTP server up and running on port %s", smtpPort);
-        });
+      smtpServer.startSMTPServer(smtpPort, server);
     }
 }
 
