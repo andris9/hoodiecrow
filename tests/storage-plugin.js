@@ -68,7 +68,7 @@ mailboxStub.removeProperties.callsArgWith(4,[{id:1}]);
 mailboxStub.namespace.callsArgWith(1,null,{separator:'/'});
 mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
 mailboxStub.matchFolders.callsArgWith(2,null,[folderStub]);
-mailboxStub.getMessageRange.callsArgWith(3,null,[messageStub]);
+mailboxStub.getMessageRange.callsArgWith(3,null,[[1,messageStub]]);
 mailboxStub.setFolderSpecialUse.callsArg(2);
 mailboxStub.searchMessages.callsArgWith(2,null,[{index:1,uid:messageStub.uid}]);
 mailboxStub.subscribeFolder.callsArg(1);
