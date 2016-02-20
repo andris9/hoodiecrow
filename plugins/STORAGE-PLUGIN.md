@@ -443,9 +443,9 @@ The methods that return folders are expected to return objects that have the fol
 * `id`: unique ID of the folder, if relevant
 * `path`: The separator-sensitive path to this folder, e.g. "INBOX" or "sub/my/folders".
 * `allowPermanentFlags`: boolean whether or not this folder allows permanent flags.
-* `uidnext`: string. The next available UID.
+* `uidnext`: string. Optional. The next available UID.
 * `uidvalidity`: string. The UID for this session.
-* `flags`: object with a key representing the name of each flag on a message in the folder, and the value an integer of the number of messages on which it appears.
+* `flags`: object with a key representing the name of each flag on a message in the folder, and the value an integer of the number of messages on which it appears. If not present, must be an empty array `[]`.
 * `seen`: integer with the number of messages that have the `Seen` flag set
 * `unseen`: integer with the number of messages that do not have the `Seen` flag set
 * `permanentFlags`: array of strings, with each element representing a unique permanent flag in this folder

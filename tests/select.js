@@ -16,6 +16,18 @@ module.exports["Normal login"] = {
                         internaldate: "14-Sep-2013 21:22:28 -0300",
                         flags: "\\Deleted"
                     }]
+                },
+								"": {
+									folders: {
+		                "Personal": {
+		                    uidnext: "1234567",
+		                    messages: [{
+		                        raw: "Subject: hello 1\r\n\r\nWorld 1!",
+		                        internaldate: "14-Sep-2013 21:22:28 -0300",
+		                        flags: "\\Deleted"
+		                    }]
+											}
+									}
                 }
             });
         this.instanceId = ++instance;
@@ -42,6 +54,7 @@ module.exports["Normal login"] = {
             test.done();
         }).bind(this));
     },
+
 
     "SELECT non-existent": function(test) {
       var cmds = ["A1 CAPABILITY",
