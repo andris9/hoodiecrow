@@ -20,6 +20,67 @@ The Mail Store Driver, or MSD, abstracts the details of implementation, providin
 
 Each implementation of a storage plugin must follow the MSD specification.
 
+## Breaking Changes
+This section lists changes between versions that are incompatible with past versions. From 1.0.0 onwards, these will only be in major versions, i.e. 1.0.0, 2.0.0, etc. Prior to 1.0.0, these changes *may* occur in minor versions, 0.4.0, 0.5.0, etc.
+
+#### Change to Returned Messages - 0.5.0
+Prior to 0.5.0, the plugin method `getMessageRange` returned an array of messages, each of which was itself an array. The first item was the index in the folder, the second was the message object.
+
+Beginning with 0.5.0, the method returns an array of objects. One property on the object should be `index`, indicating the index in the folder.
+
+Pre-0.5.0:
+
+````json
+[ [1,{uid:72,...}] , [2,{uid:85,...}], [6,{uid:99,...}] ]
+
+````
+
+0.5.0 onwards:
+
+````json
+[ {index:1, uid:72, ....} , {index:2, uid:85,...} , {index:6, uid:99,...} ]
+````
+
+
+#### Multiple Returned Messages Calls - 0.5.0
+Prior to 0.5.0, the plugin method `getMessageRange` was expected to call the `callback` exactly once with the array of messages. This made it necessary to buffer up many messages in the server and slowed the response, in the case of a large mailbox.
+
+Beginning with 0.5.0, you can call the callback 1, 2 or many times. Each time you are expected to pass an array of messages.
+
+As soon as the callback receives a `null` item in an array, it is completed.
+
+Pre-0.5.0:
+
+````JavaScript
+callback(null,[ [1,{uid:72,...}] , [2,{uid:85,...}], [6,{uid:99,...}] ]);
+````
+
+0.5.0 onwards:
+
+
+````JavaScript
+callback(null, [ {index:1, uid:72, ....} , {index:2, uid:85,...} ]);
+callback(null, [ {index:6, uid:99,...}  ]);
+callback(null, [ null ]);
+
+// OR
+
+callback(null, [ {index:1, uid:72, ....} , {index:2, uid:85,...} ]);
+callback(null, [ {index:6, uid:99,...} , null ]);
+
+// OR
+
+callback(null, [ {index:1, uid:72, ....} , {index:2, uid:85,...} , null ]);
+
+````
+
+
+
+
+
+
+
+
 ## Overview
 The MSD interface uses two concepts:
 
@@ -385,6 +446,27 @@ The following arguments are provided:
 * `isUid`: true if `range` is a range of UID, false/null/undefined otherwise. Default is false.
 * `callback`: callback function to which to pass the results.
 
+The callback can be called multiple times. Each call can include 1 or more messages. Thus, if the request was for 2 messages, you likely will call `callback()` just once; if it was for 1,000 messages, you do not need to load them all and send them with a single callback. Instead, you can call the callback as many times as necessary, each time sending a different message or group of messages.
+
+imapper will know that `getMessageRange()` is complete when the last element of the received array of messages is `null`.
+
+Examples:
+
+To return all three messages at once:
+
+````JavaScript
+callback(null,[{index: 1, raw: message1}, {index: 2, raw: message2}, {index: 3, raw: message3}, null])
+````
+
+To return three messages one at a time:
+
+````JavaScript
+callback(null,[{index: 1, raw: message1}])
+callback(null,[{index: 2, raw: message2}])
+callback(null,[{index: 3, raw: message3}])
+callback(null,[null]);
+````
+
 
 ##### createMessage
 
@@ -454,18 +536,14 @@ The methods that return folders are expected to return objects that have the fol
 * `subscribed`: boolean. Should be `true` if the user has subscribed to this folder, thus indicating it will show up in `LSUB` commands. `false` or `undefined` otherwise.
 
 ##### Message
-The methods that return messages, primarily `getMessageRange()` are expected to return an array. Each element in the array should itself be an array with two elements:
+Methods that return messages, primarily `getMessageRange()` are expected to return an array. Each element in the array should be an object representing a message with the following properties:
 
-* `index`: the index for the message in the given folder
-* `message`: the message object
-
-The message object is expected to have the following properties:
-
+* `index`: the index for the message in the given folder.
 * `raw`: The entire content of the message.
 * `internaldate`: Internal date of the message creation time on the server, per https://tools.ietf.org/html/rfc3501#section-2.3.3 
 * `flags`: Array of flag strings. Optional.
 * `properties`: Object of properties, keyed on property name. Optional.
-
+* `uid`: Number UID of the message.
 
 
 ###### Attachments

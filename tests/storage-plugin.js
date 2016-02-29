@@ -1,4 +1,4 @@
-var imapper = require("./resources/init"),
+var imapper = require("./resources/init"), _ = require('lodash'),
     mockClient = require("../lib/mock-client"),
 	sinon = require('sinon'),
 	FOLDER = "INBOX",
@@ -68,7 +68,7 @@ mailboxStub.removeProperties.callsArgWith(4,[{id:1}]);
 mailboxStub.namespace.callsArgWith(1,null,{separator:'/'});
 mailboxStub.getNamespaces.callsArgWith(0,["INBOX",""]);
 mailboxStub.matchFolders.callsArgWith(2,null,[folderStub]);
-mailboxStub.getMessageRange.callsArgWith(3,null,[[1,messageStub]]);
+mailboxStub.getMessageRange.callsArgWith(3,null,[_.extend({index:1},messageStub),null]);
 mailboxStub.setFolderSpecialUse.callsArg(2);
 mailboxStub.searchMessages.callsArgWith(2,null,[{index:1,uid:messageStub.uid}]);
 mailboxStub.subscribeFolder.callsArg(1);
