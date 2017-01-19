@@ -1,6 +1,6 @@
 # Storage Plugin
 
-This document describes how to write a storage plugin, also known as a Mail Storage Driver (MSD). The purpose of an MSD is to provide Imapper with the ability to read messages and folders from and write them to a back-end store. 
+This document describes how to write a storage plugin, also known as a Mail Storage Driver (MSD). The purpose of an MSD is to provide Imapper with the ability to read messages and folders from and write them to a back-end store.
 
 A storage plugin must implement the MSD interface, as described below.
 
@@ -122,7 +122,7 @@ var mailbox = connection.mailbox(name,user);
 The arguments to `connection.mailbox()` are:
 
 * `name`: name of the mailbox to use. String. Required.
-* `user`: who is accessing the mailbox. String. Optional. Defaults to `name` if not provided. 
+* `user`: who is accessing the mailbox. String. Optional. Defaults to `name` if not provided.
 
 The mailbox is returned synchronously, as no connection is created as of yet. The mailbox is expected to use the `user` parameter or, if left blank, the `name`, to determine if each action is allowed.
 
@@ -132,13 +132,13 @@ The returned `mailbox` object has the following properties and methods. All call
 * `createFolder(path,callback)`: create a new folder in this mailbox with the path `path`. Will pass `data` to the callback as a new `folder` object. If creation fails, pass an error to the callback.
 * `delFolder(path, callback)`: delete the named folder at `path` with all of its messages. If it fails, pass an error to the `err` argument of the callback.
 * `renameFolder(source, destination, callback)`: rename the named folder at `source` with the new path `destination`. If it fails, pass an error to the `err` argument of the callback.
-* `createMessage(folder,content,callback)`: add a message to the named folder with the content object `content`. If it fails, pass an error to the `err` argument of the callback. 
+* `createMessage(folder,content,callback)`: add a message to the named folder with the content object `content`. If it fails, pass an error to the `err` argument of the callback.
 * `addFlags(folder,ids,isUid,flags,callback)`: add the flags in `flags` to message(s) `ids` in folder `folder`. `ids` is index in the folder if `isUid` is false or undefined, or the UID of the messages if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `flags` must be an array of String flags. If the message(s) or folder do not exist, return an error. If the flags already exist on message, do not return an error, as this call should be idempotent. `data` returned in the callback should be an array of changed messages, each of which should be an object with the properties `index`, `uid` and `flags`.
 * `removeFlags(folder,ids,isUid,flags,callback)`: remove the flags in `flags` from message(s) `ids` in folder `folder`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `flags` must be an array of String flags. If the message(s) or folder do not exist, return an error. If the flags do not exist on message, do not return an error, as this call should be idempotent. `data` returned in the callback should be an array of changed messages, each of which should be an object with the properties `index`, `uid` and `flags`.
 * `replaceFlags(folder,ids,isUid,flags,callback)`: replace all of the flags in `flags` on message(s) `ids` in folder `folder` with `flags`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `flags` must be an array of String flags. If the message(s) or folder do not exist, return an error. `data` returned in the callback should be an array of changed messages, each of which should be an object with the properties `index`, `uid` and `flags`.
-* `addProperties(folder,ids,isUid,properties,callback)`: add the properties in `properties` to message(s) `ids` in folder `folder`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `properties` must be a hash of String properties. If the message(s) or folder do not exist, return an error. If the properties already exist on message, do not return an error, as this call should be idempotent. 
-* `removeProperties(folder,ids,isUid,properties,callback)`: remove the properties in `properties` from message `ids` in folder `folder`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `properties` must be an array of String properties. If the message(s) or folder do not exist, return an error. 
-* `replaceProperties(folder,ids,isUid,properties,callback)`: replace all of the properties in `properties` on message(s) `ids` in folder `folder` with `properties`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `properties` must be a hash of String flags. 
+* `addProperties(folder,ids,isUid,properties,callback)`: add the properties in `properties` to message(s) `ids` in folder `folder`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `properties` must be a hash of String properties. If the message(s) or folder do not exist, return an error. If the properties already exist on message, do not return an error, as this call should be idempotent.
+* `removeProperties(folder,ids,isUid,properties,callback)`: remove the properties in `properties` from message `ids` in folder `folder`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `properties` must be an array of String properties. If the message(s) or folder do not exist, return an error.
+* `replaceProperties(folder,ids,isUid,properties,callback)`: replace all of the properties in `properties` on message(s) `ids` in folder `folder` with `properties`. `ids` is index in the folder if `isUid` is false or undefined, UID if `true`. `ids` is a string in the format to match a range of messages. See below "Range of Messages". `properties` must be a hash of String flags.
 * `namespace(path,callback)`: get the namespace for the given path. Returned object should be null if not found, or an object with a `separator` property to indicate the separator.
 * `getNamespaces(callback)`: List the available namespaces.
 * `matchFolders(namespace,name,callback)`: search for folders whose name includes `name` in namespace `namespace`. If `namespace` is blank, searches the default namespace for this user, including INBOX. Should return folder objects.
@@ -146,7 +146,8 @@ The returned `mailbox` object has the following properties and methods. All call
 * `setFolderSpecialUse(folder,flags,callback)`: Set this folder to be special use, per RFC6514, for the given array of flags.
 * `searchMessages(folder,query,callback)`: retrieve an array of the IDs - both index and UID - of all messages in the named `folder` that match the search `query`, or an empty array for none. Pass an array of objects to the callback as the `data` argument. See below for search details.
 * `subscribeFolder(path,callback)`: subscribe to a given folder. Should return `err` if there is an error, specifically if the folder is invalid, does not exist or is not selectable or subscribable, `null` otherwise.
-* `expunge(folder,ignoreSelf,ignoreExists,callback)`: Expunge deleted messages from a given folder. 
+* `expunge(folder,ignoreSelf,ignoreExists,callback)`: Expunge deleted messages from a given folder.
+* `getStatus(folder,callback)`: Return the status of key properties of a given folder.
 
 
 #### Methods
@@ -220,7 +221,7 @@ E.g.
 ````
 
 ###### Flags
-Flag searches check for a flag that is set. 
+Flag searches check for a flag that is set.
 
 Example 1: Search for all messages that have "MyFlag" and "\Deleted" set.
 
@@ -442,7 +443,7 @@ Examples:
 The following arguments are provided:
 
 * `path`: the full path to folder from which to retrieve the messages.
-* `range`: a string range describing which messages to retrieve. See below for the syntax. 
+* `range`: a string range describing which messages to retrieve. See below for the syntax.
 * `isUid`: true if `range` is a range of UID, false/null/undefined otherwise. Default is false.
 * `callback`: callback function to which to pass the results.
 
@@ -479,7 +480,7 @@ callback(null,[null]);
 The `content` must be an object, and has the following properties:
 
 * `raw`: The entire content of the message.
-* `internaldate`: Internal date of the message creation time on the server, per https://tools.ietf.org/html/rfc3501#section-2.3.3 
+* `internaldate`: Internal date of the message creation time on the server, per https://tools.ietf.org/html/rfc3501#section-2.3.3
 * `flags`: Array of flag strings. Optional.
 
 ##### expunge
@@ -540,7 +541,7 @@ Methods that return messages, primarily `getMessageRange()` are expected to retu
 
 * `index`: the index for the message in the given folder.
 * `raw`: The entire content of the message.
-* `internaldate`: Internal date of the message creation time on the server, per https://tools.ietf.org/html/rfc3501#section-2.3.3 
+* `internaldate`: Internal date of the message creation time on the server, per https://tools.ietf.org/html/rfc3501#section-2.3.3
 * `flags`: Array of flag strings. Optional.
 * `properties`: Object of properties, keyed on property name. Optional.
 * `uid`: Number UID of the message.
@@ -565,3 +566,36 @@ Several of the methods operate on a range of messages in a folder. The message r
 You can combine ranges and items to retrieve more messages at once. For example, `1:4,8,13:17,21` retrieves messages 1 through 4, 8, 13 through 17 and 21.
 
 
+##### getStatus
+Retrieves the status of the following key parameters of the mailbox:
+
+* `MESSAGES`: integer
+* `RECENT`: integer
+* `UIDNEXT`: UID
+* `UIDVALIDITY`: UID
+* `UNSEEN`: integer
+
+When complete, `getStatus()` should call its `callback` with the following signature:
+
+```js
+callback(err,status)
+```
+
+where:
+
+* `err` - any errors
+* `status` - javascript object with the status
+
+For example, a valid return might be:
+
+```js
+{
+  messages: 175,
+  recent: 12,
+  uidnext: '67ab',
+  uidvalidity: 'ab87',
+  unseen: 0  
+}
+```
+
+Note that all keys **must** be in lower-case.
