@@ -4,7 +4,7 @@
 
 ## Deprecated
 
-This project is deprecated and it is not maintained anymore.
+This project is deprecated and it is not maintained anymore. See [Wild Duck IMAP Server](https://github.com/wildduck-email/wildduck) for a full featured IMAP server wirtten in Node.js + MongoDB.
 
 ## About
 
