@@ -1,15 +1,18 @@
 # Hoodiecrow
 
-![Hoodiecrow](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg)
+![Hoodiecrow](https://raw.githubusercontent.com/postalsys/hoodiecrow-imap/master/hoodiecrow_actual.jpg)
 
 ## About
 
 Hoodiecrow is a scriptable IMAP server for client integration testing. It offers [IMAP4ver1](http://tools.ietf.org/html/rfc3501) support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
 
-[![Run Tests](https://github.com/andris9/hoodiecrow/actions/workflows/test.yml/badge.svg)](https://github.com/andris9/hoodiecrow/actions/workflows/test.yml)
-[![NPM version](https://img.shields.io/npm/v/hoodiecrow-imap.svg)](https://www.npmjs.com/package/hoodiecrow-imap)
+[![Run Tests](https://github.com/postalsys/hoodiecrow-imap/actions/workflows/test.yml/badge.svg)](https://github.com/postalsys/hoodiecrow-imap/actions/workflows/test.yml)
+[![npm](https://img.shields.io/npm/v/hoodiecrow-imap)](https://www.npmjs.com/package/hoodiecrow-imap)
+[![license](https://img.shields.io/npm/l/hoodiecrow-imap)](https://github.com/postalsys/hoodiecrow-imap/blob/master/LICENSE)
 
 Hoodiecrow requires Node.js 20 or newer.
+
+> Hoodiecrow is maintained by the team behind **[EmailEngine](https://emailengine.app/?utm_source=hoodiecrow-readme&utm_medium=readme&utm_campaign=oss-docs&utm_content=note)**, a self-hosted email API that turns Gmail, Microsoft 365, and IMAP accounts into REST endpoints, with managed OAuth2 and webhooks for incoming mail. If you need a production email integration rather than a mock IMAP server for tests, start there.
 
 # Usage
 
@@ -49,7 +52,7 @@ const server = hoodiecrow(options);
 server.listen(143);
 ```
 
-See [complete.js](https://github.com/andris9/hoodiecrow/blob/master/examples/complete.js) for an example.
+See [complete.js](https://github.com/postalsys/hoodiecrow-imap/blob/master/examples/complete.js) for an example.
 
 ## Scope
 
@@ -419,7 +422,7 @@ connection.inputHandler = function(line){
 }
 ```
 
-See [idle.js](https://github.com/andris9/hoodiecrow/blob/master/lib/plugins/idle.js) for an example
+See [idle.js](https://github.com/postalsys/hoodiecrow-imap/blob/master/lib/plugins/idle.js) for an example
 
 #### Override output
 
@@ -445,4 +448,6 @@ It is possible to append messages to a mailbox; create, delete and rename mailbo
 
 # License
 
-**MIT**
+Copyright (c) 2013-2026 Postal Systems OÜ
+
+Licensed under the MIT license.

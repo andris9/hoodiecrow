@@ -22,18 +22,18 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/andris9/hoodiecrow.git"
+        "url": "git+https://github.com/postalsys/hoodiecrow-imap.git"
     },
     "bugs": {
-        "url": "https://github.com/andris9/hoodiecrow/issues"
+        "url": "https://github.com/postalsys/hoodiecrow-imap/issues"
     },
-    "homepage": "https://github.com/andris9/hoodiecrow#readme",
+    "homepage": "https://github.com/postalsys/hoodiecrow-imap#readme",
     "keywords": [
         "IMAP",
         "mock",
         "testing"
     ],
-    "author": "Andris Reinman",
+    "author": "Postal Systems OÜ",
     "license": "MIT",
     "dependencies": {
         "imap-handler": "0.1.12",

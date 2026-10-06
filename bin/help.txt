@@ -77,7 +77,7 @@ INBOX has its own namespace.
 If not storage file is specified, an empty "INBOX" is used
 
 Project homepage: http://hoodiecrow.com/
-Report issues at: https://github.com/andris9/hoodiecrow/issues
+Report issues at: https://github.com/postalsys/hoodiecrow-imap/issues
 
 License: MIT
 
