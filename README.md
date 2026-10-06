@@ -373,7 +373,7 @@ Where
 Handler arguments
 
 - **connection** - Session instance
-- **parsed** - Input from the client in structured form (see [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) for reference)
+- **parsed** - Input from the client in structured form (see [imap-handler](https://github.com/postalsys/imap-handler#parse-imap-commands) for reference)
 - **data** - Input command as a binary string
 - **callback** - callback function to run (does not take any arguments)
 
@@ -383,7 +383,7 @@ The command should send data to the client with `connection.send()`
 
 Where
 
-- **response** is a [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) compatible object. To get the correct tag for responsing OK, NO or BAD, look into `parsed.tag`
+- **response** is a [imap-handler](https://github.com/postalsys/imap-handler#parse-imap-commands) compatible object. To get the correct tag for responsing OK, NO or BAD, look into `parsed.tag`
 - **description** is a string identifying the response to be used by other plugins
 - **parsed** is the `parsed` argument passed to the handler
 - **data** is the `data` argument passed to the handler
