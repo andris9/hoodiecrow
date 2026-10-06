@@ -2,18 +2,14 @@
 
 ![Hoodiecrow](https://raw.github.com/andris9/hoodiecrow/master/hoodiecrow_actual.jpg)
 
-## Deprecated
-
-This project is deprecated and it is not maintained anymore. See [Wild Duck IMAP Server](https://github.com/wildduck-email/wildduck) for a full featured IMAP server wirtten in Node.js + MongoDB.
-
 ## About
 
 Hoodiecrow is a scriptable IMAP server for client integration testing. It offers [IMAP4ver1](http://tools.ietf.org/html/rfc3501) support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
 
-[![Build Status](https://secure.travis-ci.org/andris9/hoodiecrow.png)](http://travis-ci.org/andris9/hoodiecrow)
-[![NPM version](https://badge.fury.io/js/hoodiecrow-imap.png)](http://badge.fury.io/js/hoodiecrow-imap)
+[![Run Tests](https://github.com/andris9/hoodiecrow/actions/workflows/test.yml/badge.svg)](https://github.com/andris9/hoodiecrow/actions/workflows/test.yml)
+[![NPM version](https://img.shields.io/npm/v/hoodiecrow-imap.svg)](https://www.npmjs.com/package/hoodiecrow-imap)
 
-STARTTLS requires Node *0.12* or *iojs* as it uses [tls.TLSSocket](https://nodejs.org/api/tls.html#tls_class_tls_tlssocket) API.
+Hoodiecrow requires Node.js 20 or newer.
 
 # Usage
 
@@ -31,7 +27,7 @@ sudo hoodiecrow
 Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143 (`hoodiecrow -p 1143`), you do not need to use sudo.
 
 `hoodiecrow` command also provides an incoming SMTP server which appends all incoming messages
-automatically to INBOX. To use it, use *smtpPort* option (`hoodiecrow --smtpPort=1025`).
+automatically to INBOX. To use it, use _smtpPort_ option (`hoodiecrow --smtpPort=1025`).
 
 > **Protip** Running `hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
 
@@ -48,8 +44,8 @@ npm install hoodiecrow-imap
 Create and start an IMAP server
 
 ```javascript
-var hoodiecrow = require("hoodiecrow-imap"),
-    server = hoodiecrow(options);
+const hoodiecrow = require('hoodiecrow-imap');
+const server = hoodiecrow(options);
 server.listen(143);
 ```
 
@@ -79,28 +75,28 @@ Plugins can be enabled when starting the server but can not be unloaded or loade
 All plugins are self contained and not tied to core. If you do not enable a plugin, no trace of it is left
 to the system. For example, if you do not enable CONDSTORE, messages do not have a MODSEQ value set.
 
-  * **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
-  * **CONDSTORE** Partially implemented CONDSTORE [RFC4551] support
-  * **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
-  * **ENABLE** Adds ENABLE capability [RFC5161]. Must be loaded before any plugin that requires ENABLE support (eg. CONDSTORE)
-  * **ID** Adds ID [RFC2971] capability
-  * **IDLE** Adds IDLE [RFC2177] capability
-  * **LITERALPLUS** Enables LITERAL+ [RFC2088] capability
-  * **LOGINDISABLED** Disables LOGIN support for unencrypted connections
-  * **NAMESPACE** Adds NAMESPACE [RFC2342] capability
-  * **SASL-IR** Enables SASL-IR [RFC4959] capability
-  * **SPECIAL-USE** Enables SPECIAL-USE [RFC6154] capability Mailboxes need to have a "special-use" property (String or Array) that will be used as extra flag for LIST and LSUB responses
-  * **STARTTLS** Adds STARTTLS command
-  * **UNSELECT** Adds UNSELECT [RFC3691] capability
-  * **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/gmail/imap_extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is not supported as I haven't figured threading out yet.
-  * **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
-  * **XTOYBIRD** Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands
+- **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
+- **CONDSTORE** Partially implemented CONDSTORE [RFC4551] support
+- **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
+- **ENABLE** Adds ENABLE capability [RFC5161]. Must be loaded before any plugin that requires ENABLE support (eg. CONDSTORE)
+- **ID** Adds ID [RFC2971] capability
+- **IDLE** Adds IDLE [RFC2177] capability
+- **LITERALPLUS** Enables LITERAL+ [RFC2088] capability
+- **LOGINDISABLED** Disables LOGIN support for unencrypted connections
+- **MOVE** Adds MOVE [RFC6851] capability (MOVE and UID MOVE commands)
+- **NAMESPACE** Adds NAMESPACE [RFC2342] capability
+- **SASL-IR** Enables SASL-IR [RFC4959] capability
+- **SPECIAL-USE** Enables SPECIAL-USE [RFC6154] capability Mailboxes need to have a "special-use" property (String or Array) that will be used as extra flag for LIST and LSUB responses
+- **STARTTLS** Adds STARTTLS command
+- **UIDPLUS** Adds UIDPLUS [RFC4315] capability (APPENDUID, COPYUID and UID EXPUNGE)
+- **UNSELECT** Adds UNSELECT [RFC3691] capability
+- **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/gmail/imap_extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is not supported as I haven't figured threading out yet.
+- **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
+- **XTOYBIRD** Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands
 
 Planned but not yet implemented
 
-  * **MOVE**
-  * **UIDPLUS**
-  * **QUOTA**
+- **QUOTA**
 
 ## Authentication
 
@@ -112,12 +108,12 @@ To use these functions, XTOYBIRD plugin needs to be enabled
 
 Available commands:
 
-  * **XTOYBIRD SERVER** dumps server internals
-  * **XTOYBIRD CONNECTION** dumps connection internals
-  * **XTOYBIRD STORAGE** dumps storage as JSON
-  * **XTOYBIRD USERADD "username" "password"** adds or updates user
-  * **XTOYBIRD USERDEL "username"** removes an user
-  * **XTOYBIRD SHUTDOWN** Closes the server after the last client disconnects. New connections are rejected.
+- **XTOYBIRD SERVER** dumps server internals
+- **XTOYBIRD CONNECTION** dumps connection internals
+- **XTOYBIRD STORAGE** dumps storage as JSON
+- **XTOYBIRD USERADD "username" "password"** adds or updates user
+- **XTOYBIRD USERDEL "username"** removes an user
+- **XTOYBIRD SHUTDOWN** Closes the server after the last client disconnects. New connections are rejected.
 
 Example usage for XTOYBIRD STORAGE:
 
@@ -136,54 +132,50 @@ S: A1 OK XTOYBIRD Completed
 
 ## Useful features for Hoodiecrow I'd like to see
 
-  * An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
-  * An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
-  * An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
-  * An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
+- An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
+- An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
+- An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
+- An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
 
 ## CONDSTORE support
 
-  * All messages have MODSEQ value
-  * CONDSTORE can be ENABLEd
-  * SELECT/EXAMINE show HIGHESTMODSEQ
-  * SELECT/EXAMINE support (CONDSTORE) option
-  * Updating flags increments MODSEQ value
-  * FETCH (MODSEQ) works
-  * FETCH (CHANGEDSINCE modseq) works
-  * STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)
+- All messages have MODSEQ value
+- CONDSTORE can be ENABLEd
+- SELECT/EXAMINE show HIGHESTMODSEQ
+- SELECT/EXAMINE support (CONDSTORE) option
+- Updating flags increments MODSEQ value
+- FETCH (MODSEQ) works
+- FETCH (CHANGEDSINCE modseq) works
+- STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)
 
 **SEARCH MODSEQ** is not supported
 
 # Known issues
 
-  * *INBOX** as a separate namespace and managing INBOX subfolders is a mess. CREATE seems to work, DELETE is buggy and RENAME doesn't work with INBOX subfolders (unless the default namespace is `"INBOX."`, not `""`). I need to rethink how this works.
+- _INBOX_* as a separate namespace and managing INBOX subfolders is a mess. CREATE seems to work, DELETE is buggy and RENAME doesn't work with INBOX subfolders (unless the default namespace is `"INBOX."`, not `""`). I need to rethink how this works.
 
 Not sure if these should be fixed or not
 
-  * **STORE** does not emit notifications to other clients
-  * **MODSEQ** updates are not notified
+- **STORE** does not emit notifications to other clients
+- **MODSEQ** updates are not notified
 
 These issues are probably not going to get fixed
 
-  * **Session flags** are not supported (this means that `\Recent` flag is also not supported)
-  * **addr-adl** (at-domain-list) values are not supported, NIL is always used
-  * **anonymous namespaces** are not supported
-  * **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
-  * **CHARSET** argument is ignored
+- **Session flags** are not supported (this means that `\Recent` flag is also not supported)
+- **addr-adl** (at-domain-list) values are not supported, NIL is always used
+- **anonymous namespaces** are not supported
+- **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
+- **CHARSET** argument is ignored
 
 # Running tests
 
-Running tests requires you to have grunt-cli installed
+Tests use the built-in Node.js test runner, linting uses ESLint and formatting uses Prettier.
 
-    npm install -g grunt-cli
-
-After which you can run
-
-    grunt
-
-or
-
-    npm test
+    npm install
+    npm test            # lint + all tests
+    npm run test:unit   # tests only
+    node --test test/fetch.js   # a single test file
+    npm run format      # apply Prettier formatting
 
 ## Example configs
 
@@ -193,13 +185,13 @@ config.json:
 
 ```json
 {
-    "INBOX":{},
-    "INBOX.":{},
-    "user.":{
-        "type":"user"
+    "INBOX": {},
+    "INBOX.": {},
+    "user.": {
+        "type": "user"
     },
-    "":{
-        "type":"shared"
+    "": {
+        "type": "shared"
     }
 }
 ```
@@ -210,32 +202,32 @@ config.json:
 
 ```json
 {
-    "INBOX":{},
-    "":{
+    "INBOX": {},
+    "": {
         "separator": "/",
-        "folders":{
-            "[Gmail]":{
+        "folders": {
+            "[Gmail]": {
                 "flags": ["\\Noselect"],
                 "folders": {
-                    "All Mail":{
+                    "All Mail": {
                         "special-use": "\\All"
                     },
-                    "Drafts":{
+                    "Drafts": {
                         "special-use": "\\Drafts"
                     },
-                    "Important":{
+                    "Important": {
                         "special-use": "\\Important"
                     },
-                    "Sent Mail":{
+                    "Sent Mail": {
                         "special-use": "\\Sent"
                     },
-                    "Spam":{
+                    "Spam": {
                         "special-use": "\\Junk"
                     },
-                    "Starred":{
+                    "Starred": {
                         "special-use": "\\Flagged"
                     },
-                    "Trash":{
+                    "Trash": {
                         "special-use": "\\Trash"
                     }
                 }
@@ -247,41 +239,38 @@ config.json:
 
 ## Use Hoodiecrow for testing your client
 
-Creating your tests in Node.js is a piece of cake, you do not even need to run the `hoodiecrow` command. Here is a sample [nodeunit] test.
+Creating your tests in Node.js is a piece of cake, you do not even need to run the `hoodiecrow` command. Here is a sample test using the built-in [Node.js test runner](https://nodejs.org/api/test.html).
 
 ```javascript
-var hoodiecrow = require("hoodiecrow-imap"),
-    myIMAPCLient = require("../my-imap-client");
+const { describe, it, beforeEach, afterEach } = require('node:test');
+const hoodiecrow = require('hoodiecrow-imap');
+const myIMAPClient = require('../my-imap-client');
 
-module.exports["IMAP tests"] = {
+describe('IMAP tests', () => {
+    let server;
 
-    // Executed before every test
-    // creates a new blank IMAP server
-    setUp: function(callback){
-        this.server = hoodiecrow();
-        this.server.listen(1143);
-        callback();
-    },
+    // Executed before every test, creates a new blank IMAP server
+    // on a random free port
+    beforeEach((t, done) => {
+        server = hoodiecrow();
+        server.listen(0, done);
+    });
 
-    // Executed after every test
-    // Closes the IMAP server created for the test
-    tearDown: function(callback){
-        this.server.close(callback);
-    },
+    // Executed after every test, closes the IMAP server created for the test
+    afterEach((t, done) => {
+        server.close(done);
+    });
 
-    /**
-     * In this test a new IMAP client is instantiated that tries to connect
-     * to the IMAP server. If client is connected the test is considered
-     * as passed.
-     */
-    "Connect to the server": function(test){
-        var client = myIMAPCLient.connect("localhost", 1143);
-        client.on("ready", function(){
+    // A new IMAP client is instantiated that tries to connect to the
+    // IMAP server. If the client is connected the test is considered as passed.
+    it('Connect to the server', (t, done) => {
+        const client = myIMAPClient.connect('localhost', server.address().port);
+        client.on('ready', () => {
             client.disconnect();
-            test.done();
+            done();
         });
-    }
-}
+    });
+});
 ```
 
 ## Creating custom plugins
@@ -291,14 +280,13 @@ A plugin can be a string as a pointer to a built in plugin or a function. Plugin
 ```javascript
 hoodiecrow({
     // Add two plugins, built in "IDLE" and custom function
-    plugin: ["IDLE", myAwesomePlugin]
+    plugin: ['IDLE', myAwesomePlugin]
 });
 
 // Plugin handler
-function myAwesomePlugin(server){
-
+function myAwesomePlugin(server) {
     // Add a string to the capability listing
-    server.registerCapability("XSUM");
+    server.registerCapability('XSUM');
 
     /**
      * Add a new command XSUM
@@ -314,28 +302,37 @@ function myAwesomePlugin(server){
      * @param {String} data - Input command as a binary string
      * @param {Function} callback - callback function to run
      */
-    server.setCommandHandler("XSUM", function(connection, parsed, data, callback){
-
+    server.setCommandHandler('XSUM', function (connection, parsed, data, callback) {
         // Send untagged XSUM response
-        connection.send({
-            tag: "*",
-            command: "XSUM",
-            attributes:[
-                [].concat(parsed.attributes || []).reduce(function(prev, cur){
-                    return prev + Number(cur.value);
-                }, 0)
-            ]
-        }, "XSUM", parsed, data);
+        connection.send(
+            {
+                tag: '*',
+                command: 'XSUM',
+                attributes: [
+                    [].concat(parsed.attributes || []).reduce(function (prev, cur) {
+                        return prev + Number(cur.value);
+                    }, 0)
+                ]
+            },
+            'XSUM',
+            parsed,
+            data
+        );
 
         // Send tagged OK response
-        connection.send({
-            tag: parsed.tag,
-            command: "OK",
-            attributes:[
-                // TEXT allows to send unquoted
-                {type: "TEXT", value: "XSUM completed"}
-            ]
-        }, "XSUM", parsed, data);
+        connection.send(
+            {
+                tag: parsed.tag,
+                command: 'OK',
+                attributes: [
+                    // TEXT allows to send unquoted
+                    { type: 'TEXT', value: 'XSUM completed' }
+                ]
+            },
+            'XSUM',
+            parsed,
+            data
+        );
         callback();
     });
 }
@@ -349,15 +346,15 @@ function myAwesomePlugin(server){
 
 Where
 
-  * **name** a string displayed in the capability response
-  * **availability** a function which returns boolean value. Executed before displaying the capability response. If the function returns true, the capability is displayed, if false then not.
+- **name** a string displayed in the capability response
+- **availability** a function which returns boolean value. Executed before displaying the capability response. If the function returns true, the capability is displayed, if false then not.
 
 Example
 
 ```javascript
 // Display in CAPABILITY only in Not Authenticated state
-server.registerCapability("XAUTH", function(connection){
-    return connection.state == "Not Authenticated";
+server.registerCapability('XAUTH', function (connection) {
+    return connection.state == 'Not Authenticated';
 });
 ```
 
@@ -367,15 +364,15 @@ server.registerCapability("XAUTH", function(connection){
 
 Where
 
-  * **name** is the command name
-  * **handler** *(connection, parsed, data, callback)* is the handler function for the command
+- **name** is the command name
+- **handler** _(connection, parsed, data, callback)_ is the handler function for the command
 
 Handler arguments
 
-  * **connection** - Session instance
-  * **parsed** - Input from the client in structured form (see [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) for reference)
-  * **data** - Input command as a binary string
-  * **callback** - callback function to run (does not take any arguments)
+- **connection** - Session instance
+- **parsed** - Input from the client in structured form (see [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) for reference)
+- **data** - Input command as a binary string
+- **callback** - callback function to run (does not take any arguments)
 
 The command should send data to the client with `connection.send()`
 
@@ -383,11 +380,11 @@ The command should send data to the client with `connection.send()`
 
 Where
 
-  * **response** is a [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) compatible object. To get the correct tag for responsing OK, NO or BAD, look into `parsed.tag`
-  * **description** is a string identifying the response to be used by other plugins
-  * **parsed** is the `parsed` argument passed to the handler
-  * **data** is the `data` argument passed to the handler
-  * additional arguments can be used to provide input for other plugins
+- **response** is a [imap-handler](https://github.com/andris9/imap-handler#parse-imap-commands) compatible object. To get the correct tag for responsing OK, NO or BAD, look into `parsed.tag`
+- **description** is a string identifying the response to be used by other plugins
+- **parsed** is the `parsed` argument passed to the handler
+- **data** is the `data` argument passed to the handler
+- additional arguments can be used to provide input for other plugins
 
 #### Retrieve an existing handler
 
@@ -397,15 +394,15 @@ To override existing commands you should first cache the existing command, so yo
 
 Where
 
-  * **name** is the function name
+- **name** is the function name
 
 Example
 
 ```javascript
-var list = server.getCommandHandler("LIST");
-server.setCommandHandler("LIST", function(connection, parsed, data, callback){
+var list = server.getCommandHandler('LIST');
+server.setCommandHandler('LIST', function (connection, parsed, data, callback) {
     // do something
-    console.log("Received LIST request");
+    console.log('Received LIST request');
     // run the cached command
     list(connection, parsed, data, callback);
 });
@@ -434,10 +431,10 @@ Any response sent to the client can be overriden or cancelled by other handlers.
 
 ```javascript
 // All untagged responses are ignored and not passed to the client
-server.outputHandlers.push(function(connection, response, description){
-    if(response.tag == "*"){
+server.outputHandlers.push(function (connection, response, description) {
+    if (response.tag == '*') {
         response.skipResponse = true;
-        console.log("Ignoring untagged response for %s", description);
+        console.log('Ignoring untagged response for %s', description);
     }
 });
 ```

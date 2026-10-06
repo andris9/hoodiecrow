@@ -1,0 +1,475 @@
+'use strict';
+
+const { describe, it } = require('node:test');
+const assert = require('node:assert');
+const { setupServer } = require('./helpers');
+
+describe('Search tests', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE', 'XTOYBIRD'],
+        id: {
+            name: 'hoodiecrow',
+            version: '0.1'
+        },
+        storage: {
+            INBOX: {
+                messages: [
+                    {
+                        raw: 'Subject: hello 1\r\n\r\nWorld 1!',
+                        internaldate: '14-Sep-2013 18:22:28 +0300',
+                        flags: ['\\Flagged']
+                    },
+                    {
+                        raw: 'Subject: hello 2\r\nCC: test\r\n\r\nWorld 2!',
+                        flags: ['\\Recent', '\\Seen', 'MyFlag']
+                    },
+                    {
+                        raw: 'Subject: hello 3\r\nDate: Fri, 13 Sep 2013 15:01:00 +0300\r\nBCC: test\r\n\r\nWorld 3!',
+                        flags: ['\\Draft']
+                    },
+                    {
+                        raw:
+                            'From: sender name <sender@example.com>\r\n' +
+                            'To: Receiver name <receiver@example.com>\r\n' +
+                            'Subject: hello 4\r\n' +
+                            'Message-Id: <abcde>\r\n' +
+                            'Date: Fri, 13 Sep 2013 15:01:00 +0300\r\n' +
+                            '\r\n' +
+                            'World 4!',
+                        internaldate: '13-Sep-2013 18:22:28 +0300'
+                    },
+                    {
+                        raw: 'Subject: hello 5\r\nfrom: test\r\n\r\nWorld 5!',
+                        flags: ['\\Deleted', '\\Recent']
+                    },
+                    {
+                        raw: 'Subject: hello 6\r\n\r\nWorld 6!',
+                        flags: '\\Answered',
+                        uid: 66
+                    }
+                ]
+            },
+            '#news.': {
+                type: 'shared',
+                separator: '.',
+                folders: {
+                    world: {}
+                }
+            },
+            '#juke?': {
+                type: 'shared',
+                separator: '?'
+            }
+        }
+    }));
+
+    it('SEARCH ALL', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH ALL', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH ANSWERED', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH ANSWERED', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH <SEQUENCE>', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH 1:3,5:*', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH BCC', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH BCC "test"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 3\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH BEFORE', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH BEFORE "14-Sep-2013"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 4\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH BODY', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH BODY "World 3"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 3\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH CC', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH CC "test"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH DELETED', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH DELETED', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 5\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH DRAFT', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH DRAFT', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 3\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH FLAGGED', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH FLAGGED', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH FROM', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH FROM "test"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 5\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH HEADER', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH HEADER "message-id" "abcd"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 4\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH KEYWORD', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH KEYWORD "MyFlag"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH LARGER', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH LARGER 34', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2 3 4 5\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH NEW', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH NEW', 'A3 SEARCH RECENT UNSEEN', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.equal((resp.match(/\n\* SEARCH 5\r\n/g) || []).length, 2);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH NOT', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH NOT KEYWORD "MyFlag"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 3 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH OLD', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH OLD', 'A3 SEARCH NOT RECENT', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.equal((resp.match(/\n\* SEARCH 1 3 4 6\r\n/g) || []).length, 2);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH ON', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH ON "14-Sep-2013"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH OR', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH OR KEYWORD "MyFlag" 5:6', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH RECENT', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH RECENT', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2 5\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SEEN', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SEEN', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SENTBEFORE', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SENTBEFORE "14-Sep-2013"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 3 4\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SENTON', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SENTBEFORE "13-Sep-2013"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 3 4\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SENTSINCE', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SENTSINCE "14-Sep-2013"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SINCE', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SINCE "14-Sep-2013"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SMALLER', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SMALLER 34', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH SUBJECT', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SUBJECT "hello 2"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH TEXT', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH TEXT "hello 2"', 'A4 SEARCH TEXT "world 5"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* SEARCH 5\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            assert.ok(resp.indexOf('\nA4 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH TO', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH TO "receiver"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 4\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UID', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UID 66', 'A4 SEARCH UID 1:*', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            assert.ok(resp.indexOf('\nA4 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UNANSWERED', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UNANSWERED', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 4 5\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UNDELETED', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UNDELETED', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 4 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UNDRAFT', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UNDRAFT', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UNFLAGGED', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UNFLAGGED', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2 3 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UNKEYWORD', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UNKEYWORD "MyFlag"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 3 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH UNSEEN', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH UNSEEN', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1 3 4 5 6\r\n') >= 0);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH INVALID', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH ABCDE', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA3 NO') >= 0);
+            done();
+        });
+    });
+});

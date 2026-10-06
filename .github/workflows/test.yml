@@ -1,0 +1,63 @@
+name: Run Tests
+
+on:
+    push:
+        branches:
+            - master
+    pull_request:
+
+permissions:
+    contents: read
+
+# Off master a newer push supersedes the run for the older one. On master every commit keeps its
+# own run to completion: release.yaml waits for this workflow's result on the exact commit it
+# publishes, so a cancelled run there would block a release instead of saving minutes. The group
+# is per commit on master because with cancel-in-progress off GitHub still cancels a PENDING run
+# in the same group when a newer one queues behind it.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.sha || github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+jobs:
+    # Skip CI for release-please's auto-generated release PR / branch: it only bumps the version
+    # and CHANGELOG (no code change), so re-running the suite is wasted work. This is gated per job
+    # rather than with [skip ci] in the release commit, because that text would ride the
+    # squash-merge into master and skip the Manage Release run, breaking releases.
+    lint:
+        name: Lint
+        if: ${{ !startsWith(github.ref_name, 'release-please--') && !startsWith(github.head_ref, 'release-please--') }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v6
+            - name: Use Node.js 24
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
+            - run: npm ci
+            - name: Run ESLint
+              run: npm run lint
+            - name: Check formatting
+              run: npm run format:check
+
+    test:
+        name: Tests (Node ${{ matrix.node }})
+        if: ${{ !startsWith(github.ref_name, 'release-please--') && !startsWith(github.head_ref, 'release-please--') }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        strategy:
+            fail-fast: false
+            matrix:
+                # package.json promises Node >=20
+                node: ['20', '22', '24']
+        steps:
+            - uses: actions/checkout@v6
+            - name: Use Node.js ${{ matrix.node }}
+              uses: actions/setup-node@v6
+              with:
+                  node-version: ${{ matrix.node }}
+                  cache: npm
+            - run: npm ci
+            - name: Run tests
+              run: npm run test:unit

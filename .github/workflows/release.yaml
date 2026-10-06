@@ -1,0 +1,71 @@
+on:
+    push:
+        branches:
+            - master
+
+permissions:
+    contents: write
+    pull-requests: write
+
+name: Manage Release
+
+# Flow: release_please runs on every push to master, opening or updating the release PR and, when
+# that PR is merged, creating the release and its tag. The tests job then waits for the "Run Tests"
+# workflow (test.yml) to finish on the same commit, and the publish job needs it, so a release whose
+# tests are red or were cancelled never reaches npm. When the tests fail, fix or re-run them and
+# then use "Re-run failed jobs" here: the tests job reads the latest attempt of the test run, so the
+# publish job goes ahead once it is green.
+#
+# Waiting in a job, rather than triggering this workflow with workflow_run, keeps the publish job in
+# a push-triggered run of this file, which is what npm trusted publishing is bound to.
+jobs:
+    release_please:
+        name: Create or prepare release
+        runs-on: ubuntu-latest
+        outputs:
+            release_created: ${{ steps.release.outputs.release_created }}
+        steps:
+            # Configured through release-please-config.json and .release-please-manifest.json
+            - uses: googleapis/release-please-action@v4
+              id: release
+
+    tests:
+        name: Wait for tests
+        runs-on: ubuntu-latest
+        needs: release_please
+        if: needs.release_please.outputs.release_created
+        timeout-minutes: 30
+        permissions:
+            actions: read
+            # the wait step is a local composite action, read from the checkout below
+            contents: read
+        steps:
+            - name: Checkout the wait-for-tests action
+              uses: actions/checkout@v6
+              with:
+                  sparse-checkout: .github/actions/wait-for-tests
+
+            - name: Wait for the test workflow on this commit
+              uses: ./.github/actions/wait-for-tests
+              with:
+                  token: ${{ github.token }}
+                  sha: ${{ github.sha }}
+
+    publish:
+        name: Publish NPM package
+        runs-on: ubuntu-latest
+        needs: [release_please, tests]
+        # This job has to stay in this file: npm trusted publishing (OIDC, which is why there is no
+        # token secret) is bound to the repository AND the workflow filename.
+        if: needs.release_please.outputs.release_created
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@v6
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  registry-url: 'https://registry.npmjs.org'
+            # No install step: there is no build, the package is published as-is
+            - run: npm publish --provenance --access public

@@ -1,15 +1,16 @@
-var hoodiecrow = require("../lib/server");
+'use strict';
+
+const hoodiecrow = require('../lib/server');
 
 hoodiecrow({
-    plugins: ["IDLE", myAwesomePlugin]
+    plugins: ['IDLE', myAwesomePlugin]
 }).listen(1143);
 
 // Plugin handler
 
 function myAwesomePlugin(server) {
-
     // Add a string to the capability listing
-    server.registerCapability("XSUM");
+    server.registerCapability('XSUM');
 
     /**
      * Add a new command XSUM
@@ -25,28 +26,39 @@ function myAwesomePlugin(server) {
      * @param {String} data - Input command as a binary string
      * @param {Function} callback - callback function to run
      */
-    server.setCommandHandler("XSUM", function(connection, parsed, data, callback) {
-
+    server.setCommandHandler('XSUM', (connection, parsed, data, callback) => {
         // Send untagged XSUM response
-        connection.send({
-            tag: "*",
-            command: "XSUM",
-            attributes: [
-                [].concat(parsed.attributes || []).reduce(function(prev, cur) {
-                    return prev + Number(cur.value);
-                }, 0)
-            ]
-        }, "XSUM", parsed, data);
+        connection.send(
+            {
+                tag: '*',
+                command: 'XSUM',
+                attributes: [
+                    [].concat(parsed.attributes || []).reduce((prev, cur) => {
+                        return prev + Number(cur.value);
+                    }, 0)
+                ]
+            },
+            'XSUM',
+            parsed,
+            data
+        );
 
         // Send tagged OK response
-        connection.send({
-            tag: parsed.tag,
-            command: "OK",
-            attributes: [{
-                type: "TEXT",
-                value: "XSUM completed"
-            }]
-        }, "XSUM", parsed, data);
+        connection.send(
+            {
+                tag: parsed.tag,
+                command: 'OK',
+                attributes: [
+                    {
+                        type: 'TEXT',
+                        value: 'XSUM completed'
+                    }
+                ]
+            },
+            'XSUM',
+            parsed,
+            data
+        );
         callback();
     });
 }
