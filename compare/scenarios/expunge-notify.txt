@@ -1,0 +1,13 @@
+# Two sessions on INBOX: session 2 expunges, session 1 learns about it
+1: SELECT INBOX
+2: SELECT INBOX
+2: STORE 1 +FLAGS (\Deleted)
+1: NOOP
+2: EXPUNGE
+1: UID FETCH 1:* FLAGS
+1: NOOP
+# IDLE needs --plugin IDLE on hoodiecrow
+1: IDLE
+2: APPEND INBOX {file:../messages/simple.eml}
+!wait 1500
+1:> DONE

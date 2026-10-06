@@ -12,6 +12,7 @@ Hoodiecrow (`hoodiecrow-imap` on npm) is a scriptable, in-memory IMAP4rev1 mock 
 - Single test file: `node --test test/uid-fetch.js`. Single test case: add `--test-name-pattern="<test name>"`.
 - `npm run lint`, `npm run format` / `npm run format:check` (Prettier: single quotes, 4 spaces, 160 columns). CI fails on unformatted files. `npm install` sets `core.hooksPath` to `.githooks`, whose pre-commit hook runs Prettier on staged JS.
 - `npm run update`: refresh all dependencies to latest (`ncu -u`, config in `.ncurc.js`). Dependencies are pinned to exact versions.
+- `npm run dovecot:start` then `npm run compare -- <scenario>`: compare hoodiecrow with Dovecot (see "Comparing with Dovecot" below).
 - Run the server: `node bin/hoodiecrow.js -p 1143 --plugin=IDLE,MOVE --debug` (see `bin/help.txt`; options also come from `HOODIECROW_*` env vars, `--config`, `--storage`, `--smtpPort`). Default login is `testuser` / `testpass`.
 
 ESLint (`eslint.config.js`) enforces `const`/`let` (no `var`), arrow callbacks, one declaration per statement, `===`, and global `'use strict'`.
@@ -42,3 +43,25 @@ Other modules: `mimeparser.js`, `bodystructure.js`, `envelope.js`, `addressparse
 ## Tests
 
 Tests use `node:test` and `node:assert`. The usual pattern (`test/*.js`): inside a `describe` block, `const ctx = setupServer(() => ({ plugins, storage }))` (from `test/helpers/`) registers hooks that start a fresh server on a random port before every test and close it afterwards. `ctx.run(cmds, resp => ...)` replays raw IMAP command strings through `lib/mock-client.js`, and the test asserts with substring checks on the full response transcript (e.g. `resp.indexOf('\r\n* OK [COPYUID 1 1,2 2,3]') >= 0`). `ctx.server` is the live server for inspecting state. Tests use callback style (`(t, done) => ...`). Because ports are random, test files run in parallel. Keep helpers out of the top level of `test/`, since every `test/*.js` file runs as a test file.
+
+## Comparing with Dovecot
+
+`compare/` holds a development aid, not a test suite. It replays the same IMAP commands against hoodiecrow and a real Dovecot 2.4 server and shows where the responses differ. Use it when building or fixing a feature, to see what RFC compliant input and output look like in practice. Dovecot is the most spec compliant server around, but it has its own bugs, quirks and extensions. Treat a difference as a hint to check the RFC (fetched from rfc-editor.org), not as proof that hoodiecrow is wrong, and do not copy Dovecot behavior that the RFC does not require.
+
+- `npm run dovecot:start` / `npm run dovecot:stop` (`compare/dovecot.sh`, also `status`, `restart`, `logs`) manage a long-running Docker container `hoodiecrow-dovecot` (image `dovecot/dovecot:2.4.4`) with plain IMAP on `127.0.0.1:32143`. `compare/dovecot.conf` is mounted as a drop-in. It allows cleartext login, turns off FTS so SEARCH is plain substring matching, and stops auto-creating special-use mailboxes. Overrides: `HOODIECROW_DOVECOT_IMAGE`, `HOODIECROW_DOVECOT_PLATFORM` (forcing `linux/amd64` on Apple Silicon does not work), `HOODIECROW_DOVECOT_PORT` (also read by compare.js), `HOODIECROW_DOVECOT_HOST`.
+- `npm run compare -- compare/scenarios/fetch.txt`, or `node compare/compare.js -c 'SELECT INBOX' -c 'FETCH 1 BODYSTRUCTURE'`. `--plugin IDLE,MOVE` loads hoodiecrow plugins, `--target hoodiecrow|dovecot` runs one side only, and `--json` gives machine readable output (handy for Claude); `--help` lists all options.
+- Every run starts an in-process hoodiecrow on a random port and logs into Dovecot as a brand-new user (static passdb, password `pass`). That user is seeded from the same storage JSON through a hidden setup connection: CREATE, SUBSCRIBE, and APPEND with flags and internaldate. Only personal namespaces with `/` as separator are seeded, `\Recent` is dropped, and a warning is shown if Dovecot assigns different UIDs than the storage specifies.
+- Scenario files (`compare/scenarios/*.txt`) hold one step per line. A plain line is a command and gets an automatic tag (`A1`, `A2`, ...). `2: CMD` runs on session 2 (sessions open and log in on first use). `> DONE` is sent verbatim with no tag and waits for the tagged response of the command left open by a continuation (IDLE, AUTHENTICATE). `!wait 500` pauses. `#` starts a comment. In commands, `\r\n` becomes CRLF and `{file:path}` / `{file+:path}` become a literal with the file's contents (path relative to the scenario file, sample messages in `compare/messages/`). `$USER` / `$PASS` expand per server, for use with `--manual-login`. Synchronizing literals wait for the `+` continuation.
+- Both outputs are normalized before they are compared:
+    - Dovecot's `(0.001 + 0.000 secs)` timings are removed.
+    - The human readable text of OK/NO/BAD/BYE and of `+` continuations is dropped (`--keep-text` keeps it).
+    - UIDVALIDITY values are masked, also inside COPYUID and APPENDUID.
+    - LIST/LSUB responses and flag lists are sorted, and quoted mailbox names that are valid atoms are unquoted. `--exact` turns this sorting and unquoting off.
+- Known differences that are not hoodiecrow bugs:
+    - CAPABILITY lists (Dovecot advertises many extensions, and some, like IMAP4rev2 or CONDSTORE, change its output once enabled).
+    - Lowercase vs uppercase BODYSTRUCTURE strings.
+    - Dovecot reports INTERNALDATE in UTC.
+    - Dovecot sends `* OK [CLOSED]` when switching mailboxes.
+    - The first session to select a seeded mailbox sees the messages as `\Recent` in Dovecot.
+    - Dovecot's IDLE notifications can arrive late, so put a `!wait 1000` after the step that triggers them.
+- `test/compare.js` covers the tool's parsing, normalizing and seeding against hoodiecrow only, so `npm test` stays Docker-free.

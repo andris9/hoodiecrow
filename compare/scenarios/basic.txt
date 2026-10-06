@@ -1,0 +1,14 @@
+# Mailbox level commands. Run: node compare/compare.js compare/scenarios/basic.txt
+LIST "" "*"
+LIST "" "%"
+LIST "" "inbox"
+LSUB "" "*"
+STATUS INBOX (MESSAGES RECENT UIDNEXT UNSEEN)
+SELECT INBOX
+EXAMINE Archive/2026
+SELECT Nonexistent
+CREATE Archive/2026
+CREATE New/Child
+RENAME Empty Renamed
+DELETE Renamed
+LIST "" "*"

@@ -18,6 +18,9 @@
         "lint": "eslint",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
+        "compare": "node compare/compare.js",
+        "dovecot:start": "bash compare/dovecot.sh start",
+        "dovecot:stop": "bash compare/dovecot.sh stop",
         "update": "rm -rf node_modules package-lock.json && ncu -u && npm install"
     },
     "repository": {

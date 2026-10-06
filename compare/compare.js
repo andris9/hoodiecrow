@@ -1,0 +1,767 @@
+#!/usr/bin/env node
+'use strict';
+
+// Replays the same IMAP commands against hoodiecrow and a Dovecot reference
+// server and shows where the responses differ. This is a development aid for
+// checking what RFC compliant input and output look like, not a test suite:
+// Dovecot has its own bugs and extensions, so a difference is a hint to check
+// the RFC, not proof that hoodiecrow is wrong. See CLAUDE.md for usage.
+
+const fs = require('node:fs');
+const net = require('node:net');
+const path = require('node:path');
+const { EventEmitter } = require('node:events');
+const { parseArgs } = require('node:util');
+const hoodiecrow = require('../lib/server');
+
+const DEFAULT_STORAGE = path.join(__dirname, 'storage.json');
+
+const HOODIECROW_USER = 'testuser';
+const HOODIECROW_PASS = 'testpass';
+const DOVECOT_PASS = 'pass';
+
+/**
+ * Parses scenario text into steps.
+ *
+ * Syntax, one step per line:
+ *   # comment                  ignored, as are blank lines
+ *   SELECT INBOX               sent with an automatic tag (A1, A2, ...)
+ *   2: SELECT INBOX            sent on session 2 (sessions open on first use, default 1)
+ *   > DONE                     sent verbatim, without a tag (also "2:> DONE")
+ *   !wait 500                  pause, then collect whatever the sessions received
+ *
+ * In commands and verbatim lines, the four characters \r\n become CRLF and
+ * {file:path} or {file+:path} become a synchronizing or non-synchronizing
+ * literal with the file contents (line endings converted to CRLF, path relative
+ * to the scenario file). $USER and $PASS expand to the target's credentials.
+ *
+ * @param {String} text Scenario source
+ * @return {Array} steps
+ */
+function parseScenario(text) {
+    const steps = [];
+    let tagCounter = 0;
+
+    text.split(/\r?\n/).forEach((rawLine, i) => {
+        const line = rawLine.trim();
+        if (!line || line.charAt(0) === '#') {
+            return;
+        }
+
+        if (line.charAt(0) === '!') {
+            const [directive, arg] = line.substr(1).split(/\s+/);
+            if (directive.toLowerCase() !== 'wait' || !/^\d+$/.test(arg || '')) {
+                throw new Error(`Line ${i + 1}: unknown directive "${line}", expected "!wait <ms>"`);
+            }
+            steps.push({ type: 'wait', ms: Number(arg), line: i + 1 });
+            return;
+        }
+
+        let session = 1;
+        let rest = line;
+        const sessionMatch = rest.match(/^(\d+):\s*/);
+        if (sessionMatch) {
+            session = Number(sessionMatch[1]);
+            rest = rest.substr(sessionMatch[0].length);
+        }
+
+        if (rest.charAt(0) === '>') {
+            steps.push({ type: 'raw', session, tag: null, text: rest.substr(1).trim(), line: i + 1 });
+            return;
+        }
+
+        const tag = 'A' + ++tagCounter;
+        steps.push({ type: 'command', session, tag, text: tag + ' ' + rest, line: i + 1 });
+    });
+
+    return steps;
+}
+
+/**
+ * Turns a step's text into the bytes to send, expanding escapes, placeholders and file literals
+ *
+ * @param {String} text Step text
+ * @param {Object} vars Values for $USER and $PASS
+ * @param {String} baseDir Directory that {file:path} placeholders are resolved against
+ * @return {Buffer} payload, including the final CRLF
+ */
+function buildPayload(text, vars, baseDir) {
+    const parts = [];
+    const re = /\{file(\+?):([^}]+)\}/g;
+    let last = 0;
+    let match;
+
+    const pushText = str => {
+        str = str
+            .replace(/\$USER\b/g, vars.user)
+            .replace(/\$PASS\b/g, vars.pass)
+            .replace(/\\r\\n/g, '\r\n');
+        parts.push(Buffer.from(str, 'utf8'));
+    };
+
+    while ((match = re.exec(text))) {
+        pushText(text.slice(last, match.index));
+        const content = Buffer.from(fs.readFileSync(path.resolve(baseDir, match[2].trim()), 'utf8').replace(/\r?\n/g, '\r\n'), 'utf8');
+        parts.push(Buffer.from(`{${content.length}${match[1]}}\r\n`), content);
+        last = re.lastIndex;
+    }
+    pushText(text.slice(last));
+    parts.push(Buffer.from('\r\n'));
+
+    return Buffer.concat(parts);
+}
+
+/**
+ * Splits a payload after every synchronizing literal marker, as the client must
+ * wait for a continuation response before sending the literal data
+ *
+ * @param {Buffer} payload Command bytes
+ * @return {Array} chunks
+ */
+function splitAtLiterals(payload) {
+    const str = payload.toString('latin1');
+    const chunks = [];
+    const re = /\{(\d+)\}\r\n/g;
+    let start = 0;
+    let match;
+
+    while ((match = re.exec(str))) {
+        const end = match.index + match[0].length;
+        chunks.push(payload.subarray(start, end));
+        start = end;
+        // skip over the literal content so that markers inside it are not matched
+        re.lastIndex = end + Number(match[1]);
+    }
+    chunks.push(payload.subarray(start));
+
+    return chunks.filter(chunk => chunk.length);
+}
+
+/**
+ * Normalizes a response for comparison: removes Dovecot's command timings, the
+ * human readable text of status responses (unless keepText is set) and values
+ * that legitimately differ between servers, such as UIDVALIDITY. Unless exact
+ * is set, it also sorts flag and mailbox attribute lists and unquotes mailbox
+ * names that are valid atoms, as neither changes the meaning.
+ *
+ * @param {String} response Response as a latin1 string, without the final CRLF
+ * @param {Object} [options] keepText to compare the human readable text too, exact to keep order and quoting
+ * @return {String} normalized response
+ */
+function normalizeResponse(response, options = {}) {
+    let result = response.replace(/ \(\d+\.\d+(?: \+ \d+\.\d+)+ secs\)/g, '');
+
+    if (!options.keepText) {
+        result = result.replace(/^((?:\*|[^\s*+]+) (?:OK|NO|BAD|BYE|PREAUTH)(?: \[[^\]]*\])?)(?: [^\r\n]*)?$/i, '$1');
+        // continuation requests carry free text (or a SASL challenge); keep "+" and "+ " apart
+        result = result.replace(/^\+ .+$/, '+ <text>');
+    }
+
+    result = result.replace(/\bUIDVALIDITY (\d+)/gi, 'UIDVALIDITY <n>').replace(/\[(COPYUID|APPENDUID) \d+/gi, '[$1 <n>');
+
+    if (!options.exact) {
+        const sortList = list =>
+            list
+                .split(' ')
+                .filter(Boolean)
+                .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+                .join(' ');
+        const unquote = name => (/^"[!#$&'+,\-./0-9:;<=>?@A-Z[^_`a-z|}~]+"$/.test(name) && name.toUpperCase() !== '"NIL"' ? name.slice(1, -1) : name);
+
+        result = result
+            .replace(/\b(FLAGS|PERMANENTFLAGS) \(([^)]*)\)/gi, (m, key, list) => `${key} (${sortList(list)})`)
+            .replace(/^\* (LIST|LSUB) \(([^)]*)\) (\S+) (.+)$/i, (m, cmd, attrs, sep, name) => `* ${cmd} (${sortList(attrs)}) ${sep} ${unquote(name)}`)
+            .replace(/^\* STATUS ("[^"]*"|\S+) /i, (m, name) => `* STATUS ${unquote(name)} `);
+    }
+
+    return result;
+}
+
+/**
+ * Normalizes all responses of one session in a step. Unless exact is set, LIST
+ * and LSUB responses are sorted, as RFC 3501 does not define their order.
+ *
+ * @param {Array} responses Buffers
+ * @param {Object} [options] Same as for normalizeResponse
+ * @return {Array} normalized strings
+ */
+function normalizeResponses(responses, options = {}) {
+    const result = responses.map(response => normalizeResponse(response.toString('latin1'), options));
+
+    if (!options.exact) {
+        const isList = str => /^\* (LIST|LSUB) /i.test(str);
+        const positions = result.map((str, i) => (isList(str) ? i : -1)).filter(i => i >= 0);
+        const sorted = positions.map(i => result[i]).sort();
+        positions.forEach((pos, i) => {
+            result[pos] = sorted[i];
+        });
+    }
+
+    return result;
+}
+
+/**
+ * A minimal IMAP client session that keeps every response, splitting the input
+ * into complete responses (including any literals they carry).
+ */
+class Session extends EventEmitter {
+    constructor() {
+        super();
+        this.responses = [];
+        // index into responses up to which the output was already reported
+        this.mark = 0;
+        // tag of a command that is waiting for more client input, such as IDLE or AUTHENTICATE
+        this.openTag = null;
+        this.closed = false;
+        this._buffer = Buffer.alloc(0);
+        this._current = [];
+        this._literalRemaining = 0;
+    }
+
+    connect(host, port, timeout) {
+        return new Promise((resolve, reject) => {
+            this.socket = net.connect(port, host);
+            this.socket.on('data', chunk => this._onData(chunk));
+            this.socket.on('close', () => {
+                this.closed = true;
+                this.emit('close');
+            });
+            this.socket.on('error', err => {
+                this.closed = true;
+                reject(err);
+            });
+            this.waitFor(() => true, timeout).then(found => {
+                if (!found) {
+                    reject(new Error(`No greeting from ${host}:${port}`));
+                }
+                resolve();
+            });
+        });
+    }
+
+    _onData(chunk) {
+        this._buffer = Buffer.concat([this._buffer, chunk]);
+
+        for (;;) {
+            if (this._literalRemaining) {
+                if (this._buffer.length < this._literalRemaining) {
+                    this._current.push(this._buffer);
+                    this._literalRemaining -= this._buffer.length;
+                    this._buffer = Buffer.alloc(0);
+                    return;
+                }
+                this._current.push(this._buffer.subarray(0, this._literalRemaining));
+                this._buffer = this._buffer.subarray(this._literalRemaining);
+                this._literalRemaining = 0;
+            }
+
+            const idx = this._buffer.indexOf('\r\n');
+            if (idx < 0) {
+                return;
+            }
+
+            const line = this._buffer.subarray(0, idx + 2);
+            this._buffer = this._buffer.subarray(idx + 2);
+            this._current.push(line);
+
+            const literal = line.toString('latin1').match(/~?\{(\d+)\}\r\n$/);
+            if (literal && line[0] !== 0x2b /* + */) {
+                this._literalRemaining = Number(literal[1]);
+                continue;
+            }
+
+            const response = Buffer.concat(this._current);
+            this._current = [];
+            this.responses.push(response.subarray(0, response.length - 2));
+            if (this.openTag && response.toString('latin1').startsWith(this.openTag + ' ')) {
+                this.openTag = null;
+            }
+            this.emit('response', response);
+        }
+    }
+
+    /**
+     * Resolves to true when a response matching the predicate arrives, or false on timeout or close
+     */
+    waitFor(predicate, timeout) {
+        return new Promise(resolve => {
+            const done = result => {
+                clearTimeout(timer);
+                this.removeListener('response', onResponse);
+                this.removeListener('close', onClose);
+                resolve(result);
+            };
+            const onResponse = response => {
+                if (predicate(response.toString('latin1'))) {
+                    done(true);
+                }
+            };
+            const onClose = () => done(false);
+            const timer = setTimeout(() => done(false), timeout);
+            this.on('response', onResponse);
+            this.once('close', onClose);
+        });
+    }
+
+    /**
+     * Sends a command, waiting for continuations before synchronizing literals.
+     * Without a tag (a raw line such as DONE) it waits for the command left open
+     * by a continuation, if any. Resolves to a note string when the exchange did
+     * not complete normally.
+     */
+    async send(payload, tag, timeout) {
+        tag = tag || this.openTag;
+        if (!tag) {
+            if (!this.closed) {
+                this.socket.write(payload);
+            }
+            return this.closed ? 'connection closed' : null;
+        }
+        const chunks = splitAtLiterals(payload);
+
+        for (let i = 0; i < chunks.length; i++) {
+            if (this.closed) {
+                return 'connection closed';
+            }
+            const last = i === chunks.length - 1;
+            let continued = false;
+            const wait = this.waitFor(str => {
+                continued = str.startsWith('+');
+                return continued || str.startsWith(tag + ' ');
+            }, timeout);
+            this.socket.write(chunks[i]);
+            const found = await wait;
+
+            if (!found) {
+                return this.closed ? 'connection closed' : `no response within ${timeout}ms`;
+            }
+            if (!continued && !last) {
+                // the server answered with a tagged response instead of accepting the literal
+                return 'literal rejected';
+            }
+            if (last) {
+                this.openTag = continued ? tag : null;
+            }
+        }
+        return null;
+    }
+
+    close() {
+        if (this.socket) {
+            this.socket.destroy();
+        }
+    }
+}
+
+/**
+ * Reads hoodiecrow storage and returns the folders and messages to seed Dovecot with,
+ * as processed by hoodiecrow itself (uids, internaldates, flags)
+ *
+ * @param {Object} storage hoodiecrow storage object (not modified)
+ * @return {Object} { folders: [{path, subscribed, messages}], warnings: [] }
+ */
+function collectSeed(storage) {
+    const server = hoodiecrow({ storage: structuredClone(storage) });
+    const warnings = [];
+    const folders = [];
+
+    Object.keys(server.folderCache)
+        .sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b))
+        .forEach(folderPath => {
+            const mailbox = server.folderCache[folderPath];
+            const namespace = server.storage[mailbox.namespace];
+            if (mailbox.namespace !== 'INBOX' && (namespace.type !== 'personal' || namespace.separator !== '/')) {
+                warnings.push(`Skipping "${folderPath}": only personal namespaces with "/" as separator are seeded to Dovecot`);
+                return;
+            }
+            if (mailbox.flags.includes('\\Noselect')) {
+                // Dovecot creates \Noselect parents itself when a child is created
+                return;
+            }
+            folders.push({
+                path: folderPath,
+                subscribed: mailbox.subscribed,
+                messages: mailbox.messages.map(message => ({
+                    uid: message.uid,
+                    raw: message.raw,
+                    internaldate: message.internaldate,
+                    flags: message.flags.filter(flag => flag.toLowerCase() !== '\\recent')
+                }))
+            });
+        });
+
+    return { folders, warnings };
+}
+
+const quote = str => '"' + String(str).replace(/(["\\])/g, '\\$1') + '"';
+
+/**
+ * Sends a tagged command and returns its tagged response, throwing unless it is OK
+ *
+ * @param {Session} session Session to use
+ * @param {String} tag Command tag
+ * @param {String} text Command without the tag
+ * @param {Number} timeout Milliseconds to wait for the response
+ * @param {Buffer} [literal] Appended as a non-synchronizing literal
+ * @return {String} tagged response
+ */
+async function runCommand(session, tag, text, timeout, literal) {
+    const payload = literal
+        ? Buffer.concat([Buffer.from(`${tag} ${text} {${literal.length}+}\r\n`), literal, Buffer.from('\r\n')])
+        : Buffer.from(`${tag} ${text}\r\n`);
+    const start = session.responses.length;
+    const note = await session.send(payload, tag, timeout);
+    const tagged = session.responses
+        .slice(start)
+        .map(response => response.toString('latin1'))
+        .find(response => response.startsWith(tag + ' '));
+    if (note || !/^\S+ OK/i.test(tagged || '')) {
+        throw new Error(`"${text}" failed: ${note || tagged || 'no tagged response'}`);
+    }
+    return tagged;
+}
+
+/**
+ * Creates the folders and messages of the seed in a fresh Dovecot account
+ */
+async function seedDovecot(session, seed, timeout) {
+    const warnings = [];
+    let counter = 0;
+
+    const run = (text, literal) =>
+        runCommand(session, 'S' + ++counter, text, timeout, literal).catch(err => {
+            throw new Error(`Seeding Dovecot failed: ${err.message}`, { cause: err });
+        });
+
+    for (const folder of seed.folders) {
+        if (folder.path.toUpperCase() !== 'INBOX') {
+            await run(`CREATE ${quote(folder.path)}`);
+        }
+        if (folder.subscribed) {
+            await run(`SUBSCRIBE ${quote(folder.path)}`);
+        }
+        for (const message of folder.messages) {
+            const tagged = await run(
+                `APPEND ${quote(folder.path)} (${message.flags.join(' ')}) ${quote(message.internaldate)}`,
+                Buffer.from(message.raw, 'utf8')
+            );
+            const appendUid = tagged.match(/\[APPENDUID \d+ (\d+)\]/i);
+            if (appendUid && Number(appendUid[1]) !== message.uid) {
+                warnings.push(`${folder.path}: hoodiecrow UID ${message.uid} is UID ${appendUid[1]} in Dovecot`);
+            }
+        }
+    }
+
+    return warnings;
+}
+
+/**
+ * Runs all steps against one server
+ *
+ * @param {Object} target { name, host, port, user, pass, seed (optional async function) }
+ * @param {Array} steps Parsed scenario
+ * @param {Object} options { timeout, settle, manualLogin, baseDir }
+ * @return {Object} { setup: [responses], steps: [{ responses: {session: [Buffer]}, notes: [] }], warnings }
+ */
+async function runTarget(target, steps, options) {
+    const sessions = new Map();
+    const setup = [];
+    let warnings = [];
+
+    const connect = async login => {
+        const session = new Session();
+        await session.connect(target.host, target.port, options.timeout);
+        if (login) {
+            await runCommand(session, 'L1', `LOGIN ${quote(target.user)} ${quote(target.pass)}`, options.timeout).catch(err => {
+                session.close();
+                throw new Error(`${target.name}: login failed: ${err.message}`, { cause: err });
+            });
+        }
+        return session;
+    };
+
+    const open = async id => {
+        const session = await connect(!options.manualLogin);
+        setup.push(...session.responses.map(response => ({ session: id, response })));
+        session.mark = session.responses.length;
+        sessions.set(id, session);
+        return session;
+    };
+
+    const collect = () => {
+        const result = {};
+        for (const [id, session] of sessions) {
+            const fresh = session.responses.slice(session.mark);
+            session.mark = session.responses.length;
+            if (fresh.length) {
+                result[id] = fresh;
+            }
+        }
+        return result;
+    };
+
+    try {
+        if (target.seed) {
+            const seeder = await connect(true);
+            try {
+                warnings = await target.seed(seeder);
+            } finally {
+                seeder.close();
+            }
+        }
+
+        const results = [];
+        for (const step of steps) {
+            const notes = [];
+            if (step.type === 'wait') {
+                await new Promise(resolve => setTimeout(resolve, step.ms));
+            } else {
+                const session = sessions.get(step.session) || (await open(step.session));
+                const payload = buildPayload(step.text, target, options.baseDir);
+                const note = await session.send(payload, step.tag, options.timeout);
+                if (note) {
+                    notes.push(note);
+                }
+            }
+            // let unsolicited responses (other sessions, IDLE updates) arrive
+            await new Promise(resolve => setTimeout(resolve, options.settle));
+            results.push({ responses: collect(), notes });
+        }
+
+        return { setup, steps: results, warnings };
+    } finally {
+        for (const session of sessions.values()) {
+            session.close();
+        }
+    }
+}
+
+/**
+ * Starts an in-process hoodiecrow server for the comparison
+ */
+function startHoodiecrow(storage, plugins) {
+    return new Promise((resolve, reject) => {
+        const server = hoodiecrow({ storage: structuredClone(storage), plugins });
+        server.server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => resolve(server));
+    });
+}
+
+const COLORS = { red: 31, green: 32, yellow: 33, cyan: 36, dim: 2, bold: 1 };
+
+const display = response => response.toString('utf8').replace(/\r\n/g, '\n');
+
+function sessionLines(responses, multi) {
+    const lines = [];
+    Object.keys(responses).forEach(id => {
+        responses[id].forEach(response => {
+            display(response)
+                .split('\n')
+                .forEach(line => lines.push((multi ? `[${id}] ` : '') + line));
+        });
+    });
+    return lines;
+}
+
+/**
+ * Checks whether two targets produced equivalent results for a step
+ *
+ * @param {Object} a Step result ({ responses, notes }) of one target
+ * @param {Object} b Step result of the other target
+ * @param {Object} [options] Same as for normalizeResponse
+ * @return {Boolean} true if the normalized responses and notes match
+ */
+function sameStep(a, b, options) {
+    const normalize = step => JSON.stringify([Object.keys(step.responses).map(id => [id, normalizeResponses(step.responses[id], options)]), step.notes]);
+    return normalize(a) === normalize(b);
+}
+
+async function main() {
+    const { values: argv, positionals } = parseArgs({
+        allowPositionals: true,
+        options: {
+            command: { type: 'string', short: 'c', multiple: true },
+            storage: { type: 'string' },
+            plugin: { type: 'string', multiple: true },
+            target: { type: 'string', default: 'both' },
+            'manual-login': { type: 'boolean', default: false },
+            'keep-text': { type: 'boolean', default: false },
+            exact: { type: 'boolean', default: false },
+            timeout: { type: 'string', default: '3000' },
+            settle: { type: 'string', default: '100' },
+            verbose: { type: 'boolean', short: 'v', default: false },
+            json: { type: 'boolean', default: false },
+            help: { type: 'boolean', short: 'h', default: false }
+        }
+    });
+
+    if (argv.help || (!positionals.length && !argv.command)) {
+        console.log(`Usage: node compare/compare.js [options] [scenario-file]
+
+Replays IMAP commands against hoodiecrow and Dovecot (start it with
+"npm run dovecot:start") and shows where the responses differ.
+
+  -c, --command <cmd>   command to run (repeatable), instead of a scenario file
+  --storage <file>      hoodiecrow storage JSON, also seeded into Dovecot
+                        (default compare/storage.json)
+  --plugin <names>      hoodiecrow plugins, comma separated (repeatable)
+  --target <name>       both (default), hoodiecrow or dovecot
+  --manual-login        do not log in automatically; use $USER and $PASS
+  --keep-text           also compare the human readable text of OK/NO/BAD
+  --exact               do not sort LIST responses and flag lists or unquote
+                        mailbox names before comparing
+  --timeout <ms>        wait this long for a tagged response (default 3000)
+  --settle <ms>         wait this long after each step for extra output (default 100)
+  -v, --verbose         also show greetings, login and seeding notes
+  --json                print machine readable results
+
+Scenario syntax: see the comment on parseScenario() in compare/compare.js.`);
+        return;
+    }
+
+    const scenarioFile = positionals[0];
+    const scenario = scenarioFile ? fs.readFileSync(scenarioFile, 'utf8') : argv.command.join('\n');
+    const steps = parseScenario(scenario);
+    const storage = JSON.parse(fs.readFileSync(argv.storage || DEFAULT_STORAGE, 'utf8'));
+    const plugins = (argv.plugin || [])
+        .flatMap(value => value.split(','))
+        .map(value => value.trim().toUpperCase())
+        .filter(Boolean);
+    const options = {
+        timeout: Number(argv.timeout),
+        settle: Number(argv.settle),
+        manualLogin: argv['manual-login'],
+        baseDir: scenarioFile ? path.dirname(path.resolve(scenarioFile)) : process.cwd()
+    };
+
+    // each runner runs the scenario against one server and returns its results
+    const runners = {
+        hoodiecrow: async () => {
+            const server = await startHoodiecrow(storage, plugins);
+            try {
+                return await runTarget(
+                    { name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: HOODIECROW_USER, pass: HOODIECROW_PASS },
+                    steps,
+                    options
+                );
+            } finally {
+                server.close();
+            }
+        },
+        dovecot: async () => {
+            const seed = collectSeed(storage);
+            const target = {
+                name: 'dovecot',
+                host: process.env.HOODIECROW_DOVECOT_HOST || '127.0.0.1',
+                port: Number(process.env.HOODIECROW_DOVECOT_PORT) || 32143,
+                user: `compare-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                pass: DOVECOT_PASS,
+                seed: async session => seed.warnings.concat(await seedDovecot(session, seed, options.timeout))
+            };
+            return runTarget(target, steps, options).catch(err => {
+                if (err.code === 'ECONNREFUSED') {
+                    throw new Error(`Dovecot is not reachable on ${target.host}:${target.port}, start it with "npm run dovecot:start"`, { cause: err });
+                }
+                throw err;
+            });
+        }
+    };
+
+    const targetNames = argv.target === 'both' ? Object.keys(runners) : [argv.target];
+    if (!targetNames.every(name => runners[name])) {
+        throw new Error(`Unknown target "${argv.target}"`);
+    }
+    const both = targetNames.length === 2;
+
+    // the targets share nothing, so run them at the same time
+    const results = Object.fromEntries(await Promise.all(targetNames.map(async name => [name, await runners[name]()])));
+
+    const multi = steps.some(step => step.session !== 1);
+    const compareOptions = { keepText: argv['keep-text'], exact: argv.exact };
+
+    if (argv.json) {
+        const toLines = responses => sessionLines(responses, true);
+        console.log(
+            JSON.stringify(
+                {
+                    warnings: Object.fromEntries(targetNames.map(name => [name, results[name].warnings])),
+                    steps: steps.map((step, i) => ({
+                        line: step.line,
+                        session: step.session,
+                        send: step.text || `!wait ${step.ms}`,
+                        same: both ? sameStep(results.hoodiecrow.steps[i], results.dovecot.steps[i], compareOptions) : null,
+                        results: Object.fromEntries(
+                            targetNames.map(name => [name, { responses: toLines(results[name].steps[i].responses), notes: results[name].steps[i].notes }])
+                        )
+                    }))
+                },
+                null,
+                2
+            )
+        );
+        return;
+    }
+
+    const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
+    const c = (color, str) => (useColor ? `\x1b[${COLORS[color]}m${str}\x1b[0m` : str);
+    let differences = 0;
+
+    targetNames.forEach(name => {
+        results[name].warnings.forEach(warning => console.log(c('yellow', `warning (${name}): ${warning}`)));
+        if (argv.verbose) {
+            console.log(c('dim', `--- ${name} setup`));
+            results[name].setup.forEach(({ session, response }) => console.log(c('dim', `  [${session}] ${display(response)}`)));
+        }
+    });
+
+    steps.forEach((step, i) => {
+        const label = step.type === 'wait' ? `!wait ${step.ms}` : (multi ? `[${step.session}] ` : '') + (step.type === 'raw' ? '> ' : '') + step.text;
+        console.log(c('bold', c('cyan', label)));
+
+        const printTarget = (name, dim) => {
+            const { responses, notes } = results[name].steps[i];
+            sessionLines(responses, multi).forEach(line => console.log(dim ? c('dim', '    ' + line) : '    ' + line));
+            notes.forEach(note => console.log(c(dim ? 'dim' : 'yellow', `    (${note})`)));
+        };
+
+        if (!both) {
+            printTarget(targetNames[0]);
+            return;
+        }
+
+        if (sameStep(results.hoodiecrow.steps[i], results.dovecot.steps[i], compareOptions)) {
+            console.log(c('green', '  = same') + c('dim', ' (after normalizing, hoodiecrow output shown)'));
+            printTarget('hoodiecrow', true);
+            return;
+        }
+        differences++;
+        console.log(c('red', '  hoodiecrow:'));
+        printTarget('hoodiecrow');
+        console.log(c('red', '  dovecot:'));
+        printTarget('dovecot');
+    });
+
+    if (both) {
+        console.log(differences ? c('red', `\n${differences} of ${steps.length} steps differ`) : c('green', `\nAll ${steps.length} steps match`));
+    }
+}
+
+if (require.main === module) {
+    main().catch(err => {
+        console.error(err.message);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = {
+    parseScenario,
+    buildPayload,
+    splitAtLiterals,
+    normalizeResponse,
+    normalizeResponses,
+    sameStep,
+    collectSeed,
+    runTarget,
+    startHoodiecrow,
+    sessionLines
+};

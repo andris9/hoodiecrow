@@ -1,0 +1,48 @@
+{
+    "INBOX": {
+        "messages": [
+            {
+                "raw": "From: Sender Name <sender@example.com>\r\nTo: Receiver <receiver@example.com>\r\nSubject: Plain text message\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <plain@example.com>\r\n\r\nHello world!\r\nSecond line.\r\n",
+                "internaldate": "06-Oct-2026 10:00:05 +0300",
+                "flags": ["\\Seen"]
+            },
+            {
+                "raw": "From: =?UTF-8?Q?J=C3=B5geva?= <joe@example.com>\r\nTo: a@example.com, Group: b@example.com, c@example.com;\r\nCc: undisclosed\r\nSubject: =?UTF-8?Q?Alternative_=C3=B5?=\r\nDate: Tue, 06 Oct 2026 11:00:00 +0300\r\nMessage-ID: <alt@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"alt\"\r\n\r\n--alt\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nPlain =C3=B5\r\n--alt\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>HTML</p>\r\n--alt--\r\n",
+                "internaldate": "06-Oct-2026 11:00:05 +0300",
+                "flags": ["\\Flagged", "$Important"]
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: Mixed with attachments\r\nDate: Tue, 06 Oct 2026 12:00:00 +0300\r\nMessage-ID: <mixed@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix\"\r\n\r\npreamble\r\n--mix\r\nContent-Type: text/plain\r\n\r\nSee attachments.\r\n--mix\r\nContent-Type: application/octet-stream; name=\"data.bin\"\r\nContent-Disposition: attachment; filename=\"data.bin\"\r\nContent-Transfer-Encoding: base64\r\n\r\nAAECAwQFBgcICQ==\r\n--mix\r\nContent-Type: message/rfc822\r\n\r\nFrom: inner@example.com\r\nTo: receiver@example.com\r\nSubject: Forwarded message\r\nDate: Mon, 05 Oct 2026 09:00:00 +0000\r\n\r\nInner body.\r\n--mix--\r\n",
+                "internaldate": "06-Oct-2026 12:00:05 +0300"
+            }
+        ]
+    },
+    "": {
+        "separator": "/",
+        "folders": {
+            "Archive": {
+                "folders": {
+                    "2026": {
+                        "messages": [
+                            {
+                                "raw": "From: old@example.com\r\nSubject: Archived\r\n\r\nOld message.\r\n",
+                                "internaldate": "01-Jan-2026 00:00:00 +0000",
+                                "flags": ["\\Seen", "\\Answered"]
+                            }
+                        ]
+                    }
+                }
+            },
+            "Drafts": {
+                "messages": [
+                    {
+                        "raw": "From: me@example.com\r\nSubject: Draft\r\n\r\nUnfinished.\r\n",
+                        "internaldate": "02-Oct-2026 08:00:00 +0000",
+                        "flags": ["\\Draft"]
+                    }
+                ]
+            },
+            "Empty": {}
+        }
+    }
+}
