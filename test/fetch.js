@@ -167,17 +167,17 @@ describe('Hoodiecrow tests', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\n* 3 FETCH (BODYSTRUCTURE ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 1 NIL NIL NIL))\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* 3 FETCH (BODYSTRUCTURE ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 0 NIL NIL NIL))\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             assert.ok(
                 resp.indexOf(
-                    '\n* 7 FETCH (BODYSTRUCTURE (("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 107 (NIL "" ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL "<test1>" NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 1 NIL NIL NIL) 6 NIL NIL NIL) ("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 85 (NIL "" ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 1 NIL NIL NIL) 5 NIL NIL NIL) ("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 1 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
+                    '\n* 7 FETCH (BODYSTRUCTURE (("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 107 (NIL NIL ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL "<test1>" NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) 5 NIL NIL NIL) ("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 85 (NIL NIL ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) 4 NIL NIL NIL) ("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 0 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
                 ) >= 0
             );
             assert.ok(resp.indexOf('\nA4 OK') >= 0);
             assert.ok(
                 resp.indexOf(
-                    '\n* 8 FETCH (BODYSTRUCTURE (("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 1 NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 1 NIL NIL NIL) ("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 1 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
+                    '\n* 8 FETCH (BODYSTRUCTURE (("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) ("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 0 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
                 ) >= 0
             );
             assert.ok(resp.indexOf('\nA5 OK') >= 0);
@@ -214,17 +214,18 @@ describe('Hoodiecrow tests', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
 
-            assert.ok(resp.indexOf('\n* 3 FETCH (BODY ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 1))\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* 3 FETCH (BODY ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 8 0))\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
 
             assert.ok(resp.indexOf('\n* 3 FETCH (BODY[] {28}\r\n' + 'Subject: hello 3\r\n' + '\r\n' + 'World 3!)\r\n') >= 0);
             assert.ok(resp.indexOf('\nA4 OK') >= 0);
 
-            assert.ok(resp.indexOf('\n* 3 FETCH (BODY[]<4.10> {10}\r\n' + 'ect: hello)\r\n') >= 0);
+            // RFC 3501 7.4.2: only the origin octet is echoed in the response
+            assert.ok(resp.indexOf('\n* 3 FETCH (BODY[]<4> {10}\r\n' + 'ect: hello)\r\n') >= 0);
             assert.ok(resp.indexOf('\nA5 OK') >= 0);
 
             assert.ok(resp.indexOf('\n* 3 FETCH (BODY[]<4> {24}\r\n' + 'ect: hello 3\r\n' + '\r\n' + 'World 3!)\r\n') >= 0);
-            assert.ok(resp.indexOf('\nA4 OK') >= 0);
+            assert.ok(resp.indexOf('\nA6 OK') >= 0);
 
             done();
         });
@@ -379,14 +380,21 @@ describe('Hoodiecrow tests', () => {
         });
     });
 
-    it('FETCH BODY[1.1.HEADER]', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 7 BODY[1.1.HEADER]', 'A4 FETCH 7 BODY[2.1.HEADER]', 'ZZ LOGOUT'];
+    it('FETCH BODY[n.HEADER] of a message/rfc822 part', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 EXAMINE INBOX',
+            'A3 FETCH 7 BODY[1.HEADER]',
+            'A4 FETCH 7 BODY[2.HEADER]',
+            'A5 FETCH 7 BODY[1.1.HEADER]',
+            'ZZ LOGOUT'
+        ];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.ok(
                 resp.indexOf(
-                    '\n* 7 FETCH (BODY[1.1.HEADER] {93}\r\n' +
+                    '\n* 7 FETCH (BODY[1.HEADER] {93}\r\n' +
                         'MIME-Version: 1.0\r\n' +
                         'From: andris@kreata.ee\r\n' +
                         'To: andris@pangalink.net\r\n' +
@@ -397,7 +405,7 @@ describe('Hoodiecrow tests', () => {
             );
             assert.ok(
                 resp.indexOf(
-                    '\n* 7 FETCH (BODY[2.1.HEADER] {71}\r\n' +
+                    '\n* 7 FETCH (BODY[2.HEADER] {71}\r\n' +
                         'MIME-Version: 1.0\r\n' +
                         'From: andris@kreata.ee\r\n' +
                         'To: andris@pangalink.net\r\n' +
@@ -405,8 +413,11 @@ describe('Hoodiecrow tests', () => {
                         ')\r\n'
                 ) >= 0
             );
+            // part 1.1 is the text body of the embedded message, it has no HEADER section
+            assert.ok(resp.indexOf('\n* 7 FETCH (BODY[1.1.HEADER] {0}\r\n)\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             assert.ok(resp.indexOf('\nA4 OK') >= 0);
+            assert.ok(resp.indexOf('\nA5 OK') >= 0);
 
             done();
         });
