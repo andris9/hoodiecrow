@@ -1,5 +1,5 @@
 # LIST-EXTENDED (RFC 5258), LIST-STATUS (RFC 5819), STATUS=SIZE (RFC 8438) and SPECIAL-USE (RFC 6154).
-# Run: node compare/compare.js --plugin LIST-EXTENDED,LIST-STATUS,STATUS=SIZE,SPECIAL-USE compare/scenarios/list-extended.txt
+# Run: node --import tsx compare/compare.ts --plugin LIST-EXTENDED,LIST-STATUS,STATUS=SIZE,SPECIAL-USE compare/scenarios/list-extended.txt
 # Known differences: ImapKit always sends \HasChildren or \HasNoChildren, the order of STATUS items
 # follows the request, and CHILDINFO is also sent for mailboxes that match the selection criteria
 # (RFC 5258 section 3.5 table), Dovecot only sends it for mailboxes that do not match.

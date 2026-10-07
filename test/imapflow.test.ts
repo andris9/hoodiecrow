@@ -1,0 +1,1076 @@
+// End to end tests that drive ImapKit with ImapFlow, a real standards compliant IMAP client.
+// Every test works with parsed results, so a malformed response shows up as a client error or
+// as a wrong value, not as a substring mismatch.
+
+import { describe, it, afterEach } from 'node:test';
+import assert from 'node:assert';
+import { ImapFlow } from 'imapflow';
+import { setupServer } from './helpers/index.js';
+import type { Readable } from 'node:stream';
+import type {
+    DownloadOptions,
+    FetchMessageObject,
+    FetchOptions,
+    FetchQueryObject,
+    ImapFlowOptions,
+    MailboxOpenOptions,
+    MessageRange,
+    SearchObject
+} from 'imapflow';
+import type { TestContext } from './helpers/index.js';
+import type { IMAPServer } from '../src/server.js';
+import type { Plugin } from '../src/types.js';
+
+/** Narrows an ImapFlow result that is false (or undefined) when the command failed, the tests expect success */
+function ok<T>(value: T | false | null | undefined): T {
+    assert.ok(value);
+    return value;
+}
+
+const ALL_PLUGINS: (string | Plugin)[] = [
+    'ID',
+    'STARTTLS',
+    'AUTH-PLAIN',
+    'NAMESPACE',
+    'NOTIFY',
+    'IDLE',
+    'ENABLE',
+    'CONDSTORE',
+    'QRESYNC',
+    'ESEARCH',
+    'SEARCHRES',
+    'UIDPLUS',
+    'MOVE',
+    'PREVIEW',
+    'SPECIAL-USE',
+    'UNSELECT',
+    'LITERALPLUS',
+    'SASL-IR',
+    'X-GM-EXT-1',
+    'LIST-EXTENDED',
+    'LIST-STATUS',
+    'STATUS=SIZE',
+    'METADATA',
+    'SORT=DISPLAY',
+    'THREAD=ORDEREDSUBJECT',
+    'THREAD=REFERENCES',
+    'QUOTA',
+    'OBJECTID',
+    'SAVEDATE',
+    'COMPRESS',
+    'OAUTHBEARER',
+    'UNAUTHENTICATE',
+    'ACL',
+    'MULTIAPPEND',
+    'CATENATE',
+    'REPLACE',
+    'APPENDLIMIT',
+    'UTF8=ACCEPT',
+    'BINARY',
+    'PARTIAL',
+    'ESORT',
+    'CONTEXT=SEARCH',
+    'CONTEXT=SORT',
+    'MULTISEARCH',
+    'UIDONLY',
+    'MESSAGELIMIT',
+    'IMAP4rev2'
+];
+
+const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
+
+const MESSAGE_1 =
+    'From: Alice Example <alice@example.com>\r\n' +
+    'To: Bob Example <bob@example.com>\r\n' +
+    'Cc: carol@example.com\r\n' +
+    'Subject: Hello world\r\n' +
+    'Message-ID: <m1@example.com>\r\n' +
+    'Date: Thu, 01 Jan 2026 10:00:00 +0000\r\n' +
+    '\r\n' +
+    'Hello Bob,\r\n' +
+    'how are you?\r\n';
+
+const MESSAGE_2 =
+    'From: Carol <carol@example.com>\r\n' +
+    'To: alice@example.com\r\n' +
+    'Subject: Report attached\r\n' +
+    'X-Priority: 1\r\n' +
+    'Date: Sun, 15 Feb 2026 12:00:00 +0000\r\n' +
+    'MIME-Version: 1.0\r\n' +
+    'Content-Type: multipart/mixed; boundary="bnd"\r\n' +
+    '\r\n' +
+    '--bnd\r\n' +
+    'Content-Type: text/plain; charset=utf-8\r\n' +
+    '\r\n' +
+    'See the report.\r\n' +
+    '--bnd\r\n' +
+    'Content-Type: application/octet-stream; name="data.bin"\r\n' +
+    'Content-Disposition: attachment; filename="data.bin"\r\n' +
+    'Content-Transfer-Encoding: base64\r\n' +
+    '\r\n' +
+    ATTACHMENT.toString('base64').replace(/.{76}/g, '$&\r\n').replace(/\r\n$/, '') +
+    '\r\n' +
+    '--bnd--\r\n';
+
+const MESSAGE_3 =
+    'From: Bob Example <bob@example.com>\r\n' +
+    'To: Alice Example <alice@example.com>\r\n' +
+    'Subject: Re: Hello world\r\n' +
+    'In-Reply-To: <m1@example.com>\r\n' +
+    'Date: Tue, 10 Mar 2026 08:30:00 +0000\r\n' +
+    '\r\n' +
+    'Thanks, fine.\r\n';
+
+function storage() {
+    return {
+        INBOX: {
+            messages: [
+                { raw: MESSAGE_1, uid: 1, flags: ['\\Seen'], internaldate: '01-Jan-2026 10:00:00 +0000' },
+                { raw: MESSAGE_2, uid: 2, flags: ['\\Flagged', '$Work'], internaldate: '15-Feb-2026 12:00:00 +0000' },
+                { raw: MESSAGE_3, uid: 5, flags: [], internaldate: '10-Mar-2026 08:30:00 +0000' }
+            ]
+        },
+        '': {
+            folders: {
+                Sent: { 'special-use': '\\Sent' },
+                Trash: { 'special-use': '\\Trash' },
+                Drafts: { 'special-use': '\\Drafts', subscribed: false },
+                Archive: {
+                    folders: {
+                        2025: {}
+                    }
+                }
+            }
+        }
+    };
+}
+
+/**
+ * Records every completed command as "COMMAND STATUS" (eg. "UID MOVE OK"), so tests can tell which
+ * command variant the client used (AUTHENTICATE PLAIN vs LOGIN, MOVE vs COPY)
+ */
+function recorder(log: string[]): Plugin {
+    return (server: IMAPServer) => {
+        server.outputHandlers.push((connection, response, description, parsed) => {
+            if (parsed && parsed.command && response.tag === parsed.tag) {
+                log.push(parsed.command.toUpperCase() + ' ' + response.command);
+            }
+        });
+    };
+}
+
+describe('ImapFlow', () => {
+    let clients: ImapFlow[] = [];
+
+    const createClient = (ctx: TestContext, options?: Partial<ImapFlowOptions>) => {
+        const client = new ImapFlow(
+            Object.assign(
+                {
+                    host: '127.0.0.1',
+                    // the bundled certificate is for localhost. ImapFlow passes `servername: false` to
+                    // tls.connect() for an IP address, which Bun refuses
+                    servername: 'localhost',
+                    port: ctx.port,
+                    secure: false,
+                    doSTARTTLS: false,
+                    tls: { rejectUnauthorized: false },
+                    logger: false,
+                    auth: { user: 'testuser', pass: 'testpass' }
+                },
+                options || {}
+            )
+        );
+        // the server closes leftover connections after every test
+        client.on('error', () => false);
+        clients.push(client);
+        return client;
+    };
+
+    const connect = async (ctx: TestContext, options?: Partial<ImapFlowOptions>) => {
+        const client = createClient(ctx, options);
+        await client.connect();
+        return client;
+    };
+
+    afterEach(async () => {
+        for (const client of clients) {
+            if (client.usable) {
+                await client.logout().catch(() => false);
+            }
+        }
+        clients = [];
+    });
+
+    /**
+     * Resolves once the predicate returns true, polling every few milliseconds
+     */
+    const waitFor = (predicate: () => boolean, what: string, timeout?: number) =>
+        new Promise<void>((resolve, reject) => {
+            const started = Date.now();
+            const check = () => {
+                if (predicate()) {
+                    return resolve();
+                }
+                if (Date.now() - started > (timeout || 3000)) {
+                    return reject(new Error('Timeout waiting for ' + what));
+                }
+                setTimeout(check, 5);
+            };
+            check();
+        });
+
+    const fetchAll = async (client: ImapFlow, range: MessageRange, query: FetchQueryObject, options?: FetchOptions) => {
+        const list: FetchMessageObject[] = [];
+        for await (const message of client.fetch(range, query, options)) {
+            list.push(message);
+        }
+        return list;
+    };
+
+    const readStream = async (stream: Readable) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) {
+            chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+    };
+
+    describe('with all plugins', () => {
+        const log: string[] = [];
+        const ctx = setupServer(() => {
+            log.length = 0;
+            return {
+                plugins: ALL_PLUGINS.concat(recorder(log)),
+                id: { name: 'imapkit' },
+                quota: { STORAGE: 100, MESSAGE: 10 },
+                storage: storage()
+            };
+        });
+
+        it('authenticates with AUTHENTICATE PLAIN and sees the extension capabilities', async () => {
+            const client = await connect(ctx);
+            assert.ok(client.authenticated);
+            // AUTH=PLAIN is advertised before login, so ImapFlow prefers it over LOGIN (RFC 4616)
+            assert.ok(log.includes('AUTHENTICATE PLAIN OK'), log.join(', '));
+            assert.ok(!log.includes('LOGIN OK'), log.join(', '));
+            for (const capability of [
+                'IMAP4rev1',
+                'IDLE',
+                'ENABLE',
+                'CONDSTORE',
+                'QRESYNC',
+                'UIDPLUS',
+                'MOVE',
+                'SPECIAL-USE',
+                'UNSELECT',
+                'NAMESPACE',
+                'ID',
+                'LITERAL+',
+                'UTF8=ACCEPT',
+                'BINARY',
+                'UIDONLY',
+                'MESSAGELIMIT=1000'
+            ]) {
+                assert.ok(client.capabilities.has(capability), capability);
+            }
+            // AUTH=PLAIN is only listed in the Not Authenticated state
+            assert.ok(!client.capabilities.has('AUTH=PLAIN'));
+            // ImapFlow sends ENABLE CONDSTORE on its own (RFC 5161, RFC 7162 3.1), and IMAP4rev2 (RFC 9051 Appendix A)
+            assert.ok(client.enabled.has('CONDSTORE'));
+            assert.ok(client.enabled.has('IMAP4REV2'));
+            assert.strictEqual(client.serverInfo && client.serverInfo.name, 'imapkit');
+            // NAMESPACE response (RFC 2342 5), ImapFlow keeps the personal namespace
+            assert.deepStrictEqual(client.namespace, { prefix: '', delimiter: '/' });
+            await client.logout();
+            assert.ok(!client.usable);
+        });
+
+        // ImapFlow turns on compression after login when COMPRESS=DEFLATE is advertised (RFC 4978),
+        // so every test in this block runs compressed
+        it('compresses the session with COMPRESS=DEFLATE', async () => {
+            const client = await connect(ctx);
+            assert.ok(log.includes('COMPRESS OK'), log.join(', '));
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+        });
+
+        // RFC 7628, ImapFlow prefers OAUTHBEARER for an access token
+        it('authenticates with AUTHENTICATE OAUTHBEARER', async () => {
+            const client = await connect(ctx, { auth: { user: 'testuser', accessToken: 'testtoken' } });
+            assert.ok(client.authenticated);
+            assert.ok(log.includes('AUTHENTICATE OAUTHBEARER OK'), log.join(', '));
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+        });
+
+        // RFC 7628 section 3.2.2: the client gets the JSON error result and answers with %x01
+        it('rejects a wrong access token with an OAuth error result', async () => {
+            const client = createClient(ctx, { auth: { user: 'testuser', accessToken: 'wrong' } });
+            await assert.rejects(
+                client.connect(),
+                (err: any) => err.authenticationFailed === true && err.oauthError && err.oauthError.status === 'invalid_token'
+            );
+            assert.ok(log.includes('AUTHENTICATE OAUTHBEARER NO'), log.join(', '));
+        });
+
+        it('rejects wrong credentials', async () => {
+            const client = createClient(ctx, { auth: { user: 'testuser', pass: 'wrong' } });
+            await assert.rejects(client.connect(), (err: any) => err.authenticationFailed === true || /auth/i.test(err.message));
+        });
+
+        it('upgrades the connection with STARTTLS', async () => {
+            const client = await connect(ctx, { doSTARTTLS: true });
+            assert.strictEqual(client.secureConnection, true);
+            // STARTTLS is not offered again on a secure connection (RFC 3501 6.2.1)
+            assert.ok(!client.capabilities.has('STARTTLS'));
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+        });
+
+        it('lists mailboxes with STATUS data through LIST-STATUS', async () => {
+            const client = await connect(ctx);
+            const list = await client.list({ statusQuery: { messages: true, unseen: true, size: true } });
+            const inboxStatus = ok(list.find(entry => entry.path === 'INBOX')).status!;
+            const mailbox = ok(await client.status('INBOX', { messages: true, unseen: true, size: true }));
+            assert.strictEqual(inboxStatus.messages, 3);
+            assert.strictEqual(inboxStatus.messages, mailbox.messages);
+            assert.strictEqual(inboxStatus.unseen, mailbox.unseen);
+            assert.ok(inboxStatus.size! > 0);
+            assert.strictEqual(inboxStatus.size, mailbox.size);
+        });
+
+        it('lists mailboxes with special-use attributes and builds a tree', async () => {
+            const client = await connect(ctx);
+            const list = await client.list();
+            const byPath = Object.fromEntries(list.map(entry => [entry.path, entry]));
+            assert.deepStrictEqual(Object.keys(byPath).sort(), ['Archive', 'Archive/2025', 'Drafts', 'INBOX', 'Sent', 'Trash']);
+            assert.strictEqual(byPath.Sent.specialUse, '\\Sent');
+            assert.strictEqual(byPath.Trash.specialUse, '\\Trash');
+            assert.strictEqual(byPath.Drafts.specialUse, '\\Drafts');
+            assert.ok(!byPath.Drafts.subscribed);
+            assert.strictEqual(byPath.Sent.subscribed, true);
+            assert.strictEqual(byPath['Archive/2025'].parentPath, 'Archive');
+            assert.strictEqual(byPath.Archive.delimiter, '/');
+            assert.ok(byPath.Archive.flags.has('\\HasChildren'));
+
+            const tree = await client.listTree();
+            const archive = tree.folders!.find(folder => folder.path === 'Archive');
+            assert.ok(archive);
+            assert.deepStrictEqual(
+                archive.folders!.map(folder => folder.path),
+                ['Archive/2025']
+            );
+        });
+
+        it('opens mailboxes read-write and read-only and reads STATUS', async () => {
+            const client = await connect(ctx);
+
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.path, 'INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+            assert.strictEqual(mailbox.uidNext, 6);
+            assert.strictEqual(mailbox.uidValidity, 1n);
+            assert.strictEqual(mailbox.readOnly, false);
+            assert.ok(mailbox.flags.has('$Work'), 'keywords in use are listed in FLAGS');
+            assert.ok(mailbox.permanentFlags!.has('\\*'));
+            assert.strictEqual(typeof mailbox.highestModseq, 'bigint');
+
+            const status = ok(
+                await client.status('Sent', { messages: true, unseen: true, uidNext: true, uidValidity: true, recent: true, highestModseq: true })
+            );
+            assert.strictEqual(status.messages, 0);
+            assert.strictEqual(status.unseen, 0);
+            assert.strictEqual(status.uidNext, 1);
+            assert.strictEqual(status.recent, 0);
+            assert.strictEqual(typeof status.highestModseq, 'bigint');
+
+            const inboxStatus = ok(await client.status('INBOX', { messages: true, unseen: true }));
+            assert.deepStrictEqual([inboxStatus.messages, inboxStatus.unseen], [3, 2]);
+
+            const examined = await client.mailboxOpen('Sent', { readOnly: true });
+            assert.strictEqual(examined.readOnly, true);
+            assert.strictEqual(examined.exists, 0);
+
+            await client.mailboxClose();
+            assert.strictEqual(client.mailbox, false);
+        });
+
+        it('appends with flags and internal date and reports APPENDUID', async () => {
+            const client = await connect(ctx);
+            const date = new Date('2026-04-05T06:07:08Z');
+            const raw = 'From: me@example.com\r\nSubject: appended\r\n\r\nappended body\r\n';
+
+            const result = ok(await client.append('Sent', raw, ['\\Seen', '$Custom'], date));
+            // RFC 4315 3: APPENDUID uidvalidity uid
+            assert.strictEqual(result.destination, 'Sent');
+            assert.strictEqual(result.uid, 1);
+            assert.strictEqual(typeof result.uidValidity, 'bigint');
+
+            await client.mailboxOpen('Sent');
+            const message = ok(await client.fetchOne('1', { uid: true, flags: true, internalDate: true, size: true, source: true }, { uid: true }));
+            assert.strictEqual(message.uid, 1);
+            assert.ok(message.flags!.has('\\Seen'));
+            assert.ok(message.flags!.has('$Custom'));
+            assert.strictEqual((message.internalDate as Date).toISOString(), date.toISOString());
+            assert.strictEqual(message.size, Buffer.byteLength(raw));
+            assert.strictEqual(message.source!.toString(), raw);
+        });
+
+        it('appends to a missing mailbox with TRYCREATE', async () => {
+            const client = await connect(ctx);
+            await assert.rejects(client.append('Missing', 'Subject: x\r\n\r\ny\r\n'), (err: any) => err.serverResponseCode === 'TRYCREATE');
+        });
+
+        it('fetches envelope, bodystructure, flags, source and sections', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+
+            const messages = await fetchAll(client, '1:*', {
+                uid: true,
+                flags: true,
+                envelope: true,
+                bodyStructure: true,
+                source: true,
+                size: true,
+                internalDate: true,
+                headers: ['subject', 'x-priority'],
+                bodyParts: ['1']
+            });
+            assert.deepStrictEqual(
+                messages.map(message => [message.seq, message.uid]),
+                [
+                    [1, 1],
+                    [2, 2],
+                    [3, 5]
+                ]
+            );
+
+            const [first, second, third] = messages;
+
+            assert.strictEqual(first.envelope!.subject, 'Hello world');
+            assert.strictEqual(first.envelope!.messageId, '<m1@example.com>');
+            assert.strictEqual((first.envelope!.date as Date).toISOString(), '2026-01-01T10:00:00.000Z');
+            assert.deepStrictEqual(first.envelope!.from, [{ name: 'Alice Example', address: 'alice@example.com' }]);
+            assert.deepStrictEqual(first.envelope!.to, [{ name: 'Bob Example', address: 'bob@example.com' }]);
+            assert.deepStrictEqual(first.envelope!.cc, [{ name: '', address: 'carol@example.com' }]);
+            // RFC 3501 7.4.2: sender and reply-to default to from
+            assert.deepStrictEqual(first.envelope!.sender, first.envelope!.from);
+            assert.deepStrictEqual(first.envelope!.replyTo, first.envelope!.from);
+            assert.strictEqual(third.envelope!.inReplyTo, '<m1@example.com>');
+
+            assert.strictEqual(first.source!.toString(), MESSAGE_1);
+            assert.strictEqual(first.size, Buffer.byteLength(MESSAGE_1));
+            assert.strictEqual(second.source!.toString(), MESSAGE_2);
+            assert.strictEqual((first.internalDate as Date).toISOString(), '2026-01-01T10:00:00.000Z');
+
+            assert.deepStrictEqual([...first.flags!], ['\\Seen']);
+            assert.deepStrictEqual([...second.flags!].sort(), ['$Work', '\\Flagged']);
+            assert.deepStrictEqual([...third.flags!], []);
+
+            assert.deepStrictEqual(first.bodyStructure, { type: 'text/plain', encoding: '7bit', size: 26, lineCount: 2 });
+            assert.strictEqual(second.bodyStructure!.type, 'multipart/mixed');
+            assert.strictEqual(second.bodyStructure!.parameters!.boundary, 'bnd');
+            const [text, attachment] = second.bodyStructure!.childNodes!;
+            assert.strictEqual(text.part, '1');
+            assert.strictEqual(text.type, 'text/plain');
+            assert.strictEqual(text.parameters!.charset, 'utf-8');
+            // the CRLF before the boundary belongs to the delimiter (RFC 2046 5.1.1), so the part has no line break
+            assert.strictEqual(text.lineCount, 0);
+            assert.strictEqual(attachment.part, '2');
+            assert.strictEqual(attachment.type, 'application/octet-stream');
+            assert.strictEqual(attachment.encoding, 'base64');
+            assert.strictEqual(attachment.disposition, 'attachment');
+            assert.strictEqual(attachment.dispositionParameters!.filename, 'data.bin');
+            assert.strictEqual(attachment.parameters!.name, 'data.bin');
+
+            // HEADER.FIELDS returns the requested fields followed by the blank line (RFC 3501 6.4.5)
+            assert.strictEqual(second.headers!.toString(), 'Subject: Report attached\r\nX-Priority: 1\r\n\r\n');
+            assert.strictEqual(first.headers!.toString(), 'Subject: Hello world\r\n\r\n');
+            assert.strictEqual(first.bodyParts!.get('1')!.toString(), 'Hello Bob,\r\nhow are you?\r\n');
+            assert.strictEqual(second.bodyParts!.get('1')!.toString(), 'See the report.');
+        });
+
+        it('does not set \\Seen when fetching with BODY.PEEK', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            await fetchAll(client, '3', { source: true, bodyParts: ['1'] });
+            const message = ok(await client.fetchOne('3', { flags: true }));
+            assert.ok(!message.flags!.has('\\Seen'));
+        });
+
+        it('downloads and decodes parts', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+
+            const attachment = await client.download('2', '2', { uid: true });
+            assert.strictEqual(attachment.meta!.contentType, 'application/octet-stream');
+            assert.strictEqual(attachment.meta!.filename, 'data.bin');
+            assert.strictEqual(attachment.meta!.encoding, 'base64');
+            assert.ok((await readStream(attachment.content!)).equals(ATTACHMENT));
+
+            const text = await client.download('2', '1', { uid: true });
+            assert.strictEqual(text.meta!.charset, 'utf-8');
+            assert.strictEqual((await readStream(text.content!)).toString(), 'See the report.');
+
+            // no part downloads the whole message
+            const full = await client.download('5', undefined, { uid: true });
+            assert.strictEqual((await readStream(full.content!)).toString(), MESSAGE_3);
+
+            const many = await client.downloadMany('2', ['1', '2'], { uid: true });
+            assert.ok(many['2'].content!.equals(ATTACHMENT));
+        });
+
+        it('appends binary content as a literal8 and downloads decoded parts with BINARY (RFC 3516)', async () => {
+            const client = await connect(ctx);
+            const binary = Buffer.from([0, 1, 2, 13, 10, 255, 0, 10]);
+            const raw = Buffer.concat([
+                Buffer.from(
+                    'Subject: binary\r\nContent-Type: multipart/mixed; boundary="b"\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\ntext\r\n' +
+                        '--b\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n'
+                ),
+                binary,
+                Buffer.from('\r\n--b--\r\n')
+            ]);
+            // ImapFlow sends content with NUL octets as a literal8
+            const result = ok(await client.append('Sent', raw));
+            await client.mailboxOpen('Sent');
+
+            // ImapFlow's types do not list the `binary` download option
+            const binaryDownload = { uid: true, binary: true } as DownloadOptions;
+            const attachment = await client.download(String(result.uid), '2', binaryDownload);
+            assert.ok((await readStream(attachment.content!)).equals(binary));
+            // the binary part is stored base64 encoded, so BODY[] stays valid IMAP4rev1
+            const message = ok(await client.fetchOne(String(result.uid), { bodyStructure: true }, { uid: true }));
+            assert.strictEqual(message.bodyStructure!.childNodes![1].encoding, 'base64');
+            const text = await client.download(String(result.uid), '1', binaryDownload);
+            assert.strictEqual((await readStream(text.content!)).toString(), 'text');
+        });
+
+        it('searches with various criteria', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+
+            const cases: [SearchObject, number[]][] = [
+                [{ all: true }, [1, 2, 3]],
+                [{ seen: true }, [1]],
+                [{ seen: false }, [2, 3]],
+                [{ flagged: true }, [2]],
+                [{ keyword: '$Work' }, [2]],
+                [{ unKeyword: '$Work' }, [1, 3]],
+                [{ subject: 'hello' }, [1, 3]],
+                [{ from: 'carol' }, [2]],
+                [{ to: 'alice@example.com' }, [2, 3]],
+                [{ cc: 'carol' }, [1]],
+                [{ body: 'report' }, [2]],
+                [{ text: 'fine' }, [3]],
+                [{ header: { 'x-priority': '1' } }, [2]],
+                [{ header: { 'in-reply-to': '' } }, [3]],
+                [{ or: [{ from: 'carol' }, { seen: true }] }, [1, 2]],
+                [{ not: { subject: 'hello' } }, [2]],
+                [{ since: new Date('2026-02-01T00:00:00Z') }, [2, 3]],
+                [{ before: new Date('2026-02-15T00:00:00Z') }, [1]],
+                [{ on: new Date('2026-02-15T00:00:00Z') }, [2]],
+                [{ sentSince: new Date('2026-03-01T00:00:00Z') }, [3]],
+                [{ sentBefore: new Date('2026-01-02T00:00:00Z') }, [1]],
+                [{ larger: 500 }, [2]],
+                [{ smaller: 300 }, [1, 3]],
+                [{ uid: '2:5' }, [2, 3]],
+                [{ uid: '3:4' }, []],
+                [{ seq: '2:*' }, [2, 3]],
+                [{ seen: false, flagged: false }, [3]]
+            ];
+
+            for (const [query, expected] of cases) {
+                assert.deepStrictEqual(await client.search(query), expected, JSON.stringify(query));
+            }
+
+            // UID SEARCH returns UIDs
+            assert.deepStrictEqual(await client.search({ seen: false }, { uid: true }), [2, 5]);
+
+            // ESEARCH result options (RFC 4731)
+            assert.deepStrictEqual(await client.search({ seen: false }, { returnOptions: ['MIN', 'MAX', 'COUNT', 'ALL'] }), {
+                min: 2,
+                max: 3,
+                count: 2,
+                all: '2:3'
+            });
+            assert.deepStrictEqual(await client.search({ seen: false }, { uid: true, returnOptions: ['COUNT', 'ALL'] }), { count: 2, all: '2,5' });
+            assert.deepStrictEqual(await client.search({ deleted: true }, { returnOptions: ['MIN', 'COUNT'] }), { count: 0 });
+        });
+
+        it('adds, removes and replaces flags', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+
+            const flagsOf = async () => (await fetchAll(client, '1:*', { flags: true })).map(message => [...message.flags!].sort());
+
+            assert.strictEqual(await client.messageFlagsAdd('1:2', ['\\Answered', '$Done']), true);
+            assert.deepStrictEqual(await flagsOf(), [['$Done', '\\Answered', '\\Seen'], ['$Done', '$Work', '\\Answered', '\\Flagged'], []]);
+            // keywords in use are listed in the FLAGS response of the next SELECT (RFC 3501 7.2.6)
+            assert.ok((await client.mailboxOpen('INBOX')).flags.has('$Done'));
+
+            assert.strictEqual(await client.messageFlagsRemove('5', ['\\Seen'], { uid: true }), true);
+            assert.strictEqual(await client.messageFlagsRemove('1', ['\\Answered', '$Done']), true);
+            assert.deepStrictEqual(await flagsOf(), [['\\Seen'], ['$Done', '$Work', '\\Answered', '\\Flagged'], []]);
+
+            assert.strictEqual(await client.messageFlagsSet('2,5', ['\\Draft'], { uid: true }), true);
+            assert.deepStrictEqual(await flagsOf(), [['\\Seen'], ['\\Draft'], ['\\Draft']]);
+        });
+
+        it('copies with COPYUID and moves with MOVE', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+
+            const copied = ok(await client.messageCopy('1:2', 'Sent'));
+            // RFC 4315 3: COPYUID uidvalidity source-uids dest-uids
+            assert.strictEqual(copied.destination, 'Sent');
+            assert.deepStrictEqual(
+                [...copied.uidMap!],
+                [
+                    [1, 1],
+                    [2, 2]
+                ]
+            );
+
+            log.length = 0;
+            const moved = ok(await client.messageMove('5', 'Trash', { uid: true }));
+            assert.deepStrictEqual([...moved.uidMap!], [[5, 1]]);
+            assert.ok(log.includes('UID MOVE OK'), log.join(', '));
+            assert.ok(!log.includes('UID COPY OK'), log.join(', '));
+            assert.strictEqual(ok(client.mailbox).exists, 2);
+
+            const sent = ok(await client.status('Sent', { messages: true }));
+            assert.strictEqual(sent.messages, 2);
+
+            await client.mailboxOpen('Trash');
+            const [trashed] = await fetchAll(client, '1:*', { uid: true, envelope: true, source: true });
+            assert.strictEqual(trashed.envelope!.subject, 'Re: Hello world');
+            assert.strictEqual(trashed.source!.toString(), MESSAGE_3);
+        });
+
+        it('fails to copy into a missing mailbox with TRYCREATE', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            const result = await client.messageCopy('1', 'Nowhere');
+            // ImapFlow reports a failed copy as false
+            assert.strictEqual(result, false);
+        });
+
+        it('deletes messages with UID EXPUNGE', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            const expunged: number[] = [];
+            client.on('expunge', event => expunged.push(event.seq!));
+
+            // \Deleted on another message must survive a UID EXPUNGE that does not include it (RFC 4315 2.1)
+            await client.messageFlagsAdd('1', ['\\Deleted']);
+            assert.strictEqual(await client.messageDelete('2', { uid: true }), true);
+            assert.deepStrictEqual(expunged, [2]);
+            assert.strictEqual(ok(client.mailbox).exists, 2);
+
+            const remaining = await fetchAll(client, '1:*', { uid: true, flags: true });
+            assert.deepStrictEqual(
+                remaining.map(message => [message.uid, message.flags!.has('\\Deleted')]),
+                [
+                    [1, true],
+                    [5, false]
+                ]
+            );
+        });
+
+        it('creates, renames, subscribes and deletes mailboxes', async () => {
+            const client = await connect(ctx);
+
+            const created = await client.mailboxCreate('Projects/Alpha');
+            assert.deepStrictEqual({ path: created.path, created: created.created }, { path: 'Projects/Alpha', created: true });
+            // NO [ALREADYEXISTS] (RFC 5530) lets ImapFlow report an existing mailbox instead of an error
+            assert.strictEqual((await client.mailboxCreate('Projects/Alpha')).created, false);
+            assert.deepStrictEqual(await client.mailboxRename('Projects', 'Work'), { path: 'Projects', newPath: 'Work' });
+
+            let paths = (await client.list()).map(entry => entry.path);
+            assert.ok(paths.includes('Work/Alpha'), paths.join(', '));
+            assert.ok(!paths.includes('Projects/Alpha'), paths.join(', '));
+
+            assert.strictEqual(await client.mailboxSubscribe('Drafts'), true);
+            assert.strictEqual(await client.mailboxUnsubscribe('Sent'), true);
+            const subscribed = (await client.list()).filter(entry => entry.subscribed).map(entry => entry.path);
+            assert.ok(subscribed.includes('Drafts'));
+            assert.ok(!subscribed.includes('Sent'));
+
+            assert.deepStrictEqual(await client.mailboxDelete('Work/Alpha'), { path: 'Work/Alpha' });
+            paths = (await client.list()).map(entry => entry.path);
+            assert.ok(!paths.includes('Work/Alpha'), paths.join(', '));
+
+            await assert.rejects(client.mailboxDelete('INBOX'));
+        });
+
+        it('uses UTF-8 mailbox names and headers with UTF8=ACCEPT', async () => {
+            const client = await connect(ctx);
+            // ImapFlow enables UTF8=ACCEPT on its own (RFC 9755 section 3)
+            assert.ok(client.enabled.has('UTF8=ACCEPT'));
+
+            const created = await client.mailboxCreate('Grüße/Ünter & Über');
+            assert.strictEqual(created.path, 'Grüße/Ünter & Über');
+            assert.strictEqual(created.created, true);
+            // storage keeps the modified UTF-7 names
+            assert.ok(ctx.server.folderCache['Gr&APwA3w-e/&ANw-nter &- &ANw-ber']);
+            const paths = (await client.list()).map(entry => entry.path);
+            assert.ok(paths.includes('Grüße'), paths.join(', '));
+            assert.ok(paths.includes('Grüße/Ünter & Über'), paths.join(', '));
+
+            const raw = 'From: Jürgen <juergen@example.com>\r\nSubject: Grüße aus Köln\r\n\r\nHallo\r\n';
+            await client.append('Grüße', Buffer.from(raw));
+            assert.strictEqual(ok(await client.status('Grüße', { messages: true })).messages, 1);
+
+            await client.mailboxOpen('Grüße');
+            assert.deepStrictEqual(await client.search({ subject: 'Köln' }, { uid: true }), [1]);
+            const message = ok(await client.fetchOne('1', { envelope: true }));
+            assert.strictEqual(message.envelope!.subject, 'Grüße aus Köln');
+            assert.strictEqual(message.envelope!.from![0].name, 'Jürgen');
+        });
+
+        const isIdling = () => [...ctx.server.connections].filter(connection => connection.directNotifications).length === 1;
+
+        it('receives EXISTS and EXPUNGE from another client while idling', async () => {
+            const watcher = await connect(ctx);
+            const actor = await connect(ctx);
+
+            await watcher.mailboxOpen('INBOX');
+            await actor.mailboxOpen('INBOX');
+
+            const events: unknown[] = [];
+            watcher.on('exists', event => events.push(['exists', event.count, event.prevCount]));
+            watcher.on('expunge', event => events.push(['expunge', event.seq]));
+
+            let idle = watcher.idle();
+            await waitFor(isIdling, 'IDLE');
+
+            // RFC 2177 3: while idling the server sends untagged EXISTS and EXPUNGE responses
+            await actor.append('INBOX', 'Subject: pushed\r\n\r\nnew\r\n');
+            await waitFor(() => events.length >= 1, 'EXISTS');
+            assert.deepStrictEqual(events.shift(), ['exists', 4, 3]);
+
+            await actor.messageDelete('1');
+            await waitFor(() => events.length >= 1, 'EXPUNGE');
+            assert.deepStrictEqual(events.shift(), ['expunge', 1]);
+
+            // any command ends IDLE
+            const status = ok(await watcher.status('INBOX', { messages: true }));
+            assert.strictEqual(status.messages, 3);
+            await idle;
+            assert.strictEqual(ok(watcher.mailbox).exists, 3);
+
+            // a second IDLE continues with the same mailbox view
+            idle = watcher.idle();
+            await waitFor(isIdling, 'IDLE');
+            await actor.append('INBOX', 'Subject: pushed again\r\n\r\nnew\r\n');
+            await waitFor(() => events.length >= 1, 'second EXISTS');
+            assert.deepStrictEqual(events.shift(), ['exists', 4, 3]);
+            await watcher.noop();
+            await idle;
+
+            const seen = await fetchAll(watcher, '1:*', { uid: true, envelope: true });
+            assert.deepStrictEqual(
+                seen.map(message => message.envelope!.subject),
+                ['Report attached', 'Re: Hello world', 'pushed', 'pushed again']
+            );
+        });
+
+        it('receives flag changes from another client while idling', async () => {
+            const watcher = await connect(ctx);
+            const actor = await connect(ctx);
+
+            await watcher.mailboxOpen('INBOX');
+            await actor.mailboxOpen('INBOX');
+
+            const events: unknown[] = [];
+            watcher.on('flags', event => events.push([event.seq, [...event.flags].sort()]));
+
+            const idle = watcher.idle();
+            await waitFor(isIdling, 'IDLE');
+
+            // RFC 3501 5.2: a server SHOULD send flag updates without the client asking for them
+            await actor.messageFlagsAdd('2', ['\\Answered']);
+            await waitFor(() => events.length >= 1, 'FETCH', 500);
+            assert.deepStrictEqual(events.shift(), [2, ['$Work', '\\Answered', '\\Flagged']]);
+
+            await watcher.noop();
+            await idle;
+        });
+
+        it('fetches only changed messages with CHANGEDSINCE', async () => {
+            const client = await connect(ctx);
+            const mailbox = await client.mailboxOpen('INBOX');
+            const before = mailbox.highestModseq!;
+
+            await client.messageFlagsAdd('2', ['\\Answered']);
+
+            // RFC 7162 3.1.4: FETCH with CHANGEDSINCE returns messages with a higher MODSEQ, and MODSEQ is included
+            const changed = await fetchAll(client, '1:*', { uid: true, flags: true }, { changedSince: before });
+            assert.deepStrictEqual(
+                changed.map(message => message.uid),
+                [2]
+            );
+            assert.ok(changed[0].modseq! > before);
+
+            const status = ok(await client.status('INBOX', { highestModseq: true }));
+            assert.strictEqual(status.highestModseq, changed[0].modseq);
+            // RFC 7162 3.1.2: HIGHESTMODSEQ is the highest MODSEQ of all messages in the mailbox
+            const all = await fetchAll(client, '1:*', { uid: true });
+            assert.strictEqual(
+                all.map(message => message.modseq!).reduce((a, b) => (a > b ? a : b)),
+                status.highestModseq
+            );
+        });
+
+        // RFC 7162 section 3.2: VANISHED replaces EXPUNGE, and SELECT (QRESYNC) reports what changed while away
+        it('resynchronizes a mailbox with QRESYNC', async () => {
+            const client = await connect(ctx, { qresync: true });
+            assert.ok(client.enabled.has('QRESYNC'));
+            const { uidValidity, highestModseq } = await client.mailboxOpen('INBOX');
+            await client.mailboxClose();
+
+            const actor = await connect(ctx);
+            await actor.mailboxOpen('INBOX');
+            assert.strictEqual(await actor.messageDelete('1', { uid: true }), true);
+            await actor.messageFlagsAdd('5', ['\\Answered'], { uid: true });
+
+            const events: unknown[] = [];
+            client.on('expunge', event => events.push(['expunge', event.uid, event.vanished, event.earlier]));
+            client.on('flags', event => events.push(['flags', event.uid, [...event.flags]]));
+
+            // ImapFlow's types do not list its QRESYNC options
+            const mailbox = await client.mailboxOpen('INBOX', { uidValidity, changedSince: highestModseq } as MailboxOpenOptions);
+            assert.strictEqual(mailbox.exists, 2);
+            assert.ok(mailbox.highestModseq! > highestModseq!);
+            assert.deepStrictEqual(events.splice(0), [
+                ['expunge', 1, true, true],
+                ['flags', 5, ['\\Answered']]
+            ]);
+
+            await actor.messageDelete('2', { uid: true });
+            await client.noop();
+            assert.deepStrictEqual(events.splice(0), [['expunge', 2, true, false]]);
+            assert.strictEqual(ok(client.mailbox).exists, 1);
+        });
+
+        it('reads Gmail labels with X-GM-EXT-1', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            const messages = await fetchAll(client, '1:*', { uid: true, labels: true });
+            assert.ok(messages[0].labels!.has('\\Inbox'));
+        });
+
+        // ImapFlow prefers OBJECTID (RFC 8474) over X-GM-MSGID and X-GM-THRID
+        it('reads message, thread and mailbox ids with OBJECTID', async () => {
+            const client = await connect(ctx);
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.match(mailbox.mailboxId!, /^F\d+$/);
+            // ImapFlow's types do not list emailId as a query key
+            const messages = await fetchAll(client, '1:*', { uid: true, emailId: true, threadId: true } as FetchQueryObject);
+            const ids = messages.map(message => message.emailId!);
+            assert.strictEqual(new Set(ids).size, 3);
+            ids.forEach(id => assert.match(id, /^M\d+$/));
+            // MESSAGE_3 replies to MESSAGE_1
+            assert.strictEqual(messages[2].threadId, messages[0].threadId);
+            assert.notStrictEqual(messages[1].threadId, messages[0].threadId);
+
+            const found = await client.search({ emailId: ids[1] }, { uid: true });
+            assert.deepStrictEqual(found, [2]);
+
+            const created = await client.mailboxCreate('Ids');
+            const status = ok(await client.status('Ids', { messages: true }));
+            assert.match(created.mailboxId!, /^F\d+$/);
+            assert.strictEqual(status.path, 'Ids');
+
+            // the copy keeps its EMAILID (RFC 8474 section 5.1)
+            await client.messageCopy('1', 'Ids', { uid: true });
+            await client.mailboxOpen('Ids');
+            const [copy] = await fetchAll(client, '1:*', { uid: true, emailId: true } as FetchQueryObject);
+            assert.strictEqual(copy.emailId, ids[0]);
+        });
+
+        it('reads the quota with QUOTA', async () => {
+            const client = await connect(ctx);
+            const quota = ok(await client.getQuota('INBOX'));
+            assert.strictEqual(quota.quotaRoot, 'User quota');
+            assert.deepStrictEqual(quota.message, { usage: 3, limit: 10, status: '30%' });
+            assert.strictEqual(quota.storage!.limit, 100 * 1024);
+            assert.ok(quota.storage!.usage! > 0);
+        });
+    });
+
+    // RFC 7888 section 5: ImapFlow sends non-synchronizing literals only up to 4096 octets
+    describe('with LITERAL-', () => {
+        const log: string[] = [];
+        const ctx = setupServer(() => {
+            log.length = 0;
+            return { plugins: ['LITERAL-', 'UIDPLUS', recorder(log)], storage: storage() };
+        });
+
+        it('appends small and large messages', async () => {
+            const client = await connect(ctx);
+            assert.ok(client.capabilities.has('LITERAL-'));
+            const small = 'Subject: small\r\n\r\nsmall\r\n';
+            const large = 'Subject: large\r\n\r\n' + 'x'.repeat(10000) + '\r\n';
+            await client.append('INBOX', small);
+            await client.append('INBOX', large);
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 5);
+            assert.ok(!log.some(entry => / BAD$/.test(entry)), log.join(', '));
+        });
+    });
+
+    // RFC 9051: ImapFlow enables IMAP4rev2 and then expects ESEARCH, UTF-8 names and the rev2 SELECT responses
+    describe('with IMAP4rev2', () => {
+        const log: string[] = [];
+        const ctx = setupServer(() => {
+            log.length = 0;
+            return { plugins: ['IMAP4rev2', recorder(log)], storage: storage() };
+        });
+
+        it('works in IMAP4rev2 mode', async () => {
+            const client = await connect(ctx);
+            assert.ok(client.capabilities.has('IMAP4rev2'));
+            assert.ok(client.enabled.has('IMAP4REV2'));
+            assert.ok(log.includes('AUTHENTICATE PLAIN OK'), log.join(', '));
+
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+            assert.strictEqual(mailbox.uidNext, 6);
+
+            assert.deepStrictEqual(await client.search({ seen: false }, { uid: true }), [2, 5]);
+            assert.deepStrictEqual(await client.search({ subject: 'world' }), [1, 3]);
+
+            const messages = await fetchAll(client, '1:*', { uid: true, flags: true, envelope: true, bodyStructure: true, size: true });
+            assert.deepStrictEqual(
+                messages.map(message => message.uid),
+                [1, 2, 5]
+            );
+            assert.strictEqual(messages[1].bodyStructure!.childNodes!.length, 2);
+            assert.ok(![...messages[0].flags!].includes('\\Recent'));
+
+            const name = 'Mäilbox/Ünicode';
+            await client.mailboxCreate(name);
+            const list = await client.list({ statusQuery: { messages: true } });
+            assert.ok(list.some(entry => entry.path === name));
+
+            const moved = ok(await client.messageMove('2', name));
+            assert.strictEqual(moved.uidMap!.get(2), 1);
+            const status = ok(await client.status(name, { messages: true, size: true }));
+            assert.strictEqual(status.messages, 1);
+            assert.ok(status.size! > 0);
+
+            const appended = ok(await client.append(name, 'Subject: Grüße\r\n\r\nHallo\r\n', ['\\Seen']));
+            assert.strictEqual(appended.uid, 2);
+            assert.ok(!log.some(entry => / BAD$/.test(entry)), log.join(', '));
+        });
+    });
+
+    describe('without plugins', () => {
+        const log: string[] = [];
+        const ctx = setupServer(() => {
+            log.length = 0;
+            return { plugins: [recorder(log)], storage: storage() };
+        });
+
+        it('logs in with LOGIN and advertises only IMAP4rev1', async () => {
+            const client = await connect(ctx);
+            assert.ok(log.includes('LOGIN OK'), log.join(', '));
+            assert.deepStrictEqual([...client.capabilities.keys()], ['IMAP4rev1']);
+            assert.strictEqual(client.enabled.size, 0);
+            // without NAMESPACE ImapFlow derives the namespace from LIST "" ""
+            assert.strictEqual(client.namespace!.delimiter, '/');
+        });
+
+        it('lists, opens and fetches', async () => {
+            const client = await connect(ctx);
+            const list = await client.list();
+            assert.deepStrictEqual(list.map(entry => entry.path).sort(), ['Archive', 'Archive/2025', 'Drafts', 'INBOX', 'Sent', 'Trash']);
+            // without SPECIAL-USE ImapFlow guesses special-use from the names
+            assert.strictEqual(ok(list.find(entry => entry.path === 'Sent')).specialUse, '\\Sent');
+
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+            assert.strictEqual(mailbox.highestModseq, undefined);
+
+            const messages = await fetchAll(client, '1:*', { uid: true, envelope: true, bodyStructure: true, source: true });
+            assert.deepStrictEqual(
+                messages.map(message => message.envelope!.subject),
+                ['Hello world', 'Report attached', 'Re: Hello world']
+            );
+            assert.strictEqual(messages[1].source!.toString(), MESSAGE_2);
+            assert.strictEqual(messages[0].modseq, undefined);
+        });
+
+        it('uses modified UTF-7 mailbox names without UTF8=ACCEPT', async () => {
+            const client = await connect(ctx);
+            assert.deepStrictEqual(await client.mailboxCreate('Grüße'), { path: 'Grüße', created: true });
+            assert.ok(ctx.server.folderCache['Gr&APwA3w-e']);
+            const paths = (await client.list()).map(entry => entry.path);
+            assert.ok(paths.includes('Grüße'), paths.join(', '));
+        });
+
+        it('appends without APPENDUID', async () => {
+            const client = await connect(ctx);
+            const result = ok(await client.append('Sent', 'Subject: x\r\n\r\ny\r\n', ['\\Seen']));
+            assert.strictEqual(result.destination, 'Sent');
+            assert.strictEqual(result.uid, undefined);
+            const status = ok(await client.status('Sent', { messages: true }));
+            assert.strictEqual(status.messages, 1);
+        });
+
+        it('copies without COPYUID and moves with COPY, STORE and EXPUNGE', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+
+            const copied = ok(await client.messageCopy('1', 'Sent'));
+            assert.strictEqual(copied.destination, 'Sent');
+            assert.strictEqual(copied.uidMap, undefined);
+
+            log.length = 0;
+            const moved = ok(await client.messageMove('2', 'Trash'));
+            assert.strictEqual(moved.destination, 'Trash');
+            assert.ok(log.includes('COPY OK'), log.join(', '));
+            assert.ok(log.includes('EXPUNGE OK'), log.join(', '));
+            assert.strictEqual(ok(client.mailbox).exists, 2);
+
+            const trash = ok(await client.status('Trash', { messages: true }));
+            assert.strictEqual(trash.messages, 1);
+
+            const remaining = await fetchAll(client, '1:*', { uid: true });
+            assert.deepStrictEqual(
+                remaining.map(message => message.uid),
+                [1, 5]
+            );
+        });
+
+        it('deletes with STORE and EXPUNGE', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            assert.strictEqual(await client.messageDelete('1:2'), true);
+            assert.strictEqual(ok(client.mailbox).exists, 1);
+            assert.deepStrictEqual(await client.search({ all: true }, { uid: true }), [5]);
+        });
+
+        it('searches and changes flags', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            assert.deepStrictEqual(await client.search({ or: [{ flagged: true }, { not: { seen: false } }] }), [1, 2]);
+            await client.messageFlagsSet('1:*', ['\\Seen']);
+            assert.deepStrictEqual(await client.search({ seen: false }), []);
+        });
+
+        it('closes the mailbox without UNSELECT', async () => {
+            const client = await connect(ctx);
+            await client.mailboxOpen('INBOX');
+            await client.messageFlagsAdd('1', ['\\Deleted']);
+            log.length = 0;
+            // without UNSELECT ImapFlow closes with CLOSE, which expunges (RFC 3501 6.4.2)
+            await client.mailboxClose();
+            assert.ok(log.includes('CLOSE OK'), log.join(', '));
+            const status = ok(await client.status('INBOX', { messages: true }));
+            assert.strictEqual(status.messages, 2);
+        });
+    });
+});

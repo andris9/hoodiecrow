@@ -1,0 +1,85 @@
+import type { Attribute, IMAPConnection, IMAPResponse, IMAPServer, Mailbox, MailboxStatus, ParsedCommand, StatusHandler } from '../../types.js';
+
+/**
+ * STATUS data items, shared by the STATUS command and the STATUS return option of LIST (LIST-STATUS,
+ * RFC 5819). A STATUS item can only be requested when it is listed in `server.allowedStatus`.
+ * Plugins add their items to `server.statusHandlers` (consulted before the built-in items) and to
+ * `server.allowedStatus`.
+ */
+
+const statusHandlers: Record<string, StatusHandler> = {
+    MESSAGES: (connection: IMAPConnection, mailbox: Mailbox) => mailbox.messages.length,
+    RECENT: (connection: IMAPConnection, mailbox: Mailbox, status: MailboxStatus) => status.recent,
+    UIDNEXT: (connection: IMAPConnection, mailbox: Mailbox) => mailbox.uidnext,
+    UIDVALIDITY: (connection: IMAPConnection, mailbox: Mailbox) => mailbox.uidvalidity,
+    UNSEEN: (connection: IMAPConnection, mailbox: Mailbox, status: MailboxStatus) => status.unseen || 0,
+    // RFC 9051 section 6.3.11. Not in RFC 3501, QUOTA lists it in allowedStatus, IMAP4rev2 allows it per session
+    DELETED: (connection: IMAPConnection, mailbox: Mailbox, status: MailboxStatus) => status.flags['\\Deleted'] || 0
+};
+
+// RFC 3501 section 9 atom = 1*ATOM-CHAR
+
+/**
+ * Validates a list of STATUS data item names (RFC 3501 section 9, "(" status-att *(SP status-att) ")")
+ *
+ * @param {Object} server IMAPServer instance
+ * @param {Array} list Parsed list of status items
+ * @param {Object} [connection] IMAP connection, its `disabledStatusItems` set lists items the session can not use,
+ *   `addedStatusItems` the items only this session can use (DELETED after ENABLE IMAP4rev2)
+ * @return {Array} upper case item names
+ * @throws {Error} if the list is empty or has an invalid item, the message is for the BAD response
+ */
+function parseStatusItems(server: IMAPServer, list: Attribute, connection?: IMAPConnection | null): string[] {
+    if (!Array.isArray(list) || !list.length) {
+        throw new Error('Expecting a list of status items');
+    }
+    const disabled = connection && connection.disabledStatusItems;
+    const added = connection && connection.addedStatusItems;
+    return list.map((item: Attribute, i: number) => {
+        const name = item && item.type === 'ATOM' && item.value.toUpperCase();
+        if (!name || (server.allowedStatus.indexOf(name) < 0 && !(added && added.has(name))) || (disabled && disabled.has(name))) {
+            throw new Error('Invalid status element (' + (i + 1) + ')');
+        }
+        return name;
+    });
+}
+
+/**
+ * Sends an untagged STATUS response
+ *
+ * @param {Object} connection IMAPConnection instance
+ * @param {String} path Storage name of the mailbox
+ * @param {Object} mailbox Mailbox object
+ * @param {Array} items Upper case item names from parseStatusItems
+ * @param {Object} parsed Parsed command
+ * @param {Object} data Command data
+ */
+function sendStatus(connection: IMAPConnection, path: string, mailbox: Mailbox, items: string[], parsed: ParsedCommand, data: string) {
+    connection.send(statusResponse(connection, path, mailbox, items), 'STATUS', parsed, data);
+}
+
+/**
+ * Builds an untagged STATUS response
+ *
+ * @param {Object} connection IMAPConnection instance
+ * @param {String} path Storage name of the mailbox
+ * @param {Object} mailbox Mailbox object
+ * @param {Array} items Upper case item names
+ * @return {Object} STATUS response
+ */
+function statusResponse(connection: IMAPConnection, path: string, mailbox: Mailbox, items: string[]): IMAPResponse {
+    const server = connection.server;
+    const status = server.getStatus(mailbox) as MailboxStatus;
+    const list: Attribute[] = [];
+    items.forEach(item => {
+        list.push({ type: 'ATOM', value: item }, (server.statusHandlers[item] || statusHandlers[item])(connection, mailbox, status));
+    });
+    return {
+        tag: '*',
+        command: 'STATUS',
+        // the mailbox name is converted for the session in IMAPConnection#send
+        attributes: [{ type: 'MAILBOX', value: path }, list]
+    };
+}
+
+export { parseStatusItems, sendStatus, statusResponse };

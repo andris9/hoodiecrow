@@ -1,4 +1,4 @@
-# METADATA (RFC 5464). Run: node compare/compare.js --plugin METADATA,ENABLE compare/scenarios/metadata.txt
+# METADATA (RFC 5464). Run: node --import tsx compare/compare.ts --plugin METADATA,ENABLE compare/scenarios/metadata.txt
 # Known differences: Dovecot always sends values as literals, accepts "()" as an empty entry or option
 # list, an atom as a value and "/shared" in SETMETADATA, refuses server annotations with [CANNOT],
 # and moves (instead of copies) the annotations of INBOX on RENAME
