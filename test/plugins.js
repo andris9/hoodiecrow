@@ -58,3 +58,40 @@ describe('Plugin loading', () => {
         });
     });
 });
+
+describe('Plugin command options', () => {
+    const ok = (connection, parsed, data, callback) => {
+        connection.sendStatus(parsed, data, 'OK', 'Done');
+        callback();
+    };
+
+    const ctx = setupServer(() => ({
+        plugins: [
+            server => {
+                // a list of states is accepted as well
+                server.setCommandHandler('XSTATES', ok, ['Authenticated', 'Selected']);
+                server.setCommandHandler('XNOARGS', ok, { noArguments: true });
+                server.setCommandHandler('XMAILBOX', ok, { mailboxArguments: [1] });
+                // re-registering without options keeps the earlier options
+                server.setCommandHandler('XNOARGS', ok);
+            }
+        ]
+    }));
+
+    it('applies states, no arguments and mailbox arguments', (t, done) => {
+        const cmds = ['A1 XSTATES', 'A2 XNOARGS x', 'A3 XNOARGS', 'A4 XMAILBOX "a&" b', 'A5 XMAILBOX a "b&"', 'A6 XMAILBOX (x) b', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString('binary');
+            assert.match(resp, /^A1 BAD XSTATES is not allowed in the Not Authenticated state\r$/m);
+            assert.match(resp, /^A2 BAD XNOARGS does not take any arguments\r$/m);
+            assert.match(resp, /^A3 OK Done\r$/m);
+            // only the second argument is a mailbox name
+            assert.match(resp, /^A4 OK Done\r$/m);
+            assert.match(resp, /^A5 BAD Modified BASE64 in mailbox name must end with "-"/m);
+            // arguments that are not strings are left to the handler
+            assert.match(resp, /^A6 OK Done\r$/m);
+            done();
+        });
+    });
+});

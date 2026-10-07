@@ -373,12 +373,18 @@ server.registerCapability('XAUTH', function (connection) {
 
 #### Define a command
 
-    server.setCommandHandler(name, handler)
+    server.setCommandHandler(name, handler[, options])
 
 Where
 
 - **name** is the command name
 - **handler** _(connection, parsed, data, callback)_ is the handler function for the command
+- **options** is an optional object, checked by the server before the handler runs:
+    - **states** lists the connection states the command is valid in (`'Not Authenticated'`, `'Authenticated'`, `'Selected'`), any state if not set. A plain list is read as the states
+    - **noArguments** if true, the command is refused when it has arguments
+    - **mailboxArguments** lists the positions of arguments that are mailbox names, these must be valid modified UTF-7 (RFC 3501 section 5.1.3)
+
+    Without options, a command that already exists (such as a built-in one that the handler wraps) keeps its settings.
 
 Handler arguments
 

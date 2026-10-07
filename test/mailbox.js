@@ -38,7 +38,7 @@ describe('SELECT and EXAMINE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* OK [UNSEEN 2] Completed\r\n') >= 0);
+            assert.ok(resp.indexOf('\r\n* OK [UNSEEN 2] First unseen message\r\n') >= 0);
             assert.ok(resp.indexOf('\r\nA2 OK [READ-WRITE]') >= 0);
             done();
         });
@@ -72,7 +72,7 @@ describe('SELECT and EXAMINE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* OK [PERMANENTFLAGS ()] Completed\r\n') >= 0);
+            assert.ok(resp.indexOf('\r\n* OK [PERMANENTFLAGS ()] No permanent flags permitted\r\n') >= 0);
             assert.ok(resp.indexOf('\r\nA2 OK [READ-ONLY]') >= 0);
             assert.ok(resp.indexOf('\r\nA3 NO') >= 0);
             assert.ok(resp.indexOf('\r\nA4 OK') >= 0);

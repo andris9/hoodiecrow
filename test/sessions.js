@@ -301,6 +301,32 @@ describe('Multiple sessions', () => {
             assert.ok(/(^|\r\n)\* 2 FETCH \(UID 2 FLAGS \(\\Flagged\)\)\r\n/.test(output), output);
         });
 
+        it('FETCH that sets \\Seen produces an untagged FETCH in another selected session', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+
+            await b.cmd('FETCH 2:3 BODY[TEXT]');
+            const output = await a.cmd('NOOP');
+            assert.ok(/(^|\r\n)\* 2 FETCH \(UID 2 FLAGS \(\\Seen\)\)\r\n\* 3 FETCH \(UID 3 FLAGS \(\\Seen\)\)\r\n/.test(output), output);
+        });
+
+        it('flag updates use the sequence numbers the session knows around an expunge', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+
+            // 3 is changed before the expunge, 4 after it, A still knows 4 messages for the first one
+            await b.cmd('STORE 3 +FLAGS (\\Flagged)');
+            await b.cmd('STORE 1 +FLAGS (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            await b.cmd('STORE 3 +FLAGS (\\Answered)');
+            const output = await a.cmd('NOOP');
+            const responses = lines(output);
+            const flagged = responses.indexOf('* 3 FETCH (UID 3 FLAGS (\\Flagged))');
+            const expunge = responses.indexOf('* 1 EXPUNGE');
+            const answered = responses.indexOf('* 3 FETCH (UID 4 FLAGS (\\Answered))');
+            assert.ok(flagged >= 0 && expunge > flagged && answered > expunge, output);
+        });
+
         it('the session that changes flags gets them in the STORE response', async () => {
             const a = await open('INBOX');
             const output = await a.cmd('STORE 2 +FLAGS (\\Flagged)');

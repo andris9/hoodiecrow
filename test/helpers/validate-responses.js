@@ -9,9 +9,10 @@
 
 const assert = require('node:assert');
 const { parser } = require('imapflow/lib/handler/imap-handler.js');
+const framing = require('../../lib/framing');
+const { TAG_REGEX } = require('../../lib/server');
 
 const CR = 0x0d;
-const LF = 0x0a;
 
 // Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
@@ -44,10 +45,6 @@ const NUMERIC = {
     FETCH: 'nz-number'
 };
 
-// RFC 3501 section 9: tag = 1*<any ASTRING-CHAR except "+">, ASTRING-CHAR = ATOM-CHAR / resp-specials,
-// atom-specials = "(" / ")" / "{" / SP / CTL / list-wildcards / quoted-specials / resp-specials
-// (printable ASCII, "!" to "~", minus the specials)
-const TAG_RE = /^(?:(?![(){%*"\\+])[!-~])+$/;
 // RFC 3501 section 9: resp-text-code = ... / atom [SP 1*<any TEXT-CHAR except "]">]
 const ATOM_RE = /^(?:(?![(){%*"\\\]])[!-~])+$/;
 
@@ -55,8 +52,8 @@ const NUMBER_RE = /^[0-9]+$/;
 const NZ_NUMBER_RE = /^[1-9][0-9]*$/;
 
 /**
- * Splits a transcript into responses. A response is one line, or a line ending in a literal
- * marker `{n}` / `~{n}` followed by n octets and then the rest of the response.
+ * Splits a transcript into responses with the shared framing code, and adds the strict checks:
+ * every line ends with CRLF, no bare CR, and nothing is left over at the end.
  *
  * @param {Buffer|String} transcript Everything the server sent (a string is read as binary)
  * @param {Object} [options]
@@ -69,79 +66,65 @@ const NZ_NUMBER_RE = /^[1-9][0-9]*$/;
 function splitResponses(transcript, options) {
     const partial = !!(options && options.partial);
     const buf = Buffer.isBuffer(transcript) ? transcript : Buffer.from(transcript, 'binary');
-    const responses = [];
+    const framed = framing.splitResponses(buf);
 
-    let pos = 0;
-    let current = null;
+    const responses = framed.responses.map(response => {
+        response.lines.forEach(line => checkLineEnd(buf, line));
+        return finishResponse(buf, response);
+    });
 
-    while (pos < buf.length) {
-        const lf = buf.indexOf(LF, pos);
-        if (lf < 0) {
-            if (partial) {
-                return responses;
-            }
-            fail('Response is not terminated with CRLF', buf.subarray(pos));
-        }
-        if (lf === pos || buf[lf - 1] !== CR) {
-            fail('Line ends with a bare LF instead of CRLF', buf.subarray(pos, lf + 1));
-        }
-        const line = buf.subarray(pos, lf - 1);
-        const bareCr = line.indexOf(CR);
-        if (bareCr >= 0) {
-            fail('Line contains a bare CR', buf.subarray(pos, lf + 1));
-        }
-        pos = lf + 1;
-
-        if (!current) {
-            current = { lines: [], literals: [], literal8: [] };
-        }
-        current.lines.push(line);
-
-        const marker = line.toString('binary').match(/(~?)\{([0-9]+)\}$/);
-        if (marker) {
-            const size = Number(marker[2]);
-            if (pos + size > buf.length) {
-                if (partial) {
-                    return responses;
-                }
-                fail('Literal of ' + size + ' octets is cut short, only ' + (buf.length - pos) + ' octets follow', line);
-            }
-            current.literals.push(buf.subarray(pos, pos + size));
-            current.literal8.push(!!marker[1]);
-            pos += size;
-            continue;
-        }
-
-        const response = finishResponse(current);
-        response.end = pos;
-        responses.push(response);
-        current = null;
+    const incomplete = framed.incomplete;
+    if (incomplete) {
+        // the lines of an unfinished response that did end must end correctly as well
+        incomplete.lines.forEach(line => checkLineEnd(buf, line));
     }
-
-    if (current && !partial) {
-        fail('Transcript ends inside a response that has a literal', Buffer.concat(current.lines));
+    if (incomplete && !partial) {
+        const tail = buf.subarray(framed.end);
+        if (incomplete.reason === 'literal') {
+            fail('Literal of ' + incomplete.size + ' octets is cut short, only ' + incomplete.available + ' octets follow', tail);
+        }
+        if (incomplete.reason === 'response') {
+            fail('Transcript ends inside a response that has a literal', tail);
+        }
+        fail('Response is not terminated with CRLF', tail);
     }
 
     return responses;
 }
 
-function finishResponse(current) {
+// RFC 3501 section 9: every line ends with CRLF, and CR is not allowed anywhere else in a line
+function checkLineEnd(buf, line) {
+    if (line.end === line.lf) {
+        fail('Line ends with a bare LF instead of CRLF', buf.subarray(line.start, line.lf + 1));
+    }
+    if (buf.subarray(line.start, line.end).indexOf(CR) >= 0) {
+        fail('Line contains a bare CR', buf.subarray(line.start, line.lf + 1));
+    }
+}
+
+function finishResponse(buf, response) {
+    const lines = response.lines.map(line => buf.subarray(line.start, line.end));
+    const literals = response.literals.map(literal => buf.subarray(literal.start, literal.end));
     const parts = [];
-    current.lines.forEach((line, i) => {
+    let text = '';
+    lines.forEach((line, i) => {
         parts.push(line);
-        if (i < current.lines.length - 1) {
+        if (i < lines.length - 1) {
             parts.push(Buffer.from('\r\n'));
         }
-    });
-    const payload = Buffer.concat(parts);
-    let text = '';
-    current.lines.forEach((line, i) => {
         text += line.toString('binary');
-        if (i < current.literals.length) {
-            text += '\r\n<' + current.literals[i].length + ' octets>';
+        if (i < literals.length) {
+            text += '\r\n<' + literals[i].length + ' octets>';
         }
     });
-    return { payload, literals: current.literals, literal8: current.literal8, lines: current.lines, text };
+    return {
+        payload: Buffer.concat(parts),
+        literals,
+        literal8: response.literals.map(literal => literal.literal8),
+        lines,
+        text,
+        end: response.end
+    };
 }
 
 function fail(message, data) {
@@ -215,7 +198,7 @@ function checkResponse(response, parsed) {
     if (parsed.tag !== '*') {
         // RFC 3501 section 9: response-tagged = tag SP resp-cond-state CRLF
         const match = first.match(/^([^ ]+) (OK|NO|BAD)(?![^ ])(.*)$/i);
-        if (!match || !TAG_RE.test(match[1])) {
+        if (!match || !TAG_REGEX.test(match[1])) {
             fail('Tagged response must be "tag OK|NO|BAD text"', response.text);
         }
         checkRespText(match[3], response);

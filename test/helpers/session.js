@@ -2,6 +2,7 @@
 
 const net = require('net');
 const { validateThen } = require('./validate-responses');
+const { splitResponses, splitAtLiterals } = require('../../lib/framing');
 
 /**
  * Opens an interactive IMAP session, for tests that interleave commands from several connections.
@@ -23,20 +24,24 @@ function openSession(port, callback) {
         if (!waiting) {
             return;
         }
-        if (pending.length && /(^|\r\n)\+[^\r\n]*\r\n$/.test(buffer)) {
-            buffer = buffer.replace(/\+[^\r\n]*\r\n$/, '');
-            socket.write(pending.shift(), 'binary');
-            return;
-        }
-        const match = buffer.match(waiting.pattern);
-        if (match) {
-            const end = match.index + match[0].length;
-            const output = buffer.substr(0, end);
-            buffer = buffer.substr(end);
-            const cb = waiting.callback;
-            waiting = null;
-            // every chunk ends with a complete tagged response, so it can be validated on its own
-            validateThen(output, () => cb(output));
+        const framed = splitResponses(buffer);
+        for (const response of framed.responses) {
+            const first = buffer.slice(response.start, response.lines[0].end);
+            if (pending.length && first.charAt(0) === '+') {
+                // a continuation request for the literal data, it is not part of the output
+                buffer = buffer.slice(0, response.start) + buffer.slice(response.end);
+                socket.write(pending.shift(), 'binary');
+                return;
+            }
+            if (waiting.match(first)) {
+                const output = buffer.substr(0, response.end);
+                buffer = buffer.substr(response.end);
+                const cb = waiting.callback;
+                waiting = null;
+                // every chunk ends with a complete tagged response, so it can be validated on its own
+                validateThen(output, () => cb(output));
+                return;
+            }
         }
     };
 
@@ -45,8 +50,8 @@ function openSession(port, callback) {
             // waitTag lets a test send several pipelined commands and wait for the last one
             const tag = waitTag || command.split(' ').shift();
             // literal data waits for the continuation request (RFC 3501 section 4.3)
-            pending = (command + '\r\n').split(/(?<=\{\d+\}\r\n)/);
-            waiting = { pattern: new RegExp('(^|\\r\\n)' + tag + ' [^\\r\\n]*\\r\\n'), callback: cb };
+            pending = splitAtLiterals(command + '\r\n');
+            waiting = { match: line => line.substr(0, tag.length + 1) === tag + ' ', callback: cb };
             socket.write(pending.shift(), 'binary');
             check();
         },
@@ -60,7 +65,7 @@ function openSession(port, callback) {
         check();
     });
 
-    waiting = { pattern: /^\* OK[^\r\n]*\r\n/, callback: () => callback(session) };
+    waiting = { match: line => /^\* OK/.test(line), callback: () => callback(session) };
 }
 
 module.exports = { openSession };
