@@ -289,6 +289,21 @@ const QRESYNC_CASES = [
     ['QRESYNC parameter without ENABLE QRESYNC', 'auth', ['A1 SELECT INBOX (QRESYNC (1 1))'], { A1: 'BAD' }],
     ['VANISHED without ENABLE QRESYNC', 'selected', ['A1 UID FETCH 1:* FLAGS (CHANGEDSINCE 1 VANISHED)'], { A1: 'BAD' }],
     ['QRESYNC parameter without a value', 'qresync', ['A1 SELECT INBOX (QRESYNC)'], { A1: 'BAD' }],
+    // RFC 7162 section 7: CHANGEDSINCE takes a mod-sequence-value (1*DIGIT, at least 1, 63-bit), UNCHANGEDSINCE a
+    // mod-sequence-valzer (0 allowed). Neither is a quoted string
+    [
+        'CONDSTORE modifiers by the grammar',
+        'selected',
+        [
+            'A1 FETCH 1 FLAGS (CHANGEDSINCE 0)',
+            'A2 FETCH 1 FLAGS (CHANGEDSINCE "1")',
+            'A3 FETCH 1 FLAGS (CHANGEDSINCE 9223372036854775807)',
+            'A4 FETCH 1 FLAGS (CHANGEDSINCE 9223372036854775808)',
+            'A5 STORE 1 (UNCHANGEDSINCE "0") +FLAGS (x)',
+            'A6 STORE 1 (UNCHANGEDSINCE 0) +FLAGS (x)'
+        ],
+        { A1: 'BAD', A2: 'BAD', A3: 'OK', A4: 'BAD', A5: 'BAD', A6: 'OK' }
+    ],
     ['QRESYNC without a mod-sequence', 'qresync', ['A1 EXAMINE INBOX (QRESYNC (1))'], { A1: 'BAD' }],
     ['QRESYNC with UIDVALIDITY 0', 'qresync', ['A1 SELECT INBOX (QRESYNC (0 1))'], { A1: 'BAD' }],
     ['QRESYNC with a 33-bit UIDVALIDITY', 'qresync', ['A1 SELECT INBOX (QRESYNC (4294967296 1))'], { A1: 'BAD' }],
