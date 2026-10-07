@@ -277,6 +277,44 @@ describe('OBJECTID with LIST-STATUS', () => {
     });
 });
 
+// X-GM-EXT-1 and OBJECTID group the same messages into threads, in any load order
+for (const plugins of [
+    ['X-GM-EXT-1', 'OBJECTID'],
+    ['OBJECTID', 'X-GM-EXT-1']
+]) {
+    describe('OBJECTID with X-GM-EXT-1 (' + plugins.join(', ') + ')', () => {
+        const ctx = setupServer(() => ({ plugins, storage: storage() }));
+
+        it('gives the messages of a THREADID the same X-GM-THRID', (t, done) => {
+            const message = 'Message-ID: <e@example.com>\r\nIn-Reply-To: <d@example.com>\r\n\r\nlate reply';
+            const cmds = [
+                LOGIN,
+                'A1 APPEND INBOX {' + message.length + '}\r\n' + message,
+                'A2 EXAMINE INBOX',
+                'A3 FETCH 1:* (THREADID X-GM-MSGID X-GM-THRID)',
+                'ZZ LOGOUT'
+            ];
+            ctx.run(cmds, resp => {
+                resp = resp.toString();
+                const rows = [...resp.matchAll(/^\* (\d+) FETCH \(THREADID \((\w+)\) X-GM-MSGID (\d+) X-GM-THRID (\d+)\)\r$/gm)].map(m => ({
+                    thread: m[2],
+                    msgid: m[3],
+                    thrid: m[4]
+                }));
+                assert.strictEqual(rows.length, 5, resp);
+                // messages 1, 2, 4 and the appended 5 are one thread, the X-GM-THRID is the X-GM-MSGID of message 1
+                [1, 3, 4].forEach(i => {
+                    assert.strictEqual(rows[i].thread, rows[0].thread);
+                    assert.strictEqual(rows[i].thrid, rows[0].msgid);
+                });
+                assert.notStrictEqual(rows[2].thread, rows[0].thread);
+                assert.strictEqual(rows[2].thrid, rows[2].msgid);
+                done();
+            });
+        });
+    });
+}
+
 describe('OBJECTID without the plugin', () => {
     const ctx = setupServer(() => ({ storage: storage() }));
 

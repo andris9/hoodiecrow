@@ -144,6 +144,36 @@ describe('Sent date (RFC 5256 section 2.2)', () => {
     });
 });
 
+describe('Date parsing shared by SEARCH and SORT (lib/dates.js)', () => {
+    const { parseHeaderDate, parseDateTime, toTimestamp, dateKey } = require('../lib/dates');
+
+    // RFC 5256 section 2.2: SEARCH uses the date as written (RFC 3501 section 6.4.4), SORT the date and time in UTC
+    it('keeps the written date for SEARCH and the UTC time for SORT', () => {
+        const date = parseHeaderDate('Sun, 31 Dec 2000 16:01:33 -0800 (PST)');
+        assert.strictEqual(dateKey(date.day, date.month, date.year), '2000-12-31');
+        assert.strictEqual(toTimestamp(date), Date.UTC(2001, 0, 1, 0, 1, 33));
+    });
+
+    it('refuses impossible dates and month names that RFC 5322 section 3.3 does not know', () => {
+        assert.strictEqual(parseHeaderDate('31 Feb 2001 10:00:00 +0000'), null);
+        assert.strictEqual(parseHeaderDate('5 September 2001'), null);
+        assert.strictEqual(parseDateTime('31-Feb-2001 10:00:00 +0000'), null);
+    });
+
+    it('reads a date-time with or without the time', () => {
+        assert.deepStrictEqual(parseDateTime('14-Sep-2013 21:22:28 -0300'), {
+            day: 14,
+            month: 8,
+            year: 2013,
+            hours: 21,
+            minutes: 22,
+            seconds: 28,
+            zone: '-0300'
+        });
+        assert.deepStrictEqual(parseDateTime(' 4-sep-2013'), { day: 4, month: 8, year: 2013 });
+    });
+});
+
 describe('Address sort values', () => {
     const raw = ['From: =?UTF-8?Q?=C3=84nne?= <Anne@a.example>, bob@b.example', 'To: Group: amy@h.example, al@h.example;', 'Cc: localuser', '', ''].join(
         '\r\n'

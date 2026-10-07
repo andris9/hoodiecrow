@@ -168,6 +168,10 @@ describe('CATENATE', () => {
         ['a URLAUTH URL', '/INBOX/;UID=1/;URLAUTH=anonymous:internal:0123456789abcdef0123456789abcdef'],
         ['an invalid UID', '/INBOX/;UID=0'],
         ['an invalid partial range', '/INBOX/;UID=1/;PARTIAL=1.0'],
+        // RFC 5092 section 11: partial-range = number ["." nz-number], 32-bit numbers (RFC 3501 section 9)
+        ['a partial offset above 2^32-1', '/INBOX/;UID=1/;PARTIAL=4294967296'],
+        ['a partial length above 2^32-1', '/INBOX/;UID=1/;PARTIAL=0.9999999999'],
+        ['a UIDVALIDITY above 2^32-1', '/INBOX;UIDVALIDITY=4294967296/;UID=1'],
         ['an invalid percent encoding', '/INBOX%2/;UID=1'],
         ['a mailbox name that is not UTF-8', '/P%E4evik/;UID=5']
     ];

@@ -117,6 +117,24 @@ describe('Hoodiecrow tests', () => {
         });
     });
 
+    // labels are astrings: a literal is a label, and so is the atom NIL
+    it('STORE +X-GM-LABELS with a literal and NIL', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 STORE 1 +X-GM-LABELS ({7}\r\nTwo Low nil)',
+            'A4 STORE 1 -X-GM-LABELS {7}\r\nTwo Low',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* 1 FETCH \(X-GM-LABELS \(\\Inbox "Two Low" "nil"\)\)\r\nA3 OK/m);
+            assert.match(resp, /^\* 1 FETCH \(X-GM-LABELS \(\\Inbox "nil"\)\)\r\nA4 OK/m);
+            done();
+        });
+    });
+
     it('STORE -X-GM-LABELS', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 STORE 1 -X-GM-LABELS (\\Inbox)', 'ZZ LOGOUT'];
 

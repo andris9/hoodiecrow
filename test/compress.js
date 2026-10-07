@@ -153,20 +153,23 @@ describe('COMPRESS=DEFLATE', () => {
     });
 
     // RFC 4978 section 3: the client MUST NOT send further commands until it has seen the result of COMPRESS
-    it('refuses COMPRESS with pipelined commands and stays uncompressed', (t, done) => {
+    it('refuses COMPRESS and the commands pipelined after it, and stays uncompressed', (t, done) => {
         openSession(ctx.server.address().port, session => {
             session.run('L1 LOGIN testuser testpass', () => {
-                session.raw('C1 COMPRESS DEFLATE\r\nC2 NOOP\r\n');
                 session.run(
-                    'C3 NOOP',
+                    'C1 COMPRESS DEFLATE\r\nC2 NOOP',
                     resp => {
                         assert.match(resp, /^C1 BAD /m);
-                        assert.match(resp, /^C2 OK /m);
-                        assert.match(resp, /^C3 OK /m);
-                        session.close();
-                        done();
+                        // C2 was meant to be compressed, so it does not run
+                        assert.match(resp, /^C2 BAD Commands must not be pipelined after COMPRESS\r$/m);
+                        // a command sent after the refusals runs as usual
+                        session.run('C3 NOOP', resp => {
+                            assert.match(resp, /^C3 OK /m);
+                            session.close();
+                            done();
+                        });
                     },
-                    'C3'
+                    'C2'
                 );
             });
         });

@@ -76,3 +76,30 @@ describe('XTOYBIRD', () => {
         });
     });
 });
+
+describe('XTOYBIRD with ACL', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['XTOYBIRD', 'ACL'],
+        users: {
+            testuser: { password: 'testpass' },
+            bob: { password: 'bobpass' }
+        }
+    }));
+
+    // XTOYBIRD skips the access checks of ACL, so only the owner may use it
+    it('is only allowed for the owner', (t, done) => {
+        const cmds = ['A1 LOGIN bob bobpass', 'A2 XTOYBIRD STORAGE', 'A3 XTOYBIRD USERADD eve evepass', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^A2 NO \[NOPERM\] /m);
+            assert.match(resp, /^A3 NO \[NOPERM\] /m);
+            assert.doesNotMatch(resp, /XDUMPVAL/);
+            assert.ok(!Object.hasOwn(ctx.server.users, 'eve'));
+            ctx.run(['A1 LOGIN testuser testpass', 'A2 XTOYBIRD STORAGE', 'ZZ LOGOUT'], resp => {
+                assert.match(resp.toString(), /^A2 OK /m);
+                done();
+            });
+        });
+    });
+});

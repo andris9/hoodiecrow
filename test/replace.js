@@ -171,7 +171,8 @@ describe('REPLACE', () => {
     it('refuses a read-only mailbox with NO', (t, done) => {
         ctx.run([LOGIN, 'A2 EXAMINE INBOX', 'A3 REPLACE 1 INBOX ' + literal(msg(4)), 'ZZ LOGOUT'], resp => {
             resp = resp.toString();
-            assert.match(resp, /^A3 NO /m);
+            assert.match(resp, /^A3 NO \[CLIENTBUG\] /m);
+            assert.doesNotMatch(resp, /^\+ /m);
             assert.doesNotMatch(resp, /EXPUNGE/);
             done();
         });
@@ -190,6 +191,8 @@ describe('REPLACE', () => {
     const BAD_SYNTAX = [
         ['a sequence set', 'REPLACE 1:2 INBOX {3}\r\nabc'],
         ['sequence number 0', 'REPLACE 0 INBOX {3}\r\nabc'],
+        // RFC 3501 section 9: nz-number is a 32-bit value
+        ['a UID above 2^32-1', 'UID REPLACE 4294967296 INBOX {3}\r\nabc'],
         ['no mailbox', 'REPLACE 1'],
         ['no message', 'REPLACE 1 INBOX'],
         ['an invalid mailbox name', 'REPLACE 1 "&Jjo!" {3}\r\nabc']

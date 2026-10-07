@@ -35,6 +35,24 @@ describe('Plugin loading', () => {
         assert.strictEqual(server.allowedStatus.filter(item => item === 'HIGHESTMODSEQ').length, 1);
     });
 
+    it('emits pluginsLoaded once every plugin is loaded', () => {
+        const seen = [];
+        const first = server => {
+            server.once('pluginsLoaded', () => seen.push(typeof server.getCommandHandler('MOVE')));
+        };
+        let moveHandler;
+        const last = server => {
+            moveHandler = server.getCommandHandler('MOVE');
+        };
+        const server = hoodiecrow({ plugins: [first, 'UIDONLY', 'ACL', 'MOVE', last] });
+        // the listener of the first plugin sees the commands of the plugins loaded after it
+        assert.deepStrictEqual(seen, ['function']);
+        // ACL wrapped MOVE and UIDONLY registered its output handler before any client connected
+        assert.strictEqual(typeof moveHandler, 'function');
+        assert.notStrictEqual(server.getCommandHandler('MOVE'), moveHandler);
+        assert.ok(server.outputHandlers.length > 0);
+    });
+
     describe('with repeated CONDSTORE', () => {
         const ctx = setupServer(() => ({
             plugins: ['CONDSTORE', 'CONDSTORE'],

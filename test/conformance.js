@@ -105,6 +105,13 @@ const CASES = [
     ['FETCH without items', 'selected', ['A1 FETCH 1'], { A1: 'BAD' }],
     ['FETCH with an unknown item', 'selected', ['A1 FETCH 1 (FOO)'], { A1: 'BAD' }],
     ['FETCH with sequence number 0', 'selected', ['A1 FETCH 0 FLAGS'], { A1: 'BAD' }],
+    // RFC 3501 and RFC 9051 section 9: seq-number = nz-number / "*", nz-number is a 32-bit value, for UIDs too
+    [
+        'sequence sets with numbers above 2^32-1',
+        'selected',
+        ['A1 UID FETCH 4294967296 FLAGS', 'A2 UID FETCH 1:9999999999 FLAGS', 'A3 UID STORE 1,4294967296 +FLAGS (\\Seen)', 'A4 UID FETCH 1:4294967295 FLAGS'],
+        { A1: 'BAD', A2: 'BAD', A3: 'BAD', A4: 'OK' }
+    ],
     // RFC 3501 and RFC 9051 section 9 (seq-number): a sequence number greater than the number of messages
     // is answered with BAD, "*" too when the mailbox is empty. UID sets and SEARCH keys are not affected
     [
@@ -156,6 +163,24 @@ const CASES = [
     ['CANCELUPDATE without CONTEXT=SEARCH', 'selected', ['A1 CANCELUPDATE "A1"'], { A1: 'BAD' }],
     ['ESEARCH without MULTISEARCH', 'selected', ['A1 ESEARCH ALL'], { A1: 'BAD' }],
 
+    // RFC 5530 section 3 (CANNOT, its example is CREATE "///////"): no empty hierarchy levels. A single trailing
+    // separator only declares that the name gets children (RFC 3501 section 6.3.3, RFC 9051 section 6.3.4)
+    [
+        'mailbox names with empty hierarchy levels',
+        'auth',
+        ['A1 CREATE foo//', 'A2 CREATE /', 'A3 CREATE /foo', 'A4 CREATE a//b', 'A5 CREATE bar/', 'A6 RENAME bar /baz', 'A7 RENAME bar baz//', 'A8 LIST "" *'],
+        { A1: 'NO', A2: 'NO', A3: 'NO', A4: 'NO', A5: 'OK', A6: 'NO', A7: 'NO', A8: 'OK' },
+        ['LIST () "/" ""', '"foo/"', '"/foo"', '/baz', 'baz/']
+    ],
+    // RFC 3501 section 9: NIL is an atom, so it is a valid astring where the grammar has no nstring
+    [
+        'NIL as a mailbox name and a search string',
+        'selected',
+        ['A1 CREATE nil', 'A2 LIST "" nil', 'A3 STATUS NIL (MESSAGES)', 'A4 SEARCH SUBJECT NIL', 'A5 SELECT nil'],
+        { A1: 'OK', A2: 'OK', A3: 'NO', A4: 'OK', A5: 'OK' },
+        ['A1 BAD', 'A2 BAD']
+    ],
+    ['LOGIN with NIL as the user name', 'none', ['A1 LOGIN NIL NIL'], { A1: 'NO' }],
     // Mailbox names use modified UTF-7, RFC 3501 section 5.1.3
     ['CREATE with 8-bit characters', 'auth', ['A1 CREATE {5}\r\ncaf\xe9'], { A1: 'BAD' }],
     ['CREATE without the closing shift', 'auth', ['A1 CREATE "&Jjo!"'], { A1: 'BAD' }],
@@ -282,6 +307,21 @@ const QRESYNC_CASES = [
     ['QRESYNC parameter without ENABLE QRESYNC', 'auth', ['A1 SELECT INBOX (QRESYNC (1 1))'], { A1: 'BAD' }],
     ['VANISHED without ENABLE QRESYNC', 'selected', ['A1 UID FETCH 1:* FLAGS (CHANGEDSINCE 1 VANISHED)'], { A1: 'BAD' }],
     ['QRESYNC parameter without a value', 'qresync', ['A1 SELECT INBOX (QRESYNC)'], { A1: 'BAD' }],
+    // RFC 7162 section 7: CHANGEDSINCE takes a mod-sequence-value (1*DIGIT, at least 1, 63-bit), UNCHANGEDSINCE a
+    // mod-sequence-valzer (0 allowed). Neither is a quoted string
+    [
+        'CONDSTORE modifiers by the grammar',
+        'selected',
+        [
+            'A1 FETCH 1 FLAGS (CHANGEDSINCE 0)',
+            'A2 FETCH 1 FLAGS (CHANGEDSINCE "1")',
+            'A3 FETCH 1 FLAGS (CHANGEDSINCE 9223372036854775807)',
+            'A4 FETCH 1 FLAGS (CHANGEDSINCE 9223372036854775808)',
+            'A5 STORE 1 (UNCHANGEDSINCE "0") +FLAGS (x)',
+            'A6 STORE 1 (UNCHANGEDSINCE 0) +FLAGS (x)'
+        ],
+        { A1: 'BAD', A2: 'BAD', A3: 'OK', A4: 'BAD', A5: 'BAD', A6: 'OK' }
+    ],
     ['QRESYNC without a mod-sequence', 'qresync', ['A1 EXAMINE INBOX (QRESYNC (1))'], { A1: 'BAD' }],
     ['QRESYNC with UIDVALIDITY 0', 'qresync', ['A1 SELECT INBOX (QRESYNC (0 1))'], { A1: 'BAD' }],
     ['QRESYNC with a 33-bit UIDVALIDITY', 'qresync', ['A1 SELECT INBOX (QRESYNC (4294967296 1))'], { A1: 'BAD' }],

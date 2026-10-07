@@ -113,32 +113,58 @@ describe('STARTTLS', () => {
         plugins: ['STARTTLS']
     }));
 
-    it('Ignores commands pipelined after STARTTLS', (t, done) => {
+    // RFC 9051 section 6.2.1: once a client issues STARTTLS, it MUST NOT issue further commands until it has seen
+    // the response. TLS is not started then, so no plaintext input can be read as if it came through TLS
+    it('Refuses STARTTLS with pipelined commands and runs none of them', (t, done) => {
+        const socket = net.connect(ctx.server.address().port, 'localhost');
+        let resp = '';
+        let loggedOut = false;
+        socket.on('data', chunk => {
+            resp += chunk.toString();
+            if (!loggedOut && /^A3 /m.test(resp)) {
+                // sent after the refusals were seen, so it runs
+                loggedOut = true;
+                socket.write('A4 LOGOUT\r\n');
+            }
+        });
+        socket.on('close', () => {
+            assert.match(resp, /^A1 BAD Commands must not be pipelined after STARTTLS\r$/m);
+            // the client meant these to run under TLS, so they do not run in plaintext
+            assert.match(resp, /^A2 BAD Commands must not be pipelined after STARTTLS\r$/m);
+            assert.match(resp, /^A3 BAD Commands must not be pipelined after STARTTLS\r$/m);
+            assert.doesNotMatch(resp, /logged in/i);
+            assert.match(resp, /^A4 OK /m);
+            done();
+        });
+        socket.once('data', () => {
+            socket.write('A1 STARTTLS\r\nA2 LOGIN testuser testpass\r\nA3 APPEND INBOX {3}\r\n');
+        });
+    });
+
+    it('Starts TLS right after the tagged OK of STARTTLS', (t, done) => {
         const socket = net.connect(ctx.server.address().port, 'localhost');
         let plain = '';
         let secure = '';
-
         socket.once('data', () => {
             socket.on('data', chunk => {
                 plain += chunk.toString();
-                if (/\r\nA1 OK|^A1 OK/.test(plain)) {
+                if (/^A1 OK/m.test(plain)) {
                     socket.removeAllListeners('data');
                     const secureSocket = tls.connect({ socket, rejectUnauthorized: false }, () => {
-                        secureSocket.write('A3 SELECT INBOX\r\nA4 LOGOUT\r\n');
+                        secureSocket.write('A2 CAPABILITY\r\nA3 LOGOUT\r\n');
                     });
                     secureSocket.on('data', chunk => {
                         secure += chunk.toString();
                     });
                     secureSocket.on('close', () => {
-                        // the plaintext LOGIN was never executed
-                        assert.ok(plain.indexOf('A2 ') < 0);
-                        assert.ok(secure.indexOf('A2 ') < 0);
-                        assert.ok(secure.indexOf('\r\nA3 BAD') >= 0 || secure.indexOf('A3 BAD') === 0);
+                        assert.match(secure, /^A2 OK /m);
+                        // STARTTLS is not offered on a secure connection
+                        assert.doesNotMatch(secure, /STARTTLS/);
                         done();
                     });
                 }
             });
-            socket.write('A1 STARTTLS\r\nA2 LOGIN testuser testpass\r\n');
+            socket.write('A1 STARTTLS\r\n');
         });
     });
 
@@ -241,6 +267,59 @@ describe('Storage', () => {
         assert.strictEqual(messages[1].raw, Buffer.from('Subject: ä\r\n\r\nä').toString('binary'));
         assert.strictEqual(messages[2].raw, '');
         done();
+    });
+
+    it('Resolves the namespace, separator and parent of mailbox names', () => {
+        const server = hoodiecrow({
+            storage: {
+                INBOX: {},
+                'INBOX.': { folders: { Sent: {}, Work: { folders: { Done: {} } } } },
+                '#shared/': { type: 'shared', folders: { Team: {} } }
+            }
+        });
+
+        assert.strictEqual(server.getMailboxNamespace('inbox'), 'INBOX');
+        assert.strictEqual(server.getMailboxNamespace('INBOX.Missing'), 'INBOX.');
+        assert.strictEqual(server.getMailboxNamespace('#shared/Team'), '#shared/');
+        assert.strictEqual(server.getMailboxNamespace('Elsewhere'), false);
+
+        assert.ok(server.isPersonal('INBOX'));
+        assert.ok(server.isPersonal('INBOX.Missing'));
+        assert.ok(server.isPersonal(server.getMailbox('INBOX.Work.Done')));
+        assert.ok(!server.isPersonal('#shared/Team'));
+        assert.ok(!server.isPersonal('Elsewhere'));
+
+        assert.strictEqual(server.getSeparator('INBOX'), '.');
+        assert.strictEqual(server.getSeparator('#shared/Team'), '/');
+
+        assert.strictEqual(server.getParentPath('INBOX.Work.Done'), 'INBOX.Work');
+        assert.strictEqual(server.getParentPath('INBOX.Work.'), 'INBOX');
+        assert.strictEqual(server.getParentPath('INBOX'), false);
+        // the namespace prefix is not a mailbox name
+        assert.strictEqual(server.getParentPath('#shared/Team'), false);
+
+        assert.deepStrictEqual(
+            server.getDescendants('INBOX.Work').map(mailbox => mailbox.path),
+            ['INBOX.Work.Done']
+        );
+        assert.deepStrictEqual(
+            server
+                .getDescendants('INBOX')
+                .map(mailbox => mailbox.path)
+                .sort(),
+            ['INBOX.Sent', 'INBOX.Work', 'INBOX.Work.Done']
+        );
+
+        assert.deepStrictEqual(server.listAttributes(server.getMailbox('INBOX.Work'), { subscribed: true, hasChildren: true }), [
+            '\\Subscribed',
+            '\\HasChildren'
+        ]);
+        assert.deepStrictEqual(server.listAttributes({ flags: ['\\Noselect', '\\HasNoChildren'] }, { exists: false, extra: ['\\NoAccess'] }), [
+            '\\NonExistent',
+            '\\NoAccess',
+            '\\HasNoChildren'
+        ]);
+        assert.deepStrictEqual(server.listAttributes({ flags: ['\\Noinferiors'] }, {}), ['\\Noinferiors']);
     });
 
     it('Uses a sensible default namespace separator', (t, done) => {
