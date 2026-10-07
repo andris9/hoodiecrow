@@ -14,6 +14,7 @@ describe('Response grammar guardrail', () => {
         '* 1 FETCH (BODY[] {3}\r\nabc UID 4)\r\n',
         '* 1 FETCH (BODY[HEADER] {2}\r\nab BODY[TEXT] {0}\r\n)\r\n',
         '* 1 FETCH (BINARY[] ~{3}\r\na\x00c)\r\n',
+        '* 1 FETCH (UID 1 BINARY[1.2]<5> ~{1}\r\n\x00 BINARY[3] ~{0}\r\n BINARY.SIZE[3] 0)\r\n',
         '* SEARCH\r\n* SEARCH 1 2 3\r\n* SEARCH 1 (MODSEQ 5)\r\n',
         // RFC 4466 section 2.6.2, RFC 4731 section 4
         '* ESEARCH\r\n* ESEARCH (TAG "A1")\r\n* ESEARCH (TAG "A1") UID MIN 1 MAX 3 ALL 1:3,5 COUNT 4 MODSEQ 7\r\n',
@@ -113,7 +114,10 @@ describe('Response grammar guardrail', () => {
         ['* ENABLED UTF8=ACCEPT\r\n* LIST () "/" \xd0\x96\r\n', /outside a literal or quoted string/],
         ['* ENABLED UTF8=ACCEPT\r\n* LIST () "/" "caf\xe9"\r\n', /not valid UTF-8/],
         ['* ENABLED UTF8=ACCEPT\r\nA1 OK caf\xc3\xa9\r\n', /8-bit/],
-        ['* ENABLED UTF8=ACCEPT\r\nA1 OK "caf\xc3\xa9"\r\n', /text contains an 8-bit/]
+        ['* ENABLED UTF8=ACCEPT\r\nA1 OK "caf\xc3\xa9"\r\n', /text contains an 8-bit/],
+        ['* 1 FETCH (BODY[] ~{3}\r\na\x00c)\r\n', /Literal8 outside/],
+        ['* 1 FETCH (BINARY[1] {1}\r\na BODY[1] ~{1}\r\n\x00)\r\n', /Literal8 outside/],
+        ['* LIST () "/" ~{1}\r\na\r\n', /Literal8 outside/]
     ];
 
     invalid.forEach(([transcript, error]) => {

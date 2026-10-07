@@ -133,7 +133,10 @@ const CASES = [
     ['command ending with a bare LF', 'none', ['A1 NOOP\nA2 NOOP'], { A1: 'BAD', A2: 'OK' }],
     ['literal for an unknown command', 'auth', ['A1 FOOBAR {3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
     ['literal for a command in the wrong state', 'none', ['A1 APPEND INBOX {3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
-    ['literal for LOGIN before login', 'none', ['A1 LOGIN {8}\r\ntestuser testpass'], { A1: 'OK' }]
+    ['literal for LOGIN before login', 'none', ['A1 LOGIN {8}\r\ntestuser testpass'], { A1: 'OK' }],
+    // RFC 3516: literal8 only exists with the BINARY extension
+    ['literal8 without BINARY', 'auth', ['A1 APPEND INBOX ~{3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
+    ['BINARY fetch item without BINARY', 'selected', ['A1 FETCH 1 BINARY.PEEK[1]'], { A1: 'BAD' }]
 ];
 
 // Extended SEARCH (RFC 4466 section 2.6.1, RFC 4731, RFC 5182, RFC 7162 section 3.1.5), with ESEARCH, SEARCHRES and CONDSTORE loaded

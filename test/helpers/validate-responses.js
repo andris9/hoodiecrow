@@ -286,6 +286,14 @@ function checkResponse(response, parsed, utf8) {
         if (!response.literal8[i] && literal.indexOf(0) >= 0) {
             fail('Literal contains a NUL octet', response.text);
         }
+        // RFC 3516 section 7: a server sends a literal8 only as the value of BINARY[section-binary]
+        const binaryItem = /(?:^|[ (])BINARY\[[0-9.]*\](?:<[0-9]+>)? ~\{[0-9]+\}$/i;
+        if (
+            response.literal8[i] &&
+            !(/^\* [0-9]+ FETCH \(/i.test(response.lines[0].toString('binary')) && binaryItem.test(response.lines[i].toString('binary')))
+        ) {
+            fail('Literal8 outside of a BINARY[] FETCH item', response.text);
+        }
     });
 
     if (parsed.tag === '+') {

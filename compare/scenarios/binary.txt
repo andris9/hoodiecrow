@@ -1,0 +1,20 @@
+# BINARY (RFC 3516): decoded FETCH and APPEND with literal8, run with --plugin BINARY
+CREATE Binary
+APPEND Binary {file:../messages/encoded.eml}
+APPEND Binary ~{file:../messages/literal8/binary.eml}
+SELECT Binary
+FETCH 1:* BODYSTRUCTURE
+# quoted-printable, base64 and 8bit parts, sizes match the decoded data
+FETCH 1 (BINARY.SIZE[1] BINARY.SIZE[2] BINARY.SIZE[3] BINARY.PEEK[1] BINARY.PEEK[3])
+FETCH 1 BINARY.PEEK[2]<250.10>
+# unknown encoding
+FETCH 1 BINARY.PEEK[4]
+FETCH 1 BINARY.SIZE[4]
+# a part that does not exist is empty
+FETCH 1 BINARY.PEEK[9]
+# the binary part was stored base64 encoded, BINARY returns the original octets as a literal8
+FETCH 2 (BINARY.PEEK[2] BINARY.SIZE[2] RFC822.SIZE)
+FETCH 2 BODY.PEEK[2]
+# BINARY sets \Seen, BINARY.PEEK does not
+FETCH 2 BINARY[1]
+FETCH 1:2 FLAGS

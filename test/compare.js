@@ -2,6 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
 const path = require('node:path');
 const {
     parseScenario,
@@ -49,6 +50,12 @@ describe('Dovecot comparison tool', () => {
         assert.ok(match);
         assert.strictEqual(Buffer.byteLength(match[2]), Number(match[1]));
         assert.ok(!/[^\r]\n/.test(match[2]), 'line endings are converted to CRLF');
+
+        // a literal8 carries the file octets as they are, NUL included
+        const binary = buildPayload('A2 APPEND INBOX ~{file:messages/literal8/binary.eml}', vars, compareDir);
+        const file = fs.readFileSync(path.join(compareDir, 'messages', 'literal8', 'binary.eml'));
+        assert.ok(binary.equals(Buffer.concat([Buffer.from('A2 APPEND INBOX ~{' + file.length + '}\r\n'), file, Buffer.from('\r\n')])));
+        assert.ok(file.includes(0));
     });
 
     it('splits payloads after synchronizing literals only', () => {
