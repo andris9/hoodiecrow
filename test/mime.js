@@ -256,6 +256,19 @@ describe('FETCH body sections', () => {
         });
     });
 
+    it('RFC822.TEXT sets \\Seen, RFC822.HEADER does not', (t, done) => {
+        ctx.run(
+            ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 FETCH 4 RFC822.HEADER', 'A4 FETCH 4 FLAGS', 'A5 FETCH 4 RFC822.TEXT', 'ZZ LOGOUT'],
+            resp => {
+                resp = resp.toString();
+                assert.ok(resp.indexOf('* 4 FETCH (RFC822.HEADER {23}\r\nFrom: a@example.com\r\n\r\n)') >= 0, resp);
+                assert.ok(resp.indexOf('* 4 FETCH (FLAGS ())') >= 0);
+                assert.ok(resp.indexOf('* 4 FETCH (RFC822.TEXT {4}\r\nbody FLAGS (\\Seen))') >= 0);
+                done();
+            }
+        );
+    });
+
     it('rejects a partial range without a length', (t, done) => {
         ctx.run(['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 4 BODY[]<5>', 'A4 FETCH 4 BODY[]<5.0>', 'ZZ LOGOUT'], resp => {
             resp = resp.toString();
