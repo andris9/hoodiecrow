@@ -16,8 +16,15 @@ function openSession(port, callback) {
     let buffer = '';
     let waiting = null;
 
+    let pending = [];
+
     const check = () => {
         if (!waiting) {
+            return;
+        }
+        if (pending.length && /(^|\r\n)\+[^\r\n]*\r\n$/.test(buffer)) {
+            buffer = buffer.replace(/\+[^\r\n]*\r\n$/, '');
+            socket.write(pending.shift());
             return;
         }
         const match = buffer.match(waiting.pattern);
@@ -34,8 +41,10 @@ function openSession(port, callback) {
     const session = {
         run(command, cb) {
             const tag = command.split(' ').shift();
+            // literal data waits for the continuation request (RFC 3501 section 4.3)
+            pending = (command + '\r\n').split(/(?<=\{\d+\}\r\n)/);
             waiting = { pattern: new RegExp('(^|\\r\\n)' + tag + ' [^\\r\\n]*\\r\\n'), callback: cb };
-            socket.write(command + '\r\n');
+            socket.write(pending.shift());
             check();
         },
         close() {

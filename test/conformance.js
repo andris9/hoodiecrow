@@ -7,6 +7,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const net = require('node:net');
 const { setupServer } = require('./helpers');
 
 const LOGIN = 'L1 LOGIN testuser testpass';
@@ -135,6 +136,29 @@ describe('Strict command handling', () => {
             });
         });
     }
+});
+
+describe('Literal synchronization', () => {
+    const ctx = setupServer();
+
+    // RFC 3501 section 4.3: the client MUST wait for the continuation request, even for {0}
+    it('refuses literal data sent before the continuation request', (t, done) => {
+        const socket = net.connect(ctx.server.address().port, 'localhost');
+        let resp = '';
+        socket.on('data', chunk => {
+            resp += chunk.toString('binary');
+        });
+        socket.on('close', () => {
+            assert.ok(resp.indexOf('+ Go ahead') < 0, resp);
+            assert.ok(/^A1 BAD /m.test(resp), resp);
+            assert.ok(/^A2 BAD /m.test(resp), resp);
+            assert.ok(/^A3 OK /m.test(resp), resp);
+            done();
+        });
+        socket.once('data', () => {
+            socket.write('A1 LOGIN {8}\r\ntestuser testpass\r\nA2 LOGIN {0}\r\n testpass\r\nA3 NOOP\r\nA4 LOGOUT\r\n');
+        });
+    });
 });
 
 describe('Strict SASL handling', () => {
