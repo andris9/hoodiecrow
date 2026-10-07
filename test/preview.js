@@ -332,4 +332,22 @@ describe('PREVIEW', () => {
             });
         });
     }
+
+    // RFC 8970 5 example 3: previews of a saved search result (RFC 5182)
+    describe('with SEARCHRES', () => {
+        const ctx = setupServer(() => ({
+            plugins: ['ESEARCH', 'SEARCHRES', 'PREVIEW'],
+            storage: { INBOX: { messages: [{ raw: HEADER + '\r\nHello\r\n' }, { raw: 'From: foo@example.com\r\n\r\nWorld\r\n' }] }, '': {} }
+        }));
+
+        it('fetches previews for $', (t, done) => {
+            const cmds = [...login, 'A3 SEARCH RETURN (SAVE) FROM "foo"', 'A4 FETCH $ (UID PREVIEW (LAZY))', 'A5 UID FETCH 2 (PREVIEW)', 'ZZ LOGOUT'];
+            ctx.run(cmds, resp => {
+                resp = resp.toString();
+                assert.ok(/^\* 2 FETCH \(UID 2 PREVIEW NIL\)\r\nA4 OK/m.test(resp), resp);
+                assert.ok(/^\* 2 FETCH \(PREVIEW "World" UID 2\)\r\nA5 OK/m.test(resp), resp);
+                done();
+            });
+        });
+    });
 });
