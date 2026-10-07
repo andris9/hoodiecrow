@@ -75,12 +75,12 @@ describe('UID commands share the logic of their non-UID twins', () => {
             'A1 LOGIN testuser testpass',
             'A2 SELECT INBOX',
             'A3 STORE 2 +FLAGS.SILENT (\\Flagged)',
-            'A4 UID FETCH 1:* (FLAGS) (CHANGEDSINCE 3)',
+            'A4 UID FETCH 1:* (FLAGS) (CHANGEDSINCE 4)',
             'ZZ LOGOUT'
         ];
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('* 2 FETCH (FLAGS (\\Flagged) UID 2') >= 0, resp);
+            assert.ok(resp.indexOf('* 2 FETCH (FLAGS (\\Flagged) MODSEQ (5) UID 2)') >= 0, resp);
             assert.ok(resp.indexOf('* 1 FETCH') < 0);
             assert.ok(resp.indexOf('* 3 FETCH') < 0);
             assert.ok(resp.indexOf('\nA4 OK') >= 0);

@@ -15,19 +15,23 @@ describe('Search tests', () => {
             INBOX: {
                 messages: [
                     {
+                        uid: 61,
                         raw: 'Subject: hello 1\r\n\r\nWorld 1!',
                         internaldate: '14-Sep-2013 18:22:28 +0300',
                         flags: ['\\Flagged']
                     },
                     {
+                        uid: 62,
                         raw: 'Subject: hello 2\r\nCC: test\r\n\r\nWorld 2!',
                         flags: ['\\Recent', '\\Seen', 'MyFlag']
                     },
                     {
+                        uid: 63,
                         raw: 'Subject: hello 3\r\nDate: Fri, 13 Sep 2013 15:01:00 +0300\r\nBCC: test\r\n\r\nWorld 3!',
                         flags: ['\\Draft']
                     },
                     {
+                        uid: 64,
                         raw:
                             'From: sender name <sender@example.com>\r\n' +
                             'To: Receiver name <receiver@example.com>\r\n' +
@@ -39,6 +43,7 @@ describe('Search tests', () => {
                         internaldate: '13-Sep-2013 18:22:28 +0300'
                     },
                     {
+                        uid: 65,
                         raw: 'Subject: hello 5\r\nfrom: test\r\n\r\nWorld 5!',
                         flags: ['\\Deleted', '\\Recent']
                     },
@@ -68,7 +73,7 @@ describe('Search tests', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\n* SEARCH 67 68 69 70 71 66\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* SEARCH 61 62 63 64 65 66\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             done();
         });
@@ -79,7 +84,7 @@ describe('Search tests', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\n* SEARCH 68 71 66\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* SEARCH 62 65 66\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             done();
         });
