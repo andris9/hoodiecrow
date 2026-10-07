@@ -1,0 +1,14 @@
+From: broken@example.com
+To: rcpt@example.com
+Subject: Missing end boundary
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="nb"
+
+--nb
+Content-Type: text/plain
+
+first part
+--nb
+Content-Type: text/plain
+
+second part, never closed

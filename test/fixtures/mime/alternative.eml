@@ -1,0 +1,21 @@
+From: alt@example.com
+To: rcpt@example.com
+Subject: =?UTF-8?Q?Caf=C3=A9_menu?=
+Date: Fri, 02 Oct 2026 07:00:00 -0700
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="----=_Part_1"
+
+------=_Part_1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Caf=C3=A9 menu: soup, bread.
+A very long line that has been wrapped by quoted-printable encoding at seve=
+nty six characters.
+------=_Part_1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>Caf=C3=A9 menu</p></body></html>
+------=_Part_1--

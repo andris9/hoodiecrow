@@ -1,0 +1,17 @@
+From: lf@example.com
+To: rcpt@example.com
+Subject: LF only line endings
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="lf"
+
+--lf
+Content-Type: text/plain
+
+line one
+line two
+--lf
+Content-Type: text/plain; name="b.txt"
+Content-Disposition: attachment
+
+attachment text
+--lf--
