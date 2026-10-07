@@ -73,9 +73,9 @@ describe('Special-use', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.equal((resp.match(/^\* LIST\b/gm) || []).length, 3);
-            assert.ok(resp.indexOf('\n* LIST () "/" "INBOX"\r\n') >= 0);
-            assert.ok(resp.indexOf('\n* LIST () "/" "Test"\r\n') >= 0);
-            assert.ok(resp.indexOf('\n* LIST (\\Sent \\Drafts) "/" "Sent mail"\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren) "/" "INBOX"\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren) "/" "Test"\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren \\Sent \\Drafts) "/" "Sent mail"\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             done();
         });
@@ -87,7 +87,7 @@ describe('Special-use', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.equal((resp.match(/^\* LIST\b/gm) || []).length, 1);
-            assert.ok(resp.indexOf('\n* LIST (\\Sent \\Drafts) "/" "Sent mail"\r\n') >= 0);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren \\Sent \\Drafts) "/" "Sent mail"\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             done();
         });
