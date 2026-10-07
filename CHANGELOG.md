@@ -1,5 +1,51 @@
 # Changelog
 
+## [3.2.0](https://github.com/postalsys/hoodiecrow-imap/compare/v3.1.0...v3.2.0) (2026-10-07)
+
+
+### Features
+
+* ACL rights for unsolicited METADATA responses and QUOTA ([7b7053c](https://github.com/postalsys/hoodiecrow-imap/commit/7b7053c49e64a01f8b0e4da89a3d6dc2436c7bf6))
+* ACL with extended LIST, LIST-MYRIGHTS and METADATA ([0835ab5](https://github.com/postalsys/hoodiecrow-imap/commit/0835ab5732471b8f59a21456ece634cf30ad2c53))
+* add ACL plugin (RFC 4314) ([247246d](https://github.com/postalsys/hoodiecrow-imap/commit/247246dfdba01d03658dcc6dbda24dc369c63bde))
+* add ACL plugin (RFC 4314) ([1174446](https://github.com/postalsys/hoodiecrow-imap/commit/1174446c54e239eb7a4d1fb4f91057ae435a9b98))
+* add BINARY extension (RFC 3516) ([85d79e3](https://github.com/postalsys/hoodiecrow-imap/commit/85d79e3ad219973875efcf94a99a1e98047958bd))
+* add BINARY extension (RFC 3516) ([baa3eab](https://github.com/postalsys/hoodiecrow-imap/commit/baa3eab68acb1120754149717ce6f654561f674b))
+* add COMPRESS=DEFLATE, LITERAL-, OAUTHBEARER and UNAUTHENTICATE plugins ([15a5dda](https://github.com/postalsys/hoodiecrow-imap/commit/15a5ddac15fb9c7e67d2e7cac6aa189db418d98f))
+* add COMPRESS=DEFLATE, LITERAL-, OAUTHBEARER and UNAUTHENTICATE plugins ([ad50888](https://github.com/postalsys/hoodiecrow-imap/commit/ad5088814bed842efccdd1b65e4304e8db722838))
+* add ESEARCH and SEARCHRES plugins and SEARCH MODSEQ for CONDSTORE ([42eadd5](https://github.com/postalsys/hoodiecrow-imap/commit/42eadd597d560bf75d78dc11d052d6f0d15e3067))
+* add ESEARCH and SEARCHRES plugins and SEARCH MODSEQ for CONDSTORE ([332fe30](https://github.com/postalsys/hoodiecrow-imap/commit/332fe30b6fa876b4af2e66b4e653369963511cb5))
+* add LIST-EXTENDED, LIST-STATUS and STATUS=SIZE plugins ([393ca86](https://github.com/postalsys/hoodiecrow-imap/commit/393ca86c1d9acd9d2cb5b0a05697c10790918943))
+* add LIST-EXTENDED, LIST-STATUS and STATUS=SIZE plugins ([1db2c21](https://github.com/postalsys/hoodiecrow-imap/commit/1db2c21ec020f2638f6a3fb80f7abea2e6514d2e))
+* add METADATA and METADATA-SERVER plugins (RFC 5464) ([401e818](https://github.com/postalsys/hoodiecrow-imap/commit/401e8180a82cf147eac05155840a411a48f1e4f7))
+* add METADATA and METADATA-SERVER plugins (RFC 5464) ([99333dd](https://github.com/postalsys/hoodiecrow-imap/commit/99333ddaee66f8a561f1022db62bd9abecffb19c))
+* add MULTIAPPEND, CATENATE, REPLACE and APPENDLIMIT plugins ([8824f4b](https://github.com/postalsys/hoodiecrow-imap/commit/8824f4b3f99d4620e88246f1e3d5731bded639e2))
+* add MULTIAPPEND, CATENATE, REPLACE and APPENDLIMIT plugins ([dc49542](https://github.com/postalsys/hoodiecrow-imap/commit/dc495429cd1f95eebc868e46d46c0e7468f8858e))
+* add PREVIEW plugin (RFC 8970) ([ac433d6](https://github.com/postalsys/hoodiecrow-imap/commit/ac433d6b22aab9fdfad491c4821a58102511fa84))
+* add PREVIEW plugin (RFC 8970) ([b604d44](https://github.com/postalsys/hoodiecrow-imap/commit/b604d44d2ce1e9e775323a6f3c06cf5bac49d824))
+* add QRESYNC plugin (RFC 7162 section 3.2) ([f6abb42](https://github.com/postalsys/hoodiecrow-imap/commit/f6abb42157133608a9dc2fe264e1b6438ae8ee62))
+* add QRESYNC plugin (RFC 7162 section 3.2) ([5ad8ae9](https://github.com/postalsys/hoodiecrow-imap/commit/5ad8ae96292012db6ff68a10abe2c5e5cf8b77b7))
+* add QUOTA, OBJECTID and SAVEDATE plugins ([ef6f55f](https://github.com/postalsys/hoodiecrow-imap/commit/ef6f55f91c12c1264316a7e09f69b037d24bf367))
+* add QUOTA, OBJECTID and SAVEDATE plugins ([af92bc6](https://github.com/postalsys/hoodiecrow-imap/commit/af92bc6c544e1a87b63c148550a4cb1009a87847))
+* add SORT, SORT=DISPLAY and THREAD plugins ([8c9eaff](https://github.com/postalsys/hoodiecrow-imap/commit/8c9eaff917c16e97cdf242e8b4147e361a90f71a))
+* add SORT, SORT=DISPLAY, THREAD=ORDEREDSUBJECT and THREAD=REFERENCES plugins ([116a374](https://github.com/postalsys/hoodiecrow-imap/commit/116a3748d1aad69760145892141540039612e55c))
+* add UTF8=ACCEPT plugin (RFC 9755) ([c2768fe](https://github.com/postalsys/hoodiecrow-imap/commit/c2768fe6bef369bb99c45d65618f380650f6f5a0))
+* add UTF8=ACCEPT plugin (RFC 9755) ([0a8a569](https://github.com/postalsys/hoodiecrow-imap/commit/0a8a569545786f7e3d0a815a6728f52bbf0b0595))
+* literal8 messages for MULTIAPPEND and REPLACE ([64b06af](https://github.com/postalsys/hoodiecrow-imap/commit/64b06af3fef62e3cb72a6cbe055c8f6a367b614a))
+* literal8 values for METADATA, BINARY with CATENATE and REPLACE tests ([40375de](https://github.com/postalsys/hoodiecrow-imap/commit/40375dea0dfb996548f9323428f0f02ae3b0aed2))
+* require the ACL r right for CATENATE URLs ([22429b8](https://github.com/postalsys/hoodiecrow-imap/commit/22429b840a4be50800e1015f170e4546c5724229))
+
+
+### Bug Fixes
+
+* **compare:** seed Dovecot with the original message octets ([1dd5c42](https://github.com/postalsys/hoodiecrow-imap/commit/1dd5c422cb6fe1db227293c3c01dc09787b4eecb))
+* discard the SEARCHRES result on UNAUTHENTICATE (RFC 8437 section 4.1) ([56b9e3c](https://github.com/postalsys/hoodiecrow-imap/commit/56b9e3c58aeb1cf238fb6299f75f761c554d956a))
+* forget the user and ACL rights on UNAUTHENTICATE ([190529a](https://github.com/postalsys/hoodiecrow-imap/commit/190529a6322e078813a7650f3c749bbed30f2ed0))
+* send ACL response mailbox names in the session form ([41b13da](https://github.com/postalsys/hoodiecrow-imap/commit/41b13dac5fb769d1ce8d59b3c4fc05174ec2be6a))
+* set the user name after AUTHENTICATE OAUTHBEARER ([403ec37](https://github.com/postalsys/hoodiecrow-imap/commit/403ec37d3d4c05417494294ab4570cbd62883776))
+* update imap-handler to 1.2.0 and imapflow to 2.2.7 ([d111112](https://github.com/postalsys/hoodiecrow-imap/commit/d111112b888de81e21a036c004b691713079026d))
+* update imap-handler to 1.2.0 and imapflow to 2.2.7 ([36f78b0](https://github.com/postalsys/hoodiecrow-imap/commit/36f78b0a43c275fcbaccf7d3dbf297daa767897e))
+
 ## [3.1.0](https://github.com/postalsys/hoodiecrow-imap/compare/v3.0.1...v3.1.0) (2026-10-07)
 
 
