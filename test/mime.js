@@ -279,3 +279,22 @@ describe('FETCH body sections', () => {
         });
     });
 });
+
+describe('FETCH of a storage message without a source', () => {
+    const ctx = setupServer(() => ({
+        storage: {
+            INBOX: {
+                messages: [{ flags: ['\\Seen'] }]
+            }
+        }
+    }));
+
+    it('returns empty contents', (t, done) => {
+        ctx.run(['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 1 (RFC822.SIZE BODY[] BODYSTRUCTURE ENVELOPE)', 'ZZ LOGOUT'], resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('* 1 FETCH (RFC822.SIZE 0 BODY[] {0}\r\n BODYSTRUCTURE ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 0 0 NIL NIL NIL)') >= 0, resp);
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+});
