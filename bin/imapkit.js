@@ -19,6 +19,7 @@ const { values: argv } = parseArgs({
         help: { type: 'boolean', short: 'h' },
         config: { type: 'string' },
         storage: { type: 'string' },
+        script: { type: 'string' },
         plugin: { type: 'string', multiple: true },
         smtpPort: { type: 'string' }
     }
@@ -28,6 +29,7 @@ const isTrue = value => (value || '').toString().trim().toLowerCase() === 'true'
 
 const configLocation = argv.config || process.env.IMAPKIT_CONFIG;
 const storageLocation = argv.storage || process.env.IMAPKIT_STORAGE;
+const scriptLocation = argv.script || process.env.IMAPKIT_SCRIPT;
 const smtpPort = argv.smtpPort || process.env.IMAPKIT_SMTPPORT;
 const pluginsList = []
     .concat(argv.plugin || process.env.IMAPKIT_PLUGINS || [])
@@ -49,6 +51,10 @@ if (configLocation) {
 
 if (storageLocation) {
     config.storage = JSON.parse(fs.readFileSync(storageLocation, 'utf-8'));
+}
+
+if (scriptLocation) {
+    config.script = JSON.parse(fs.readFileSync(scriptLocation, 'utf-8'));
 }
 
 if (pluginsList.length) {

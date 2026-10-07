@@ -1,6 +1,7 @@
 // Shared types of the server, the commands and the plugins
 
 import type { IMAPServer, IMAPConnection } from './server.js';
+import type { ScriptRule } from './script.js';
 
 export type { IMAPServer, IMAPConnection };
 
@@ -246,6 +247,8 @@ export interface IMAPServerOptions {
     systemFlags?: string[] | undefined;
     /** largest literal accepted after login, in octets */
     maxLiteralSize?: number | undefined;
+    /** script rules that make the server misbehave on purpose, see src/script.ts and README "Scripted faults" */
+    script?: ScriptRule | ScriptRule[] | undefined;
     [key: string]: any;
 }
 

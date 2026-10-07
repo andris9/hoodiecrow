@@ -65,7 +65,7 @@ export default function authPlainPlugin(server: IMAPServer) {
             };
 
             // Send an empty continuation request to the client
-            connection.write('+ \r\n');
+            connection.sendContinuation('', 'AUTHENTICATE PLAIN');
         } else if (
             parsed.attributes.length === 1 &&
             // second argument must be Base64 string as ATOM
