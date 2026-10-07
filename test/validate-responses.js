@@ -15,6 +15,7 @@ describe('Response grammar guardrail', () => {
         '* 1 FETCH (BODY[HEADER] {2}\r\nab BODY[TEXT] {0}\r\n)\r\n',
         '* 1 FETCH (BINARY[] ~{3}\r\na\x00c)\r\n',
         '* 1 FETCH (UID 1 BINARY[1.2]<5> ~{1}\r\n\x00 BINARY[3] ~{0}\r\n BINARY.SIZE[3] 0)\r\n',
+        '* METADATA INBOX (/private/blob ~{1}\r\n\x00)\r\n',
         '* SEARCH\r\n* SEARCH 1 2 3\r\n* SEARCH 1 (MODSEQ 5)\r\n',
         // RFC 4466 section 2.6.2, RFC 4731 section 4
         '* ESEARCH\r\n* ESEARCH (TAG "A1")\r\n* ESEARCH (TAG "A1") UID MIN 1 MAX 3 ALL 1:3,5 COUNT 4 MODSEQ 7\r\n',

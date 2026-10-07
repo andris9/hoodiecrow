@@ -464,6 +464,82 @@ describe('BINARY', () => {
         });
     });
 
+    describe('APPEND extensions', () => {
+        const ctx = setupServer(() => ({ plugins: ['BINARY', 'MULTIAPPEND', 'CATENATE', 'REPLACE', 'UIDPLUS'], storage: storage() }));
+
+        it('takes literal8 messages in MULTIAPPEND (RFC 3502, RFC 4466 section 2.7)', (t, done) => {
+            const plain = 'Subject: plain\r\n\r\ntext';
+            const cmd = 'A1 APPEND INBOX ~{' + BINARY_MESSAGE.length + '}\r\n' + BINARY_MESSAGE + ' (\\Seen) {' + plain.length + '}\r\n' + plain;
+            ctx.run([LOGIN, cmd, SELECT, 'A2 FETCH 4:5 (BINARY.PEEK[2] BINARY.SIZE[1] FLAGS)', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.match(resp, /^A1 OK \[APPENDUID \d+ 4:5\] /m);
+                assert.deepStrictEqual(fetchValue(resp, 'BINARY[2]'), { literal8: true, value: BINARY_PART });
+                assert.match(resp, /^\* 5 FETCH \(BINARY\[2\] \{0\}\r\n BINARY\.SIZE\[1\] 4 FLAGS \(\\Seen \\Recent\)\)/m);
+                done();
+            });
+        });
+
+        it('cancels MULTIAPPEND with a zero-length literal8 and stores nothing when a message can not be stored', (t, done) => {
+            const nul = 'Subject: a\x00b\r\n\r\nbody';
+            ctx.run(
+                [
+                    LOGIN,
+                    'A1 APPEND INBOX {3}\r\nabc ~{0}\r\n',
+                    'A2 APPEND INBOX ~{' + BINARY_MESSAGE.length + '}\r\n' + BINARY_MESSAGE + ' ~{' + nul.length + '}\r\n' + nul,
+                    'A3 STATUS INBOX (MESSAGES)',
+                    'ZZ LOGOUT'
+                ],
+                resp => {
+                    resp = resp.toString('binary');
+                    assert.match(resp, /^A1 NO /m);
+                    assert.match(resp, /^A2 NO \[UNKNOWN-CTE\] /m);
+                    assert.match(resp, /^\* STATUS INBOX \(MESSAGES 3\)/m);
+                    done();
+                }
+            );
+        });
+
+        it('takes a literal8 message in REPLACE (RFC 8508 section 6)', (t, done) => {
+            ctx.run(
+                [LOGIN, SELECT, 'A1 REPLACE 2 INBOX ~{' + BINARY_MESSAGE.length + '}\r\n' + BINARY_MESSAGE, 'A2 FETCH 3 BINARY.PEEK[2]', 'ZZ LOGOUT'],
+                resp => {
+                    resp = resp.toString('binary');
+                    assert.match(resp, /^A1 OK /m);
+                    assert.deepStrictEqual(fetchValue(resp, 'BINARY[2]'), { literal8: true, value: BINARY_PART });
+                    done();
+                }
+            );
+        });
+
+        it('refuses a literal8 TEXT part in CATENATE (RFC 4469 section 5: text-literal = "TEXT" SP literal)', (t, done) => {
+            ctx.run([LOGIN, 'A1 APPEND INBOX CATENATE (TEXT ~{3}\r\na\x00b)', 'A2 STATUS INBOX (MESSAGES)', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.match(resp, /^A1 BAD /m);
+                assert.match(resp, /^\* STATUS INBOX \(MESSAGES 3\)/m);
+                done();
+            });
+        });
+
+        it('catenates a binary part as stored, base64 encoded', (t, done) => {
+            ctx.run(
+                [
+                    LOGIN,
+                    'A1 APPEND INBOX ~{' + BINARY_MESSAGE.length + '}\r\n' + BINARY_MESSAGE,
+                    'A2 APPEND INBOX CATENATE (URL "/INBOX/;UID=4/;SECTION=2")',
+                    SELECT,
+                    'A3 FETCH 5 BODY.PEEK[]',
+                    'ZZ LOGOUT'
+                ],
+                resp => {
+                    resp = resp.toString('binary');
+                    assert.match(resp, /^A2 OK /m);
+                    assert.deepStrictEqual(fetchValue(resp, 'BODY[]'), { literal8: false, value: Buffer.from(BINARY_PART, 'binary').toString('base64') });
+                    done();
+                }
+            );
+        });
+    });
+
     describe('with CONDSTORE', () => {
         const ctx = setupServer(() => ({ plugins: ['BINARY', 'CONDSTORE'], storage: storage() }));
 

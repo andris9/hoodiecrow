@@ -56,6 +56,25 @@ describe('METADATA', () => {
         });
     });
 
+    it('takes and returns binary values as literal8 (RFC 5464 section 5)', (t, done) => {
+        run(
+            ctx,
+            [
+                'A1 SETMETADATA INBOX (/private/blob ~{5}\r\na\x00\nb\r /private/text ~{2}\r\nhi)',
+                'A2 GETMETADATA INBOX (/private/blob /private/text)',
+                'A3 GETMETADATA ~{5}\r\nINBOX /private/blob'
+            ],
+            resp => {
+                assert.match(resp, /^A1 OK /m);
+                // only the value with NUL needs a literal8
+                assert.ok(resp.includes('* METADATA INBOX (/private/blob ~{5}\r\na\x00\nb\r /private/text "hi")\r\nA2 OK'), resp);
+                // literal8 is only valid for SETMETADATA values
+                assert.match(resp, /^A3 BAD /m);
+                done();
+            }
+        );
+    });
+
     it('returns server annotations for the empty mailbox name (RFC 5464 section 4.2)', (t, done) => {
         run(ctx, ['A1 GETMETADATA "" /shared/comment', 'A2 GETMETADATA "" (/shared/admin /shared/missing)'], resp => {
             assert.match(resp, /^\* METADATA "" \(\/shared\/comment "Server comment"\)\r$/m);
@@ -379,10 +398,16 @@ describe('METADATA storage values', () => {
         });
     });
 
-    it('fails on values that need literal8 or are not strings', (t, done) => {
-        run(ctx, ['A1 GETMETADATA Other.Bin /shared/comment', 'A2 GETMETADATA Other.Num /shared/comment'], resp => {
-            assert.match(resp, /^A1 NO \[SERVERBUG\] .*binary values are not supported/m);
-            assert.match(resp, /^A2 NO \[SERVERBUG\] .*expecting a string/m);
+    it('sends values with NUL as a literal8 (RFC 5464 section 5)', (t, done) => {
+        run(ctx, ['A1 GETMETADATA Other.Bin /shared/comment'], resp => {
+            assert.ok(resp.includes('* METADATA Other.Bin (/shared/comment ~{3}\r\na\x00b)\r\nA1 OK'), resp);
+            done();
+        });
+    });
+
+    it('fails on values that are not strings', (t, done) => {
+        run(ctx, ['A1 GETMETADATA Other.Num /shared/comment'], resp => {
+            assert.match(resp, /^A1 NO \[SERVERBUG\] .*expecting a string/m);
             done();
         });
     });
