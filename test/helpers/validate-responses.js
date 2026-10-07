@@ -59,11 +59,15 @@ const NZ_NUMBER_RE = /^[1-9][0-9]*$/;
  * marker `{n}` / `~{n}` followed by n octets and then the rest of the response.
  *
  * @param {Buffer|String} transcript Everything the server sent (a string is read as binary)
- * @return {Array} list of `{ payload, literals, text }`, where `payload` is the response without
- *         literal data and without the final CRLF (the shape ImapFlow's parser expects), and `text`
- *         is a printable version for error messages
+ * @param {Object} [options]
+ * @param {Boolean} [options.partial] if true, an incomplete response at the end is not an error but
+ *        is left out, for transcripts that are still being received
+ * @return {Array} list of `{ payload, literals, text, end }`, where `payload` is the response without
+ *         literal data and without the final CRLF (the shape ImapFlow's parser expects), `text`
+ *         is a printable version for error messages and `end` is the offset right after the response
  */
-function splitResponses(transcript) {
+function splitResponses(transcript, options) {
+    const partial = !!(options && options.partial);
     const buf = Buffer.isBuffer(transcript) ? transcript : Buffer.from(transcript, 'binary');
     const responses = [];
 
@@ -73,6 +77,9 @@ function splitResponses(transcript) {
     while (pos < buf.length) {
         const lf = buf.indexOf(LF, pos);
         if (lf < 0) {
+            if (partial) {
+                return responses;
+            }
             fail('Response is not terminated with CRLF', buf.subarray(pos));
         }
         if (lf === pos || buf[lf - 1] !== CR) {
@@ -94,6 +101,9 @@ function splitResponses(transcript) {
         if (marker) {
             const size = Number(marker[2]);
             if (pos + size > buf.length) {
+                if (partial) {
+                    return responses;
+                }
                 fail('Literal of ' + size + ' octets is cut short, only ' + (buf.length - pos) + ' octets follow', line);
             }
             current.literals.push(buf.subarray(pos, pos + size));
@@ -102,11 +112,13 @@ function splitResponses(transcript) {
             continue;
         }
 
-        responses.push(finishResponse(current));
+        const response = finishResponse(current);
+        response.end = pos;
+        responses.push(response);
         current = null;
     }
 
-    if (current) {
+    if (current && !partial) {
         fail('Transcript ends inside a response that has a literal', Buffer.concat(current.lines));
     }
 
