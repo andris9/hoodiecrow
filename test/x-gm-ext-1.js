@@ -284,7 +284,8 @@ describe('X-GM-EXT-1 labels and search', () => {
             ' hello  ': '1',
             '-subject:\\"hello world\\"': '2',
             'label:Muy': '',
-            'http://example.com': ''
+            'http://example.com': '',
+            '__proto__:x constructor:y': ''
         };
         const queries = Object.keys(cases);
         run(['A2 SELECT INBOX'].concat(queries.map((query, i) => 'Q' + i + ' SEARCH X-GM-RAW "' + query + '"')), resp => {
