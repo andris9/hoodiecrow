@@ -44,7 +44,8 @@ const ALL_PLUGINS = [
     'MULTIAPPEND',
     'CATENATE',
     'REPLACE',
-    'APPENDLIMIT'
+    'APPENDLIMIT',
+    'UTF8=ACCEPT'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -231,7 +232,8 @@ describe('ImapFlow', () => {
                 'UNSELECT',
                 'NAMESPACE',
                 'ID',
-                'LITERAL+'
+                'LITERAL+',
+                'UTF8=ACCEPT'
             ]) {
                 assert.ok(client.capabilities.has(capability), capability);
             }
@@ -633,6 +635,31 @@ describe('ImapFlow', () => {
             await assert.rejects(client.mailboxDelete('INBOX'));
         });
 
+        it('uses UTF-8 mailbox names and headers with UTF8=ACCEPT', async () => {
+            const client = await connect(ctx);
+            // ImapFlow enables UTF8=ACCEPT on its own (RFC 9755 section 3)
+            assert.ok(client.enabled.has('UTF8=ACCEPT'));
+
+            const created = await client.mailboxCreate('Grüße/Ünter & Über');
+            assert.strictEqual(created.path, 'Grüße/Ünter & Über');
+            assert.strictEqual(created.created, true);
+            // storage keeps the modified UTF-7 names
+            assert.ok(ctx.server.folderCache['Gr&APwA3w-e/&ANw-nter &- &ANw-ber']);
+            const paths = (await client.list()).map(entry => entry.path);
+            assert.ok(paths.includes('Grüße'), paths.join(', '));
+            assert.ok(paths.includes('Grüße/Ünter & Über'), paths.join(', '));
+
+            const raw = 'From: Jürgen <juergen@example.com>\r\nSubject: Grüße aus Köln\r\n\r\nHallo\r\n';
+            await client.append('Grüße', Buffer.from(raw));
+            assert.strictEqual((await client.status('Grüße', { messages: true })).messages, 1);
+
+            await client.mailboxOpen('Grüße');
+            assert.deepStrictEqual(await client.search({ subject: 'Köln' }, { uid: true }), [1]);
+            const message = await client.fetchOne('1', { envelope: true });
+            assert.strictEqual(message.envelope.subject, 'Grüße aus Köln');
+            assert.strictEqual(message.envelope.from[0].name, 'Jürgen');
+        });
+
         const isIdling = () => [...ctx.server.connections].filter(connection => connection.directNotifications).length === 1;
 
         it('receives EXISTS and EXPUNGE from another client while idling', async () => {
@@ -827,6 +854,14 @@ describe('ImapFlow', () => {
             );
             assert.strictEqual(messages[1].source.toString(), MESSAGE_2);
             assert.strictEqual(messages[0].modseq, undefined);
+        });
+
+        it('uses modified UTF-7 mailbox names without UTF8=ACCEPT', async () => {
+            const client = await connect(ctx);
+            assert.deepStrictEqual(await client.mailboxCreate('Grüße'), { path: 'Grüße', created: true });
+            assert.ok(ctx.server.folderCache['Gr&APwA3w-e']);
+            const paths = (await client.list()).map(entry => entry.path);
+            assert.ok(paths.includes('Grüße'), paths.join(', '));
         });
 
         it('appends without APPENDUID', async () => {

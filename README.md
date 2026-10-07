@@ -86,6 +86,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - unknown or uppercase ACL rights, and empty identifiers or identifiers with control characters or invalid UTF-8 (RFC 4314 section 3)
 - more than one message in `APPEND` without MULTIAPPEND, and with MULTIAPPEND a zero-length message literal cancels the whole `APPEND` with `NO` (RFC 3502)
 - CATENATE URLs that are not absolute-path references (`/INBOX/;UID=1`), including relative-path references like `;UID=1` that RFC 5092 section 7.2 forbids, and URLs of message parts that do not exist (`NO [BADURL ...]`)
+- with UTF8=ACCEPT (RFC 9755): invalid UTF-8 in quoted strings, `SEARCH CHARSET` after `ENABLE UTF8=ACCEPT`, mailbox names with control characters (UTF-8, or encoded in modified UTF-7 like `&AA0-`), U+2028, U+2029, a leading BOM or unassigned code points, UTF-8 in `LOGIN` (section 5), and `NO` for `APPEND` of a message with an 8-bit header before `ENABLE UTF8=ACCEPT` (section 4)
 
 Responses follow the grammar strictly too: strings that can not be quoted are sent as literals.
 
@@ -146,6 +147,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **UIDPLUS** Adds UIDPLUS [RFC4315] capability (APPENDUID, COPYUID and UID EXPUNGE)
 - **UNAUTHENTICATE** Adds UNAUTHENTICATE [RFC8437] capability. Returns to the Not Authenticated state and resets the session: the selected mailbox is closed without expunging, ENABLEd extensions and CONDSTORE are turned off, and COMPRESS ends after the tagged OK. TLS stays
 - **UNSELECT** Adds UNSELECT [RFC3691] capability
+- **UTF8=ACCEPT** Adds UTF8=ACCEPT [RFC9755] capability and loads ENABLE. After `ENABLE UTF8=ACCEPT` mailbox names are UTF-8 in both directions (storage keeps modified UTF-7 names, so `&` is an ordinary character), strings that are valid UTF-8 are sent quoted, and SEARCH strings are UTF-8 without `CHARSET`. UTF8=ONLY, the obsolete `APPEND ... UTF8 (...)` data item of RFC 6855 and downgrading of 8-bit headers for clients that did not enable UTF-8 (RFC 9755 section 8) are not implemented
 - **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is supported: every message is its own thread unless the storage sets an `X-GM-THRID` value for it. `X-GM-RAW` is not supported.
 - **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
 - **XTOYBIRD** Custom plugin to allow programmatic control of the server. XTOYBIRD commands are only allowed after login

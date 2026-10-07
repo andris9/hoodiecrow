@@ -1,0 +1,21 @@
+# UTF8=ACCEPT (RFC 9755), run with --plugin UTF8=ACCEPT
+# Session 1 enables UTF-8, session 2 stays with modified UTF-7
+CREATE "&BBYEMARA-"
+CREATE "Жар"
+APPEND INBOX {file:../messages/utf8-headers.eml}
+ENABLE UTF8=ACCEPT
+LIST "" "*"
+CREATE "Ёлка/Ü"
+CREATE "A&B"
+LIST "" "Ж%"
+LIST "" "Ёлка/%"
+STATUS "Ёлка/Ü" (MESSAGES)
+SELECT "&BBYEMARA-"
+APPEND "Жар" {file:../messages/utf8-headers.eml}
+SELECT "Жар"
+FETCH 1 (ENVELOPE BODY.PEEK[HEADER.FIELDS (SUBJECT)])
+SEARCH SUBJECT "Grüße"
+SEARCH TO "пример"
+SEARCH CHARSET UTF-8 SUBJECT "Grüße"
+2: LIST "" "*"
+2: SELECT "Жар"

@@ -34,7 +34,9 @@ describe('Response grammar guardrail', () => {
         '* ACL "INBOX" "testuser" "lrswipkxteacd" "bob" "lr"\r\n',
         '* ACL INBOX\r\n',
         '* LISTRIGHTS INBOX bob "" l r s w i p k x t e a c d\r\n',
-        '* MYRIGHTS INBOX lr\r\n'
+        '* MYRIGHTS INBOX lr\r\n',
+        // RFC 9755 section 3: UTF-8 in quoted strings once UTF8=ACCEPT is enabled
+        '* ENABLED UTF8=ACCEPT\r\n* LIST () "/" "\xd0\x96\\"\\\\"\r\n'
     ];
 
     valid.forEach(transcript => {
@@ -101,7 +103,12 @@ describe('Response grammar guardrail', () => {
         ['* MYRIGHTS INBOX\r\n', /number of arguments/],
         ['* MYRIGHTS INBOX (lr)\r\n', /must be strings/],
         ['* LISTRIGHTS INBOX bob\r\n', /number of arguments/],
-        ['* LISTRIGHTS INBOX bob "" l+\r\n', /lowercase/]
+        ['* LISTRIGHTS INBOX bob "" l+\r\n', /lowercase/],
+        ['* LIST () "/" "\xd0\x96"\r\n', /8-bit/],
+        ['* ENABLED UTF8=ACCEPT\r\n* LIST () "/" \xd0\x96\r\n', /outside a literal or quoted string/],
+        ['* ENABLED UTF8=ACCEPT\r\n* LIST () "/" "caf\xe9"\r\n', /not valid UTF-8/],
+        ['* ENABLED UTF8=ACCEPT\r\nA1 OK caf\xc3\xa9\r\n', /8-bit/],
+        ['* ENABLED UTF8=ACCEPT\r\nA1 OK "caf\xc3\xa9"\r\n', /text contains an 8-bit/]
     ];
 
     invalid.forEach(([transcript, error]) => {

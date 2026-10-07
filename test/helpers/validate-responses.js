@@ -8,6 +8,7 @@
  */
 
 const assert = require('node:assert');
+const { isUtf8 } = require('node:buffer');
 const { parser } = require('imapflow/lib/handler/imap-handler.js');
 const framing = require('../../lib/framing');
 const { TAG_REGEX } = require('../../lib/server');
@@ -156,6 +157,10 @@ function checkRespText(rest, response) {
         fail('Status response keyword must be followed by SP and text', response.text);
     }
     let text = rest.substr(1);
+    if (/[\x80-\xff]/.test(text)) {
+        // TEXT-CHAR is 7-bit, RFC 9755 only extends quoted strings
+        fail('Status response text contains an 8-bit octet', response.text);
+    }
     if (text.charAt(0) === '[') {
         const end = text.indexOf(']');
         if (end < 0) {
@@ -238,18 +243,45 @@ function isNumber(attr) {
     return !!attr && attr.type === 'ATOM' && NUMBER_RE.test(attr.value);
 }
 
-function checkResponse(response, parsed) {
+/**
+ * Checks a response line for NUL and 8-bit octets. RFC 3501 section 9: CHAR = %x01-7F, TEXT-CHAR and
+ * QUOTED-CHAR are 7-bit, only literals carry 8-bit data. After ENABLE UTF8=ACCEPT, quoted strings
+ * may hold UTF-8 as well (RFC 9755 section 3: uQUOTED-CHAR).
+ *
+ * @param {Buffer} line Response line without literal data
+ * @param {Object} response Response for error messages
+ * @param {Boolean} utf8 true if UTF8=ACCEPT is enabled
+ */
+function checkOctets(line, response, utf8) {
+    let quoteStart = -1;
+    for (let i = 0; i < line.length; i++) {
+        const octet = line[i];
+        if (octet === 0) {
+            fail('Response line contains a NUL octet outside a literal', response.text);
+        }
+        if (quoteStart >= 0 && octet === 0x5c) {
+            // quoted-specials are escaped, skip the escaped octet
+            i++;
+        } else if (octet === 0x22) {
+            if (quoteStart < 0) {
+                quoteStart = i + 1;
+            } else {
+                if (!isUtf8(line.subarray(quoteStart, i))) {
+                    fail('Quoted string is not valid UTF-8', response.text);
+                }
+                quoteStart = -1;
+            }
+        } else if (octet >= 0x80 && (!utf8 || quoteStart < 0)) {
+            fail('Response line contains an 8-bit octet outside a literal' + (utf8 ? ' or quoted string' : ''), response.text);
+        }
+    }
+}
+
+function checkResponse(response, parsed, utf8) {
     const first = response.lines[0].toString('binary');
 
-    // RFC 3501 section 9: CHAR = %x01-7F, TEXT-CHAR and QUOTED-CHAR are 7-bit, only literals carry 8-bit
-    // data. Literals (CHAR8 = %x01-ff) must not contain NUL, literal8 (RFC 3516) may.
-    response.lines.forEach(line => {
-        for (let i = 0; i < line.length; i++) {
-            if (line[i] === 0 || line[i] >= 0x80) {
-                fail('Response line contains a ' + (line[i] ? '8-bit' : 'NUL') + ' octet outside a literal', response.text);
-            }
-        }
-    });
+    // Literals (CHAR8 = %x01-ff) must not contain NUL, literal8 (RFC 3516) may.
+    response.lines.forEach(line => checkOctets(line, response, utf8));
     response.literals.forEach((literal, i) => {
         if (!response.literal8[i] && literal.indexOf(0) >= 0) {
             fail('Literal contains a NUL octet', response.text);
@@ -578,12 +610,28 @@ function isThreadData(rest) {
 }
 
 /**
+ * Checks if a response is "* ENABLED" with UTF8=ACCEPT (RFC 9755 section 3)
+ */
+function enablesUtf8(parsed) {
+    return (
+        parsed.tag === '*' &&
+        String(parsed.command || '').toUpperCase() === 'ENABLED' &&
+        (parsed.attributes || []).some(attr => attr && String(attr.value).toUpperCase() === 'UTF8=ACCEPT')
+    );
+}
+
+/**
  * Validates a full server transcript. Rejects with an AssertionError naming the offending response.
+ * UTF-8 in quoted strings is accepted after a "* ENABLED UTF8=ACCEPT" response.
  *
  * @param {Buffer|String} transcript Everything the server sent (a string is read as binary)
- * @return {Promise} resolves once every response has been checked
+ * @param {Object} [options]
+ * @param {Boolean} [options.utf8] if true, UTF8=ACCEPT was enabled before this transcript
+ * @return {Promise} resolves with the responses once every response has been checked, `utf8` tells
+ *         if UTF8=ACCEPT is enabled at the end
  */
-async function validateResponses(transcript) {
+async function validateResponses(transcript, options) {
+    let utf8 = !!(options && options.utf8);
     const responses = splitResponses(transcript);
     for (const response of responses) {
         let parsed;
@@ -592,8 +640,11 @@ async function validateResponses(transcript) {
         } catch (err) {
             fail('ImapFlow can not parse the response (' + err.message + ')', response.text);
         }
-        checkResponse(response, parsed);
+        checkResponse(response, parsed, utf8);
+        utf8 = utf8 || enablesUtf8(parsed);
     }
+    // lets a caller that validates a session in chunks carry the UTF8=ACCEPT state forward
+    responses.utf8 = utf8;
     return responses;
 }
 
@@ -603,11 +654,12 @@ async function validateResponses(transcript) {
  * attributes to the running test.
  *
  * @param {Buffer|String} transcript Everything the server sent
- * @param {Function} callback Called with no arguments once the transcript is valid
+ * @param {Function} callback Called with the validated responses once the transcript is valid
+ * @param {Object} [options] see validateResponses
  */
-function validateThen(transcript, callback) {
-    validateResponses(transcript).then(
-        () => setImmediate(callback),
+function validateThen(transcript, callback, options) {
+    validateResponses(transcript, options).then(
+        responses => setImmediate(() => callback(responses)),
         err =>
             setImmediate(() => {
                 throw err;
