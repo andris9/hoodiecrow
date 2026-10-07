@@ -739,6 +739,21 @@ describe('ACL options', () => {
         });
     });
 
+    describe('with CONDSTORE', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'CONDSTORE'], users: users(), storage: storage() }));
+
+        // RFC 9051 section 6.3.2 and RFC 7162 section 3.2.11: a SELECT that fails closes the selected mailbox, and
+        // the CLOSED response code tells so, also when the failure is a missing "r" right
+        it('reports CLOSED when SELECT is refused for missing rights', (t, done) => {
+            ctx.run([BOB, 'A1 SELECT Shared', 'A2 SELECT Lookup', 'A3 FETCH 1 FLAGS', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.match(resp, /^\* OK \[CLOSED\] [^\r]+\r\nA2 NO /m);
+                assert.match(resp, /^A3 BAD /m);
+                done();
+            });
+        });
+    });
+
     describe('with METADATA', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL', 'METADATA'], users: users(), storage: storage() }));
 
