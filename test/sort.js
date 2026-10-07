@@ -288,7 +288,8 @@ describe('SORT', () => {
 
             // SORT still uses the sequence numbers that session A knows
             let output = await a.cmd('A1 SORT (SUBJECT) UTF-8 ALL');
-            assert.strictEqual(output, '* SORT 4 3 2 1\r\nA1 OK SORT completed\r\n');
+            // the EXPUNGE is pending, EXPUNGEISSUED tells the client (RFC 5530 section 3)
+            assert.strictEqual(output, '* SORT 4 3 2 1\r\nA1 OK [EXPUNGEISSUED] SORT completed\r\n');
 
             // UID SORT may deliver the EXPUNGE, after the SORT response that was built with the old numbers
             output = await a.cmd('A2 UID SORT (SUBJECT) UTF-8 ALL');

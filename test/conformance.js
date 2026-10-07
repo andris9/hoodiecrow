@@ -25,6 +25,9 @@ const STATES = {
     // QRESYNC enabled (RFC 7162 section 3.2.3)
     qresync: [LOGIN, 'L3 ENABLE QRESYNC'],
     qresyncSelected: [LOGIN, 'L3 ENABLE QRESYNC', SELECT],
+    // RFC 9051 Appendix A: IMAP4rev2 enabled, needs the IMAP4rev2 plugin
+    rev2: [LOGIN, 'L3 ENABLE IMAP4rev2'],
+    'rev2 selected': [LOGIN, 'L3 ENABLE IMAP4rev2', SELECT],
     // UIDONLY enabled (RFC 9586 section 3.1)
     uidonly: [LOGIN, 'L3 ENABLE UIDONLY QRESYNC', SELECT]
 };
@@ -506,6 +509,55 @@ describe('Strict UTF8=ACCEPT handling', () => {
     }));
 
     defineCases(ctx, UTF8_CASES);
+});
+
+// IMAP4rev2 (RFC 9051), checked with the IMAP4rev2 plugin loaded
+const REV2_CASES = [
+    // Appendix E items 17 to 19 and the section 9 grammar
+    ['CHECK after ENABLE IMAP4rev2', 'rev2 selected', ['A1 CHECK'], { A1: 'BAD' }],
+    ['LSUB after ENABLE IMAP4rev2', 'rev2', ['A1 LSUB "" "*"'], { A1: 'BAD' }],
+    ['FETCH RFC822 after ENABLE IMAP4rev2', 'rev2 selected', ['A1 FETCH 1 RFC822', 'A2 UID FETCH 1 (FLAGS RFC822.TEXT)'], { A1: 'BAD', A2: 'BAD' }],
+    // Appendix E item 12: search-key and status-att have no NEW, OLD, RECENT
+    [
+        'SEARCH NEW after ENABLE IMAP4rev2',
+        'rev2 selected',
+        ['A1 SEARCH NEW', 'A2 SEARCH OR OLD SEEN', 'A3 UID SEARCH RECENT'],
+        { A1: 'BAD', A2: 'BAD', A3: 'BAD' }
+    ],
+    ['STATUS RECENT after ENABLE IMAP4rev2', 'rev2', ['A1 STATUS INBOX (MESSAGES RECENT)'], { A1: 'BAD' }],
+    [
+        'the same commands without ENABLE IMAP4rev2',
+        'selected',
+        ['A1 CHECK', 'A2 LSUB "" "*"', 'A3 FETCH 1 RFC822', 'A4 SEARCH NEW', 'A5 STATUS INBOX (RECENT)'],
+        {
+            A1: 'OK',
+            A2: 'OK',
+            A3: 'OK',
+            A4: 'OK',
+            A5: 'OK'
+        }
+    ],
+    // section 4.3.1 and Appendix A: UTF-8 in quoted strings only after ENABLE IMAP4rev2, and valid UTF-8 only
+    ['UTF-8 quoted string without ENABLE IMAP4rev2', 'auth', ['A1 CREATE "caf\xc3\xa9"'], { A1: 'BAD' }],
+    ['invalid UTF-8 after ENABLE IMAP4rev2', 'rev2', ['A1 CREATE "caf\xe9"'], { A1: 'BAD' }],
+    // section 5.1: mailbox names are Net-Unicode
+    ['mailbox name with a control character after ENABLE IMAP4rev2', 'rev2', ['A1 CREATE "a\xc2\x85b"'], { A1: 'BAD' }],
+    ['mailbox name that is not NFC after ENABLE IMAP4rev2', 'rev2', ['A1 CREATE "e\xcc\x81"'], { A1: 'BAD' }],
+    ['SEARCH CHARSET after ENABLE IMAP4rev2', 'rev2 selected', ['A1 SEARCH CHARSET UTF-8 SUBJECT "caf\xc3\xa9"'], { A1: 'OK' }]
+];
+
+describe('Strict IMAP4rev2 handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['IMAP4rev2'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, REV2_CASES);
 });
 
 describe('Strict QRESYNC handling', () => {

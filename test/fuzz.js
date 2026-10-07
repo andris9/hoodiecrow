@@ -77,7 +77,8 @@ const PLUGINS = [
     'CONTEXT=SORT',
     'MULTISEARCH',
     'UIDONLY',
-    'MESSAGELIMIT'
+    'MESSAGELIMIT',
+    'IMAP4rev2'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
