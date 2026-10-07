@@ -41,6 +41,8 @@ Almost everything lives in `lib/server.js`, which defines two classes:
 
 - `registerCapability(name, availabilityFn)`, `setCommandHandler` / `getCommandHandler` (wrap the existing handler to override a built-in command)
 - `server.fetchHandlers`, `searchHandlers`, `storeHandlers` (consulted before the built-in handlers in `commands/handlers/`), `fetchFilters`
+- `server.searchHandlers` keys normally take string arguments (one per handler param after `connection, message, index`); a handler with an `argumentTypes(list)` method decides its own arguments, and a type can be a parse function that throws `badError` (see MODSEQ in `condstore.js`). The untagged SEARCH response passes the search result `{ list, numbers, keys }` as `extra`, which is how ESEARCH replaces it and CONDSTORE adds `(MODSEQ n)` (the ESEARCH response passes the same object, with `list` holding only the returned messages). ESEARCH response building lives in `lib/esearch.js`, for reuse by a future IMAP4rev2 mode
+- `connection.getMessageRange(range, isUid)` resolves every sequence set argument; SEARCHRES replaces it per connection (via `connectionHandlers`) to support `$`. A sequence set that does not start with a number or `*` does not count as sequence numbers for the RFC 3501 section 5.5 pipelining check
 - `server.messageHandlers` (run on every message in `processMessage`), `connectionHandlers` (run on new connections), `outputHandlers` (can mutate or suppress any outgoing response via `response.skipResponse`; the `description` string passed to `send` is how they identify responses)
 
 Plugins must stay self-contained: if a plugin is not loaded, no trace of it should remain (e.g. messages get no MODSEQ without CONDSTORE). Plugin names are validated and deduplicated by `lib/load-plugins.js`, and ENABLE and CONDSTORE work in any load order. `lib/command-states.js` lists only RFC 3501 core commands; a plugin passes the options of its own commands as the third argument of `setCommandHandler(command, handler, { states, noArguments, mailboxArguments })`. Wrapping an existing command without options keeps its settings.
@@ -81,4 +83,5 @@ Every transcript from `ctx.run` and `openSession` goes through `test/helpers/val
     - Dovecot sends `* OK [CLOSED]` when switching mailboxes.
     - The first session to select a seeded mailbox sees the messages as `\Recent` in Dovecot.
     - Dovecot's IDLE notifications can arrive late, so put a `!wait 1000` after the step that triggers them.
+    - MODSEQ and HIGHESTMODSEQ values, Dovecot assigns its own mod-sequences when the user is seeded.
 - `test/compare.js` covers the tool's parsing, normalizing and seeding against hoodiecrow only, so `npm test` stays Docker-free.

@@ -100,6 +100,10 @@ const CASES = [
     ['SEARCH with UTF-8 text', 'selected', ['A1 SEARCH CHARSET UTF-8 SUBJECT {5}\r\ncaf\xc3\xa9'], { A1: 'OK' }],
     ['SEARCH with an unsupported CHARSET', 'selected', ['A1 SEARCH CHARSET KOI8-R SUBJECT x'], { A1: 'NO' }],
     ['SEARCH with an invalid date', 'selected', ['A1 SEARCH SINCE 32-Jan-2020'], { A1: 'BAD' }],
+    // the extensions below are refused when their plugins are not loaded
+    ['SEARCH RETURN without ESEARCH', 'selected', ['A1 SEARCH RETURN (MIN) ALL'], { A1: 'BAD' }],
+    ['FETCH $ without SEARCHRES', 'selected', ['A1 FETCH $ FLAGS'], { A1: 'BAD' }],
+    ['SEARCH MODSEQ without CONDSTORE', 'selected', ['A1 SEARCH MODSEQ 1'], { A1: 'BAD' }],
 
     // Mailbox names use modified UTF-7, RFC 3501 section 5.1.3
     ['CREATE with 8-bit characters', 'auth', ['A1 CREATE {5}\r\ncaf\xe9'], { A1: 'BAD' }],
@@ -117,17 +121,21 @@ const CASES = [
     ['literal for LOGIN before login', 'none', ['A1 LOGIN {8}\r\ntestuser testpass'], { A1: 'OK' }]
 ];
 
-describe('Strict command handling', () => {
-    const ctx = setupServer(() => ({
-        storage: {
-            INBOX: {
-                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
-            },
-            '': {}
-        }
-    }));
+// Extended SEARCH (RFC 4466 section 2.6.1, RFC 4731, RFC 5182, RFC 7162 section 3.1.5), with ESEARCH, SEARCHRES and CONDSTORE loaded
+const SEARCH_CASES = [
+    ['an unknown SEARCH result option', 'selected', ['A1 SEARCH RETURN (FOO) ALL'], { A1: 'BAD' }],
+    ['RETURN without a list', 'selected', ['A1 SEARCH RETURN MIN ALL'], { A1: 'BAD' }],
+    ['RETURN after CHARSET', 'selected', ['A1 SEARCH CHARSET UTF-8 RETURN (MIN) ALL'], { A1: 'BAD' }],
+    ['RETURN without search criteria', 'selected', ['A1 SEARCH RETURN (MIN)'], { A1: 'BAD' }],
+    ['$ combined with sequence numbers', 'selected', ['A1 SEARCH RETURN (SAVE) ALL', 'A2 FETCH 1,$ FLAGS'], { A1: 'OK', A2: 'BAD' }],
+    ['MODSEQ with \\Recent', 'selected', ['A1 SEARCH MODSEQ "/flags/\\\\recent" all 1'], { A1: 'BAD' }],
+    ['MODSEQ with an unknown entry type', 'selected', ['A1 SEARCH MODSEQ "/flags/\\\\seen" any 1'], { A1: 'BAD' }],
+    ['MODSEQ over 63 bits', 'selected', ['A1 SEARCH MODSEQ 9223372036854775808'], { A1: 'BAD' }]
+];
 
-    for (const [description, state, commands, expected, absent] of CASES) {
+// Defines a test for every case: runs the commands in the wanted state and checks the tagged results
+function defineCases(ctx, cases) {
+    for (const [description, state, commands, expected, absent] of cases) {
         it(description, (t, done) => {
             ctx.run([...STATES[state], ...commands, 'ZZ LOGOUT'], resp => {
                 resp = resp.toString('binary');
@@ -143,6 +151,33 @@ describe('Strict command handling', () => {
             });
         });
     }
+}
+
+describe('Strict command handling', () => {
+    const ctx = setupServer(() => ({
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, CASES);
+});
+
+describe('Strict extended SEARCH handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['ESEARCH', 'SEARCHRES', 'CONDSTORE'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, SEARCH_CASES);
 });
 
 describe('Literal synchronization', () => {

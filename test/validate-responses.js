@@ -15,6 +15,9 @@ describe('Response grammar guardrail', () => {
         '* 1 FETCH (BODY[HEADER] {2}\r\nab BODY[TEXT] {0}\r\n)\r\n',
         '* 1 FETCH (BINARY[] ~{3}\r\na\x00c)\r\n',
         '* SEARCH\r\n* SEARCH 1 2 3\r\n* SEARCH 1 (MODSEQ 5)\r\n',
+        // RFC 4466 section 2.6.2, RFC 4731 section 4
+        '* ESEARCH\r\n* ESEARCH (TAG "A1")\r\n* ESEARCH (TAG "A1") UID MIN 1 MAX 3 ALL 1:3,5 COUNT 4 MODSEQ 7\r\n',
+        '* ESEARCH COUNT 0\r\n* ESEARCH (TAG "A1") X-FOO (1 2)\r\n',
         '+ idling\r\n',
         '+ \r\n',
         '* XTOYBIRD ok\r\n'
@@ -43,6 +46,12 @@ describe('Response grammar guardrail', () => {
         ['* 1 FETCH UID 1\r\n', /parenthesized/],
         ['* 1 FETCH (UID\r\n', /ImapFlow/],
         ['* SEARCH 0\r\n', /nz-numbers/],
+        ['* ESEARCH (TAG A1) COUNT 1\r\n', /correlator/],
+        ['* ESEARCH (TAG "A1") UID COUNT\r\n', /pairs/],
+        ['* ESEARCH MIN 0\r\n', /MIN has an invalid value/],
+        ['* ESEARCH ALL 1:*\r\n', /ALL has an invalid value/],
+        ['* ESEARCH COUNT 1 COUNT 1\r\n', /more than once/],
+        ['* ESEARCH 1 2\r\n', /tagged-ext-label/],
         ['* FROBNICATE 1\r\n', /Unknown untagged/],
         ['* OK caf\xe9\r\n', /8-bit/],
         ['* 1 FETCH (BODY[] {3}\r\na\x00c)\r\n', /NUL/]
