@@ -163,6 +163,15 @@ const CASES = [
     ['CANCELUPDATE without CONTEXT=SEARCH', 'selected', ['A1 CANCELUPDATE "A1"'], { A1: 'BAD' }],
     ['ESEARCH without MULTISEARCH', 'selected', ['A1 ESEARCH ALL'], { A1: 'BAD' }],
 
+    // RFC 5530 section 3 (CANNOT, its example is CREATE "///////"): no empty hierarchy levels. A single trailing
+    // separator only declares that the name gets children (RFC 3501 section 6.3.3, RFC 9051 section 6.3.4)
+    [
+        'mailbox names with empty hierarchy levels',
+        'auth',
+        ['A1 CREATE foo//', 'A2 CREATE /', 'A3 CREATE /foo', 'A4 CREATE a//b', 'A5 CREATE bar/', 'A6 RENAME bar /baz', 'A7 RENAME bar baz//', 'A8 LIST "" *'],
+        { A1: 'NO', A2: 'NO', A3: 'NO', A4: 'NO', A5: 'OK', A6: 'NO', A7: 'NO', A8: 'OK' },
+        ['LIST () "/" ""', '"foo/"', '"/foo"', '/baz', 'baz/']
+    ],
     // RFC 3501 section 9: NIL is an atom, so it is a valid astring where the grammar has no nstring
     [
         'NIL as a mailbox name and a search string',
