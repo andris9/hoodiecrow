@@ -44,6 +44,30 @@ describe('SELECT and EXAMINE', () => {
         });
     });
 
+    // RFC 3501 sections 2.3.2 and 7.2.6: a keyword the client defined stays applicable for the mailbox
+    it('keeps listing a keyword after the last message with it is gone', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT Other',
+            'A3 APPEND Other ($Appended) {1}\r\na',
+            'A4 APPEND Other {1}\r\nb',
+            'A5 STORE 2 +FLAGS ($Stored)',
+            'A6 STORE 1:2 FLAGS (\\Deleted)',
+            'A7 EXPUNGE',
+            'A8 SELECT Other',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            const select = resp.slice(resp.indexOf('A7 OK'));
+            assert.match(select, /^\* FLAGS \(\\Answered \\Flagged \\Draft \\Deleted \\Seen \$Appended \$Stored\)\r$/m);
+            assert.match(select, /^\* OK \[PERMANENTFLAGS \(\\Answered \\Flagged \\Draft \\Deleted \\Seen \$Appended \$Stored \\\*\)\]/m);
+            assert.match(select, /^\* 0 EXISTS\r$/m);
+            done();
+        });
+    });
+
     it('Failed SELECT returns NO and leaves no mailbox selected', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SELECT missing', 'A4 FETCH 1 FLAGS', 'ZZ LOGOUT'];
 
