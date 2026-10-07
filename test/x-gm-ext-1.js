@@ -140,17 +140,35 @@ describe('Hoodiecrow tests', () => {
             done();
         });
     });
-});
 
-describe('X-GM-MSGID with shared storage', () => {
-    it('does not reuse values already in storage', () => {
-        const storage = { INBOX: { messages: [{ raw: 'Subject: a\r\n\r\na' }] } };
-        hoodiecrow({ plugins: ['X-GM-EXT-1'], storage });
-        storage.INBOX.messages.push({ raw: 'Subject: b\r\n\r\nb' });
-        const second = hoodiecrow({ plugins: ['X-GM-EXT-1'], storage });
-        const message = second.appendMessage('INBOX', [], false, 'Subject: c\r\n\r\nc').message;
-        const ids = second.getMailbox('INBOX').messages.map(message => message['X-GM-MSGID']);
-        assert.strictEqual(new Set(ids).size, 3);
-        assert.strictEqual(message['X-GM-MSGID'], '1278455344230334868');
+    it('X-GM-THRID', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 FETCH 1 (X-GM-MSGID X-GM-THRID)', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            const match = resp.match(/\* 1 FETCH \(X-GM-MSGID (\d+) X-GM-THRID (\d+)\)/);
+            assert.ok(match, resp);
+            // without threading data a message is its own thread
+            assert.strictEqual(match[1], match[2]);
+
+            ctx.run(['B1 LOGIN testuser testpass', 'B2 SELECT INBOX', 'B3 SEARCH X-GM-THRID ' + match[2]], resp => {
+                resp = resp.toString();
+                assert.ok(/^\* SEARCH 1\r$/m.test(resp), resp);
+                done();
+            });
+        });
+    });
+
+    describe('X-GM-MSGID with shared storage', () => {
+        it('does not reuse values already in storage', () => {
+            const storage = { INBOX: { messages: [{ raw: 'Subject: a\r\n\r\na' }] } };
+            hoodiecrow({ plugins: ['X-GM-EXT-1'], storage });
+            storage.INBOX.messages.push({ raw: 'Subject: b\r\n\r\nb' });
+            const second = hoodiecrow({ plugins: ['X-GM-EXT-1'], storage });
+            const message = second.appendMessage('INBOX', [], false, 'Subject: c\r\n\r\nc').message;
+            const ids = second.getMailbox('INBOX').messages.map(message => message['X-GM-MSGID']);
+            assert.strictEqual(new Set(ids).size, 3);
+            assert.strictEqual(message['X-GM-MSGID'], '1278455344230334868');
+        });
     });
 });
