@@ -572,6 +572,25 @@ describe('ACL', () => {
 });
 
 describe('ACL options', () => {
+    describe('with OAUTHBEARER', () => {
+        const ctx = setupServer(() => ({
+            plugins: ['ACL', 'OAUTHBEARER', 'SASL-IR'],
+            users: Object.assign(users(), { testuser: { password: 'testpass', xoauth2: { accessToken: 'ownertoken' } } }),
+            storage: storage()
+        }));
+
+        // the user of a SASL login is the ACL identity, like for LOGIN
+        it('gives the owner all rights after AUTHENTICATE OAUTHBEARER', (t, done) => {
+            const response = Buffer.from('n,a=testuser,\x01auth=Bearer ownertoken\x01\x01').toString('base64');
+            ctx.run(['A1 AUTHENTICATE OAUTHBEARER ' + response, 'A2 MYRIGHTS Secret', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.match(resp, /^A1 OK /m);
+                assert.match(resp, /^\* MYRIGHTS Secret lrswipkxteacd\r$/m);
+                done();
+            });
+        });
+    });
+
     describe('with UNAUTHENTICATE', () => {
         let seen = null;
         // records the session state when the command after UNAUTHENTICATE is answered
