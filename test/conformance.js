@@ -442,3 +442,31 @@ describe('Strict SASL handling', () => {
     // RFC 2177 section 3: IDLE is ended by "DONE" only
     it('IDLE ended by something else than DONE', run(['A1 LOGIN testuser testpass', 'A2 IDLE', 'NOOP'], { A2: 'BAD' }));
 });
+
+describe('Strict ACL handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['ACL']
+    }));
+
+    const run = (commands, expected) => (t, done) => {
+        ctx.run([...commands, 'ZZ LOGOUT'], resp => {
+            resp = resp.toString('binary');
+            for (const tag of Object.keys(expected)) {
+                const match = resp.match(new RegExp('^' + tag + ' (OK|NO|BAD)\\b', 'm'));
+                assert.ok(match, 'no tagged response for ' + tag + '\n' + resp);
+                assert.strictEqual(match[1], expected[tag], tag + ' answered ' + match[1] + '\n' + resp);
+            }
+            done();
+        });
+    };
+
+    // RFC 4314 section 7: the ACL commands are command-auth
+    it('ACL commands before login', run(['A1 GETACL INBOX', 'A2 MYRIGHTS INBOX', 'A3 SETACL INBOX bob l'], { A1: 'BAD', A2: 'BAD', A3: 'BAD' }));
+    // RFC 4314 section 3.1: an unrecognized right MUST cause BAD
+    it('SETACL with an uppercase right', run([LOGIN, 'A1 SETACL INBOX bob lR'], { A1: 'BAD' }));
+    it('SETACL with an unknown right', run([LOGIN, 'A1 SETACL INBOX bob +lz'], { A1: 'BAD' }));
+    // RFC 4314 section 3: an identifier that can not be prepared, or is empty, is refused with BAD
+    it('SETACL with an empty identifier', run([LOGIN, 'A1 SETACL INBOX "" l'], { A1: 'BAD' }));
+    // RFC 4314 section 7: myrights = "MYRIGHTS" SP mailbox
+    it('MYRIGHTS with an extra argument', run([LOGIN, 'A1 MYRIGHTS INBOX x'], { A1: 'BAD' }));
+});

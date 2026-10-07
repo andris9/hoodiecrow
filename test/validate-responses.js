@@ -30,7 +30,11 @@ describe('Response grammar guardrail', () => {
         '* METADATA INBOX (/private/comment {4}\r\na\r\nb)\r\n',
         '* METADATA INBOX /shared/comment /private/comment\r\n',
         'A1 OK [METADATA LONGENTRIES 2199] done\r\n',
-        'A1 NO [METADATA MAXSIZE 1024] too big\r\nA2 NO [METADATA TOOMANY] too many\r\nA3 NO [METADATA NOPRIVATE] no private\r\n'
+        'A1 NO [METADATA MAXSIZE 1024] too big\r\nA2 NO [METADATA TOOMANY] too many\r\nA3 NO [METADATA NOPRIVATE] no private\r\n',
+        '* ACL "INBOX" "testuser" "lrswipkxteacd" "bob" "lr"\r\n',
+        '* ACL INBOX\r\n',
+        '* LISTRIGHTS INBOX bob "" l r s w i p k x t e a c d\r\n',
+        '* MYRIGHTS INBOX lr\r\n'
     ];
 
     valid.forEach(transcript => {
@@ -91,7 +95,13 @@ describe('Response grammar guardrail', () => {
         ['* METADATA INBOX (/shared/comment NIL) /x\r\n', /pairs/],
         ['* METADATA INBOX comment\r\n', /invalid entry list/],
         ['A1 OK [METADATA LONGENTRIES] done\r\n', /METADATA response code/],
-        ['A1 NO [METADATA TOOBIG] done\r\n', /METADATA response code/]
+        ['A1 NO [METADATA TOOBIG] done\r\n', /METADATA response code/],
+        ['* ACL INBOX bob\r\n', /number of arguments/],
+        ['* ACL INBOX bob LR\r\n', /lowercase/],
+        ['* MYRIGHTS INBOX\r\n', /number of arguments/],
+        ['* MYRIGHTS INBOX (lr)\r\n', /must be strings/],
+        ['* LISTRIGHTS INBOX bob\r\n', /number of arguments/],
+        ['* LISTRIGHTS INBOX bob "" l+\r\n', /lowercase/]
     ];
 
     invalid.forEach(([transcript, error]) => {

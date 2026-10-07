@@ -16,7 +16,8 @@ const CR = 0x0d;
 
 // Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
-// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464), SORT and THREAD (RFC 5256), QUOTA and QUOTAROOT (RFC 9208). "X" prefixed names are
+// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464), SORT and THREAD (RFC 5256), QUOTA and QUOTAROOT (RFC 9208),
+// ACL, LISTRIGHTS and MYRIGHTS (RFC 4314). "X" prefixed names are
 // experimental extensions (RFC 3501 section 6.5.1 allows X commands, and their responses).
 const UNTAGGED = new Set([
     'OK',
@@ -39,8 +40,14 @@ const UNTAGGED = new Set([
     'SORT',
     'THREAD',
     'QUOTA',
-    'QUOTAROOT'
+    'QUOTAROOT',
+    'ACL',
+    'LISTRIGHTS',
+    'MYRIGHTS'
 ]);
+
+// RFC 4314 section 7: rights = astring, only lowercase ASCII letters and digits are allowed
+const RIGHTS_RE = /^[a-z0-9]*$/;
 
 // RFC 3501 section 9: message-data uses nz-number, EXISTS and RECENT use number
 const NUMERIC = {
@@ -364,6 +371,29 @@ function checkResponse(response, parsed) {
         if (!attrs.length || !attrs.every(isString)) {
             fail('QUOTAROOT response must have a mailbox name and quota root names', response.text);
         }
+    }
+
+    if (name === 'ACL' || name === 'LISTRIGHTS' || name === 'MYRIGHTS') {
+        // RFC 4314 section 7: acl-data = "ACL" SP mailbox *(SP identifier SP rights),
+        // listrights-data = "LISTRIGHTS" SP mailbox SP identifier SP rights *(SP rights),
+        // myrights-data = "MYRIGHTS" SP mailbox SP rights. All of them are astrings
+        const attrs = parsed.attributes || [];
+        if (attrs.some(attr => !attr || Array.isArray(attr) || ['ATOM', 'STRING', 'LITERAL'].indexOf(attr.type) < 0)) {
+            fail(name + ' response arguments must be strings', response.text);
+        }
+        const valid = {
+            ACL: attrs.length % 2 === 1,
+            LISTRIGHTS: attrs.length >= 3,
+            MYRIGHTS: attrs.length === 2
+        }[name];
+        if (!valid) {
+            fail(name + ' response has the wrong number of arguments', response.text);
+        }
+        const rights = name === 'ACL' ? attrs.filter((attr, i) => i && i % 2 === 0) : attrs.slice(name === 'MYRIGHTS' ? 1 : 2);
+        if (rights.some(attr => !RIGHTS_RE.test(String(attr.value)))) {
+            fail(name + ' response rights may only hold lowercase letters and digits', response.text);
+        }
+        return;
     }
 
     if (name === 'SEARCH') {

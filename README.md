@@ -58,7 +58,7 @@ See [complete.js](https://github.com/postalsys/hoodiecrow-imap/blob/master/examp
 
 Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write integration tests for clients in a way where a new fresh server with unmodified data is started for every test.
 
-Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different.
+Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different. The ACL plugin can limit what users other than the owner can do (see [ACL](#acl)).
 
 Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
 
@@ -83,6 +83,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - unknown `SEARCH RETURN` options or `RETURN` after `CHARSET` (RFC 4466 section 2.6.1), `$` combined with numbers, and `SEARCH MODSEQ` values or entry names that break the RFC 7162 grammar
 - extended LIST commands (RFC 5258) with unknown options, `RECURSIVEMATCH` without a base option like `SUBSCRIBED` (also `(SPECIAL-USE RECURSIVEMATCH)`, RFC 6154 section 6), an empty pattern list, options with values they do not take, a repeated `STATUS` return option with different items, and invalid `STATUS` items (RFC 5819)
 - METADATA entry names that break RFC 5464 section 3.2 (`//`, a trailing `/`, `*`, `%`, 8-bit or control characters, a scope other than `/private` or `/shared`), values that are atoms or use bare CR or LF as line ends, empty entry or option lists, and GETMETADATA options after the mailbox name (errata 2785)
+- unknown or uppercase ACL rights, and empty identifiers or identifiers with control characters or invalid UTF-8 (RFC 4314 section 3)
 
 Responses follow the grammar strictly too: strings that can not be quoted are sent as literals.
 
@@ -104,6 +105,7 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
 Plugin names are case insensitive and capability spellings like `LITERAL+` or `AUTH=PLAIN` are accepted too.
 An unknown plugin name throws an error, and a plugin listed more than once is loaded only once.
 
+- **ACL** Adds ACL [RFC4314] capability with `RIGHTS=texk` (SETACL, DELETEACL, GETACL, LISTRIGHTS and MYRIGHTS). See [ACL](#acl) below
 - **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
 - **COMPRESS** Adds COMPRESS=DEFLATE [RFC4978] capability. Raw DEFLATE in both directions after the tagged OK, every burst of responses ends with a sync flush
 - **CONDSTORE** Adds CONDSTORE [RFC7162] support, including the `SEARCH MODSEQ` search key
@@ -141,6 +143,29 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is supported: every message is its own thread unless the storage sets an `X-GM-THRID` value for it. `X-GM-RAW` is not supported.
 - **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
 - **XTOYBIRD** Custom plugin to allow programmatic control of the server. XTOYBIRD commands are only allowed after login
+
+## ACL
+
+All users share the same mailbox tree. With the ACL plugin, the owner (server option `aclOwner`, `"testuser"` by default) has every right on every mailbox, and every other user only gets the rights that the ACL of a mailbox grants to their user name or to `anyone`, minus the negative rights of `-username` and `-anyone` (RFC 4314 section 2). ACLs come from the `acl` property of a mailbox in the storage, or from SETACL:
+
+```json
+{
+    "INBOX": { "acl": { "otheruser": "lrs", "anyone": "l" } },
+    "": { "folders": { "Shared": { "acl": { "otheruser": "lrswikte", "-otheruser": "t" } } } }
+}
+```
+
+The rights of other users are enforced as RFC 4314 section 4 describes:
+
+- LIST and LSUB leave out mailboxes without `l`. SELECT, EXAMINE and STATUS need `r`, SUBSCRIBE needs `l`
+- a mailbox is opened READ-ONLY without any of `i`, `e`, `s`, `w` and `t`, and PERMANENTFLAGS only lists the flags the user can change
+- STORE changes only the flags the user has rights for (`s` for `\Seen`, `t` for `\Deleted`, `w` for the others) and answers `NO [NOPERM]` if it could change none of them; a FETCH without `s` does not set `\Seen`
+- APPEND and COPY need `i` on the target and keep only the flags the user has rights for. MOVE also needs `t` and `e` on the source (RFC 6851 section 4.2)
+- EXPUNGE needs `e`, CLOSE without `e` closes the mailbox without expunging
+- CREATE needs `k` on the nearest existing parent (so other users can not create top level mailboxes), DELETE needs `x`, RENAME needs `x` on the mailbox and `k` on the new parent
+- GETACL, SETACL, DELETEACL and LISTRIGHTS need `a`, MYRIGHTS needs any of `l`, `r`, `i`, `k`, `x`, `a`
+
+Missing rights are answered with `NO [NOPERM]`, or with the same error as for a mailbox that does not exist when the user does not have `l` either, so the existence of the mailbox is not disclosed (RFC 4314 section 6). The rights on the selected mailbox are taken when it is selected. A new mailbox inherits the ACL of its parent and DELETE removes the ACL. The obsolete `c` and `d` rights are accepted as `kx` and `et` and are added to ACL and MYRIGHTS responses (RFC 4314 section 2.1.1). The rights of the owner can not be changed.
 
 ## Existing XTOYBIRD commands
 
