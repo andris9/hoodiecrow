@@ -281,6 +281,47 @@ describe('Strict METADATA handling', () => {
     defineCases(ctx, METADATA_CASES);
 });
 
+// COMPRESS (RFC 4978), UNAUTHENTICATE (RFC 8437), OAUTHBEARER (RFC 7628) and LITERAL- (RFC 7888)
+const OAUTHBEARER_IR = Buffer.from('n,a=testuser,\x01auth=Bearer testtoken\x01\x01').toString('base64');
+const CONNECTION_CASES = [
+    // RFC 4978 section 5: compress = "COMPRESS" SP algorithm, a command-auth
+    ['COMPRESS before login', 'none', ['A1 COMPRESS DEFLATE'], { A1: 'BAD' }],
+    ['COMPRESS without a mechanism', 'auth', ['A1 COMPRESS'], { A1: 'BAD' }],
+    ['COMPRESS with an unknown mechanism', 'auth', ['A1 COMPRESS GZIP'], { A1: 'BAD' }],
+    ['COMPRESS with a quoted mechanism', 'auth', ['A1 COMPRESS "DEFLATE"'], { A1: 'BAD' }],
+    ['COMPRESS with two arguments', 'auth', ['A1 COMPRESS DEFLATE DEFLATE'], { A1: 'BAD' }],
+    // RFC 8437 section 6: UNAUTHENTICATE takes no arguments, a command-auth and command-select
+    ['UNAUTHENTICATE before login', 'none', ['A1 UNAUTHENTICATE'], { A1: 'BAD' }],
+    ['UNAUTHENTICATE with arguments', 'selected', ['A1 UNAUTHENTICATE x'], { A1: 'BAD' }],
+    ['UNAUTHENTICATE when selected', 'selected', ['A1 UNAUTHENTICATE'], { A1: 'OK' }],
+    // RFC 7628 section 3.1 and RFC 5801 section 4
+    ['AUTHENTICATE OAUTHBEARER after login', 'auth', ['A1 AUTHENTICATE OAUTHBEARER ' + OAUTHBEARER_IR], { A1: 'BAD' }],
+    [
+        'AUTHENTICATE OAUTHBEARER without a GS2 header',
+        'none',
+        ['A1 AUTHENTICATE OAUTHBEARER ' + Buffer.from('auth=Bearer x\x01\x01').toString('base64')],
+        { A1: 'BAD' }
+    ],
+    ['AUTHENTICATE OAUTHBEARER', 'none', ['A1 AUTHENTICATE OAUTHBEARER ' + OAUTHBEARER_IR], { A1: 'OK' }],
+    // RFC 7888 section 5: non-synchronizing literals larger than 4096 octets with LITERAL-
+    ['non-synchronizing literal over 4096 octets', 'auth', ['A1 APPEND INBOX {4097+}\r\n' + 'x'.repeat(4097)], { A1: 'BAD' }],
+    ['non-synchronizing literal of 4096 octets', 'auth', ['A1 APPEND INBOX {4096+}\r\n' + 'x'.repeat(4096)], { A1: 'OK' }]
+];
+
+describe('Strict COMPRESS, UNAUTHENTICATE, OAUTHBEARER and LITERAL- handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['COMPRESS', 'UNAUTHENTICATE', 'OAUTHBEARER', 'SASL-IR', 'LITERAL-'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, CONNECTION_CASES);
+});
+
 describe('Literal synchronization', () => {
     const ctx = setupServer();
 

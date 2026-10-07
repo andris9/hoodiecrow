@@ -14,6 +14,7 @@ const { EventEmitter } = require('node:events');
 const { parseArgs } = require('node:util');
 const hoodiecrow = require('../lib/server');
 const { splitAtLiterals } = require('../lib/framing');
+const DeflateLayer = require('../lib/deflate-layer');
 
 const DEFAULT_STORAGE = path.join(__dirname, 'storage.json');
 
@@ -191,12 +192,16 @@ class Session extends EventEmitter {
         this._buffer = Buffer.alloc(0);
         this._current = [];
         this._literalRemaining = 0;
+        // COMPRESS=DEFLATE layer (RFC 4978), once the server accepted COMPRESS
+        this.layer = null;
+        // tag of a COMPRESS DEFLATE command waiting for its result
+        this._compressTag = null;
     }
 
     connect(host, port, timeout) {
         return new Promise((resolve, reject) => {
             this.socket = net.connect(port, host);
-            this.socket.on('data', chunk => this._onData(chunk));
+            this.socket.on('data', chunk => (this.layer ? this.layer.receive(chunk) : this._onData(chunk)));
             this.socket.on('close', () => {
                 this.closed = true;
                 this.emit('close');
@@ -248,6 +253,12 @@ class Session extends EventEmitter {
             const response = Buffer.concat(this._current);
             this._current = [];
             this.responses.push(response.subarray(0, response.length - 2));
+            if (this._compressTag && response.toString('latin1').startsWith(this._compressTag + ' ')) {
+                this._compressTag = null;
+                if (/^\S+ OK/i.test(response.toString('latin1'))) {
+                    this._startCompression();
+                }
+            }
             if (this.openTag && response.toString('latin1').startsWith(this.openTag + ' ')) {
                 this.openTag = null;
             }
@@ -288,7 +299,7 @@ class Session extends EventEmitter {
         tag = tag || this.openTag;
         if (!tag) {
             if (!this.closed) {
-                this.socket.write(payload);
+                this._write(payload);
             }
             return this.closed ? 'connection closed' : null;
         }
@@ -304,7 +315,10 @@ class Session extends EventEmitter {
                 continued = str.startsWith('+');
                 return continued || str.startsWith(tag + ' ');
             }, timeout);
-            this.socket.write(chunks[i]);
+            if (/^\S+ COMPRESS DEFLATE\r\n$/i.test(chunks[i])) {
+                this._compressTag = tag;
+            }
+            this._write(chunks[i]);
             const found = await wait;
 
             if (!found) {
@@ -321,7 +335,32 @@ class Session extends EventEmitter {
         return null;
     }
 
+    _write(data) {
+        if (this.layer) {
+            this.layer.write(Buffer.from(data));
+        } else {
+            this.socket.write(data);
+        }
+    }
+
+    // everything after the CRLF of the tagged OK is compressed in both directions (RFC 4978 section 3)
+    _startCompression() {
+        const rest = this._buffer;
+        this._buffer = Buffer.alloc(0);
+        this.layer = new DeflateLayer({
+            writeRaw: chunk => this.socket.write(chunk),
+            onData: chunk => this._onData(chunk),
+            onError: () => this.socket.destroy()
+        });
+        if (rest.length) {
+            this.layer.receive(rest);
+        }
+    }
+
     close() {
+        if (this.layer) {
+            this.layer.destroy();
+        }
         if (this.socket) {
             this.socket.destroy();
         }

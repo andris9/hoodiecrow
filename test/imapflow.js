@@ -36,7 +36,10 @@ const ALL_PLUGINS = [
     'THREAD=REFERENCES',
     'QUOTA',
     'OBJECTID',
-    'SAVEDATE'
+    'SAVEDATE',
+    'COMPRESS',
+    'OAUTHBEARER',
+    'UNAUTHENTICATE'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -236,6 +239,31 @@ describe('ImapFlow', () => {
             assert.deepStrictEqual(client.namespace, { prefix: '', delimiter: '/' });
             await client.logout();
             assert.ok(!client.usable);
+        });
+
+        // ImapFlow turns on compression after login when COMPRESS=DEFLATE is advertised (RFC 4978),
+        // so every test in this block runs compressed
+        it('compresses the session with COMPRESS=DEFLATE', async () => {
+            const client = await connect(ctx);
+            assert.ok(log.includes('COMPRESS OK'), log.join(', '));
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+        });
+
+        // RFC 7628, ImapFlow prefers OAUTHBEARER for an access token
+        it('authenticates with AUTHENTICATE OAUTHBEARER', async () => {
+            const client = await connect(ctx, { auth: { user: 'testuser', accessToken: 'testtoken' } });
+            assert.ok(client.authenticated);
+            assert.ok(log.includes('AUTHENTICATE OAUTHBEARER OK'), log.join(', '));
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+        });
+
+        // RFC 7628 section 3.2.2: the client gets the JSON error result and answers with %x01
+        it('rejects a wrong access token with an OAuth error result', async () => {
+            const client = createClient(ctx, { auth: { user: 'testuser', accessToken: 'wrong' } });
+            await assert.rejects(client.connect(), err => err.authenticationFailed === true && err.oauthError && err.oauthError.status === 'invalid_token');
+            assert.ok(log.includes('AUTHENTICATE OAUTHBEARER NO'), log.join(', '));
         });
 
         it('rejects wrong credentials', async () => {
@@ -736,6 +764,27 @@ describe('ImapFlow', () => {
             assert.deepStrictEqual(quota.message, { usage: 3, limit: 10, status: '30%' });
             assert.strictEqual(quota.storage.limit, 100 * 1024);
             assert.ok(quota.storage.usage > 0);
+        });
+    });
+
+    // RFC 7888 section 5: ImapFlow sends non-synchronizing literals only up to 4096 octets
+    describe('with LITERAL-', () => {
+        const log = [];
+        const ctx = setupServer(() => {
+            log.length = 0;
+            return { plugins: ['LITERAL-', 'UIDPLUS', recorder(log)], storage: storage() };
+        });
+
+        it('appends small and large messages', async () => {
+            const client = await connect(ctx);
+            assert.ok(client.capabilities.has('LITERAL-'));
+            const small = 'Subject: small\r\n\r\nsmall\r\n';
+            const large = 'Subject: large\r\n\r\n' + 'x'.repeat(10000) + '\r\n';
+            await client.append('INBOX', small);
+            await client.append('INBOX', large);
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 5);
+            assert.ok(!log.some(entry => / BAD$/.test(entry)), log.join(', '));
         });
     });
 
