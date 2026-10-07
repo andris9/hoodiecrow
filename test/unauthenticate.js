@@ -24,7 +24,7 @@ function storage() {
 
 describe('UNAUTHENTICATE', () => {
     const ctx = setupServer(() => ({
-        plugins: ['UNAUTHENTICATE', 'AUTH-PLAIN', 'SASL-IR', 'ENABLE', 'CONDSTORE', 'COMPRESS', 'IDLE'],
+        plugins: ['UNAUTHENTICATE', 'AUTH-PLAIN', 'SASL-IR', 'ENABLE', 'CONDSTORE', 'COMPRESS', 'IDLE', 'SEARCHRES'],
         storage: storage()
     }));
 
@@ -121,6 +121,27 @@ describe('UNAUTHENTICATE', () => {
                 done();
             }
         );
+    });
+
+    // RFC 8437 section 4.1: saved search results are discarded, "$" is the empty set. SELECT resets
+    // the result as well, so the state is checked on the connection itself
+    it('discards the SEARCHRES result', (t, done) => {
+        openSession(ctx.server.address().port, session => {
+            session.run('A1 LOGIN testuser testpass', () => {
+                session.run('A2 SELECT INBOX', () => {
+                    session.run('A3 SEARCH RETURN (SAVE) ALL', () => {
+                        const [connection] = ctx.server.connections;
+                        assert.strictEqual(connection.searchResult.size, 2);
+                        session.run('A4 UNAUTHENTICATE', resp => {
+                            assert.match(resp, /^A4 OK /m);
+                            assert.strictEqual(connection.searchResult, null);
+                            session.close();
+                            done();
+                        });
+                    });
+                });
+            });
+        });
     });
 
     // RFC 8437 section 3: without a security layer UNAUTHENTICATE may be pipelined with AUTHENTICATE
