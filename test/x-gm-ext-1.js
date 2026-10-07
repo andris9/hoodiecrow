@@ -281,6 +281,8 @@ describe('X-GM-EXT-1 labels and search', () => {
             'before:2021/01/01': '2',
             'after:2021-01-01': '1',
             'in:anywhere': '1 2',
+            ' hello  ': '1',
+            '-subject:\\"hello world\\"': '2',
             'label:Muy': '',
             'http://example.com': ''
         };
