@@ -165,6 +165,25 @@ describe('Mailbox targets', () => {
         });
     });
 
+    it('APPEND refuses flags that can not be stored', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 APPEND Target (\\Recent) {3}\r\nabc',
+            'A3 APPEND Target ("a b") {3}\r\nabc',
+            'A4 APPEND Target (\\Seen $Label) {3}\r\nabc',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\nA2 BAD') >= 0);
+            assert.ok(resp.indexOf('\r\nA3 BAD') >= 0);
+            assert.ok(resp.indexOf('\r\nA4 OK') >= 0);
+            assert.deepStrictEqual(ctx.server.getMailbox('Target').messages[0].flags, ['\\Seen', '$Label']);
+            done();
+        });
+    });
+
     it('APPEND to a missing mailbox returns TRYCREATE', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 APPEND missing {3}\r\nabc', 'ZZ LOGOUT'];
 

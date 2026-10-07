@@ -18,7 +18,7 @@ Usage: hoodiecrow [OPTS]
   --config=<config>        Path to config JSON file
   --plugin=<plugin>        Enables a plugin for the server. See below for
                            available plugins.
-  --smtpPort=<port>        Port numbr for incoming SMTP server. If not set
+  --smtpPort=<port>        Port number for incoming SMTP server. If not set
                            SMTP server is not started.
 
 NB! If port or smtpPort values are below 1024 you most probably need to
@@ -42,6 +42,12 @@ Configuration file takes the following structure
     "debug": false,
     "secureConnection": false,
     "port": 143,
+    "maxLiteralSize": 67108864,
+    "users": {
+        "testuser": {
+            "password": "testpass"
+        }
+    },
     "id":{
         "name": "hoodecrow",
         "version": "__VERSION__",
@@ -54,7 +60,7 @@ INBOX has its own namespace.
 
 {
     "INBOX":{
-        "nextuid": 123,
+        "uidnext": 123,
         "messages": [
             {"raw": "Subject: Test\r\n\r\nHello world!"}
         ]
@@ -69,14 +75,16 @@ INBOX has its own namespace.
             }
         }
     },
-    "#news":{
-        type: "shared"
+    "#news/":{
+        "type": "shared"
     }
 }
 
-If not storage file is specified, an empty "INBOX" is used
+If no storage file is specified, an empty "INBOX" is used. If no users
+are configured, the only account is "testuser" with password "testpass".
+The storage and users objects are copied, so the files are never changed.
 
-Project homepage: http://hoodiecrow.com/
+Project homepage: https://github.com/postalsys/hoodiecrow-imap
 Report issues at: https://github.com/postalsys/hoodiecrow-imap/issues
 
 License: MIT

@@ -13,7 +13,8 @@ describe('Auth Plain disabled', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.ok(resp.indexOf(' AUTH=PLAIN') < 0);
-            assert.ok(resp.indexOf('\nA2 BAD') >= 0);
+            // an unsupported mechanism gets NO (RFC 3501 section 6.2.2)
+            assert.ok(resp.indexOf('\nA2 NO') >= 0);
             done();
         });
     });
