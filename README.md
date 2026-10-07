@@ -193,7 +193,7 @@ The rights of other users are enforced as RFC 4314 section 4 describes:
 - LIST and LSUB leave out mailboxes without `l`. SELECT, EXAMINE and STATUS need `r`, SUBSCRIBE needs `l`
 - a mailbox is opened READ-ONLY without any of `i`, `e`, `s`, `w` and `t`, and PERMANENTFLAGS only lists the flags the user can change
 - STORE changes only the flags the user has rights for (`s` for `\Seen`, `t` for `\Deleted`, `w` for the others) and answers `NO [NOPERM]` if it could change none of them; a FETCH without `s` does not set `\Seen`
-- APPEND and COPY need `i` on the target and keep only the flags the user has rights for. MOVE also needs `t` and `e` on the source (RFC 6851 section 4.2)
+- APPEND and COPY need `i` on the target and keep only the flags the user has rights for. MOVE also needs `t` and `e` on the source (RFC 6851 section 4.2), and so does REPLACE (RFC 8508 section 4.1). APPEND and REPLACE are refused before the message literal is sent, a target the user can not see like a missing one
 - EXPUNGE needs `e`, CLOSE without `e` closes the mailbox without expunging
 - CREATE needs `k` on the nearest existing parent (so other users can not create top level mailboxes), DELETE needs `x`, RENAME needs `x` on the mailbox and `k` on the new parent
 - GETACL, SETACL, DELETEACL and LISTRIGHTS need `a`, MYRIGHTS needs any of `l`, `r`, `i`, `k`, `x`, `a`
