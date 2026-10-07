@@ -202,7 +202,7 @@ export default function oauthbearerPlugin(server: IMAPServer) {
         if (!args.length) {
             // without an initial response the client sends its response after an empty challenge
             readResponse(connection, parsed, data, decoded => authenticate(connection, parsed, data, decoded));
-            connection.write('+ \r\n');
+            connection.sendContinuation('', 'AUTHENTICATE OAUTHBEARER');
             return callback();
         }
 

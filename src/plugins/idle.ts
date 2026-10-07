@@ -93,7 +93,7 @@ export default function idlePlugin(server: IMAPServer) {
                 }
             };
 
-            connection.write('+ idling\r\n');
+            connection.sendContinuation('idling', 'IDLE');
 
             connection.processNotifications();
 

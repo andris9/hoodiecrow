@@ -65,7 +65,7 @@ ImapKit is a single user, multiple connection IMAP server. Changes made over IMA
 
 Several clients can connect to the server simultaneously but all the clients share the same user account, even if login credentials are different. The ACL plugin can limit what users other than the owner can do (see [ACL](#acl)).
 
-ImapKit is extendable: any command can be overridden and plugins can be added (see [Creating custom plugins](#creating-custom-plugins), and `src/commands` and `src/plugins` for the built-in commands and plugins).
+ImapKit is extendable: any command can be overridden and plugins can be added (see [Creating custom plugins](#creating-custom-plugins), and `src/commands` and `src/plugins` for the built-in commands and plugins). To test a client against a broken or unusual server, [script rules](#scripted-faults) make the server misbehave at chosen points.
 
 ## Strict by design
 
@@ -395,6 +395,92 @@ describe('IMAP tests', () => {
 });
 ```
 
+## Scripted faults
+
+ImapKit is strict and correct by default. To test how a client copes with a server that is not, script rules make the server deviate from the protocol at chosen points: answer a command with a canned response, send a literal where a quoted string is expected, cut a response in the middle of a literal, delay or split output, or drop the connection. Rules come from the `script` server option (a rule or a list of rules), or are added at runtime with `server.script.add()`:
+
+```javascript
+const server = imapkit({
+    plugins: ['IDLE'],
+    script: [
+        // the first SELECT gets NO, the next ones run as usual
+        { on: 'command', command: 'SELECT', times: 1, send: '$TAG NO [UNAVAILABLE] Try again later\r\n' },
+        // the body of message 1 is cut short and the connection dropped
+        { on: 'response', command: 'FETCH', match: /^\* 1 FETCH .*BODY\[\]/, truncate: 40 }
+    ]
+});
+
+// a rule added later, it returns a handle
+const rule = server.script.add({
+    on: 'response',
+    command: 'FETCH',
+    untagged: true,
+    // strings in the response tree become literals, valid IMAP that a client must handle
+    mutate: response => {
+        const walk = list =>
+            list.forEach((node, i) => (Array.isArray(node) ? walk(node) : typeof node === 'string' && (list[i] = { type: 'LITERAL', value: node })));
+        walk(response.attributes);
+    }
+});
+// ... run the client
+assert.strictEqual(rule.hits, 1);
+rule.remove();
+```
+
+Every rule watches one event (`on`):
+
+- `greeting`: the `* OK` greeting of a new connection
+- `command`: a complete command line (with its literals) from the client. The rule acts instead of the parser and the command handler, so it also matches lines that do not parse and commands that do not exist. The rule is chosen when the line arrives (matchers like `state` see the session at that moment), and acts in the order of the commands, so pipelined responses stay in order
+- `input`: a line read by a command that takes over the input, like `DONE` of IDLE or a SASL response of AUTHENTICATE
+- `response`: every response the server sends with `connection.send()`, tagged and untagged, as the exact bytes that are about to go out, after every plugin and the core changed the response
+- `continuation`: a `+` continuation request (literals, IDLE, AUTHENTICATE)
+
+The matchers of a rule all have to match. Rules are checked in the order they were added, the first rule that matches and is not used up handles the event, so a later rule can handle what an earlier one leaves alone.
+
+| Matcher                    | Events                 | Matches                                                                                                                                                            |
+| -------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `command`                  | all but greeting       | the command name, or a list of names, case-insensitive (`'UID FETCH'`). An unsolicited response belongs to the command that runs, or that reads input (IDLE)       |
+| `tag`                      | all but greeting       | the command tag, a string or a RegExp                                                                                                                              |
+| `description`              | response, continuation | the description passed to `connection.send()`, or a list of them. Continuation requests are `LITERAL`, `IDLE`, `AUTHENTICATE PLAIN` and `AUTHENTICATE OAUTHBEARER` |
+| `untagged`                 | response               | `true` for untagged responses only, `false` for tagged ones                                                                                                        |
+| `session`                  | all                    | the number of the connection, or a list of numbers, 1 for the first connection the server accepted                                                                 |
+| `state`, `user`, `mailbox` | all                    | the session state (`'Not Authenticated'`, `'Authenticated'`, `'Selected'`), the authenticated user, the path of the selected mailbox                               |
+| `match`                    | all                    | a RegExp, or a string with a regular expression, tested against the command line or the output bytes (a binary string)                                             |
+| `when`                     | all                    | a function that gets the event context and returns true to match                                                                                                   |
+| `nth`                      | all                    | the rule fires from the nth matching event on (default 1)                                                                                                          |
+| `times`                    | all                    | the rule fires this many times at most, then lets later rules handle the event                                                                                     |
+
+The actions say what happens instead of the usual behavior. Strings are sent as they are (binary strings, one character per octet, or UTF-8 when they have characters above U+00FF) without an added CRLF, and `$TAG` in a string is replaced with the tag of the command. A Buffer is sent as it is, a function gets the event context and returns a string or a Buffer.
+
+| Action                | Events                 | Effect                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send`                | all                    | output events: bytes sent instead of the output. command and input: bytes sent instead of processing the line                                                                                                                                                                                                                                                                                                                                                  |
+| `run`                 | command, input         | process the line as usual after `send` (to add output before the real response)                                                                                                                                                                                                                                                                                                                                                                                |
+| `drop`                | all                    | output events: send nothing. command and input: ignore the line, the client gets no answer                                                                                                                                                                                                                                                                                                                                                                     |
+| `mutate`              | response, continuation | `(response, context)` gets a copy of the response object before it is compiled and changes it, or returns another one. Continuation requests have a response object only when a plugin sends them with `connection.send()` (the error challenges of XOAUTH2 and OAUTHBEARER), other events ignore `mutate`. A tagged response that does not compile then is sent as `NO [SERVERBUG]`, an untagged one is dropped. Use `send` for output that is not valid IMAP |
+| `before`, `after`     | output events          | bytes sent before or after the output, e.g. an unsolicited response                                                                                                                                                                                                                                                                                                                                                                                            |
+| `delay`               | all but input          | milliseconds to wait before the output goes out, all later output waits behind it. For a command, the wait before the rule acts or the command runs, later commands wait too                                                                                                                                                                                                                                                                                   |
+| `chunk`, `chunkDelay` | all                    | write the bytes in pieces of `chunk` octets, `chunkDelay` milliseconds apart (default 10)                                                                                                                                                                                                                                                                                                                                                                      |
+| `truncate`            | all                    | send only this many octets of the bytes, then close the connection                                                                                                                                                                                                                                                                                                                                                                                             |
+| `close`               | all                    | close the connection after the bytes are sent, `'reset'` destroys the socket instead (a TCP RST where the runtime supports it)                                                                                                                                                                                                                                                                                                                                 |
+
+A rule needs at least one action, and for command and input events `chunk` and `truncate` need `send`. A rule with only `delay` (and `run`) delays the line and then processes it as usual. Rules are checked when they are added: an unknown option, an option that does not apply to the event, or an invalid value throws a `TypeError`, so a typo can not turn into a rule that never fires.
+
+The event context, which `when`, `mutate` and `send` functions get, has `event`, `connection`, `session`, `state`, `user`, `mailbox`, `tag`, `command`, `data` (the command line or the output bytes, as a binary string), and for responses `description` and `response`.
+
+`server.script.add(rule)` returns a handle with `rule`, `matched` (events that matched the rule, also before `nth`), `hits` (events the rule handled) and `remove()`, `server.script.add([rules])` returns a list of handles. `server.script.rules` lists the handles in order, `server.script.clear()` removes every rule. The server emits a `script` event `{ rule, event, session, tag, command }` every time a rule fires.
+
+The `imapkit` command takes the rules as JSON with `--script=<path>` (or `IMAPKIT_SCRIPT`), or as `script` in the `--config` file. JSON rules use strings for `match` and `send`, functions (`when`, `mutate`, function values of `send`) work only from JavaScript:
+
+```json
+[
+    { "on": "greeting", "send": "* BYE Too many connections\r\n", "close": true, "times": 1 },
+    { "on": "response", "command": "FETCH", "untagged": true, "send": "* 1 FETCH (BODY[] {100}\r\nshort", "close": true }
+]
+```
+
+Faults change only the output and the handling of the lines a rule matches, the state of the server stays consistent: a LOGIN answered by a rule with `OK` does not log the session in, and a dropped EXPUNGE response still removes the message. COMPRESS works with delayed output, as the output keeps the compression layer it was sent with. Script rules are for tests only, a rule can send anything.
+
 ## Creating custom plugins
 
 A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.
@@ -588,6 +674,8 @@ server.resetHandlers.push(function (connection) {
 #### Override output
 
 Any response sent to the client can be overridden or cancelled by other handlers. You should append your handler to `server.outputHandlers` array. If something is being sent to the client, the response object is passed through all handlers in this array.
+
+Output handlers are meant for extensions that change valid responses. They run before the core finishes the response (response codes like `EXPUNGEISSUED`, mailbox names, the 7-bit status text) and before the compiler, which refuses output that is not valid IMAP. To make the server send something wrong on purpose, use [script rules](#scripted-faults) instead, they see the final bytes.
 
     server.outputHandlers.push(function(connection, /* arguments from connection.send */){})
 

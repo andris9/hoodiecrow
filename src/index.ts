@@ -18,6 +18,7 @@ export type {
     UserData,
     IMAPServerOptions
 } from './types.js';
+export type { ScriptRule, ScriptContext, ScriptEvent, ScriptBytes, ScriptHandle } from './script.js';
 
 // `imapkit(options)` creates a server. TAG_REGEX was a property of the CommonJS export, it and the
 // classes are properties of the factory with both module formats

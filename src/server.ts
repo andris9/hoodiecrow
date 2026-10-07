@@ -16,6 +16,8 @@ import { isSequenceSet } from './numbers.js';
 import { restoreNilAtoms } from './arguments.js';
 import { refuseMissingTarget } from './commands/append.js';
 import * as bundledCert from './cert.js';
+import { ServerScript, sendOutput, handleLine } from './script.js';
+import type { OutputOperation, ScriptContext, ScriptEvent, ScriptRule } from './script.js';
 import type {
     AppendCheck,
     AppendCheckOptions,
@@ -188,6 +190,10 @@ class IMAPServer extends Stream {
     declare uidvalidityCounter: number;
     declare subscriptions: Set<string>;
     declare folderCache: Record<string, Mailbox>;
+    /** scripted faults, see src/script.ts */
+    declare script: ServerScript;
+    /** connections accepted so far, the number of a connection is `connection.sessionNumber` */
+    declare sessionCounter: number;
 
     constructor(options?: IMAPServerOptions) {
         super();
@@ -269,6 +275,9 @@ class IMAPServer extends Stream {
         this.referenceNamespace = false;
         // the session whose command is running, see IMAPServer#notify
         this.activeConnection = null;
+        this.sessionCounter = 0;
+        // rules that make the server misbehave on purpose, from the script option or server.script.add()
+        this.script = new ServerScript(this, this.options.script);
 
         // users and storage are deep copied, so that runtime changes never leak into
         // the caller's objects or into other servers built from the same fixture.
@@ -1526,6 +1535,8 @@ class IMAPServer extends Stream {
 interface QueuedCommand {
     parsed: ParsedCommand;
     data: string;
+    /** a command line that a script rule handles instead of the parser and the command handler */
+    script?: { rule: ScriptRule; context: ScriptContext } | undefined;
 }
 
 class IMAPConnection {
@@ -1554,6 +1565,10 @@ class IMAPConnection {
     /** notifications are sent right away instead of before the next tagged response (IDLE) */
     declare directNotifications: boolean;
     declare notificationQueue: Notification[];
+    /** the number of the connection, 1 for the first one the server accepted (script rules match it) */
+    declare sessionNumber: number;
+    /** the tag and name of the command whose input handler reads the lines that follow (IDLE, AUTHENTICATE) */
+    declare inputCommand: { tag: string; command: string } | null | undefined;
 
     declare _remainder: string;
     declare _command: string;
@@ -1569,6 +1584,9 @@ class IMAPConnection {
     declare _skipCommand: boolean | undefined;
     declare _earlyLiteral: boolean | undefined;
     declare _pipelinedAfter: { command: string; read: number | undefined } | undefined;
+    /** output that waits behind a delay of a script rule, null when output is written right away */
+    declare _outputQueue: OutputOperation[] | null;
+    declare _outputTimer: ReturnType<typeof setTimeout> | null;
 
     constructor(server: IMAPServer, socket: net.Socket) {
         this.server = server;
@@ -1576,6 +1594,9 @@ class IMAPConnection {
         this.options = this.server.options;
 
         this.state = 'Not Authenticated';
+        this.sessionNumber = ++this.server.sessionCounter;
+        this._outputQueue = null;
+        this._outputTimer = null;
 
         this.secureConnection = !!this.options.secureConnection;
 
@@ -1616,7 +1637,7 @@ class IMAPConnection {
         this.server.on('notify', this._notificationCallback);
         this.server.connections.add(this);
 
-        this.write('* OK ImapKit ready for rumble\r\n');
+        this.scriptOutput('greeting', '* OK ImapKit ready for rumble\r\n', {});
     }
 
     /**
@@ -1626,11 +1647,138 @@ class IMAPConnection {
      */
     write(data: Buffer | string): void {
         const buffer = typeof data === 'string' ? Buffer.from(data, 'binary') : data;
-        if (this.transport) {
-            this.transport.write(buffer);
+        if (this._outputQueue) {
+            this._outputQueue.push({ data: buffer, transport: this.transport });
         } else {
-            this.writeRaw(buffer);
+            this.writeLayer(buffer, this.transport);
         }
+    }
+
+    /**
+     * Writes output, or puts it in the output queue while earlier output waits for a delay of a script rule.
+     * The transport layer is taken when the output is queued, so output from before COMPRESS is not compressed
+     *
+     * @param {Object} operation `{ data, delay, chunk, chunkDelay, close }`, see OutputOperation in src/script.ts
+     */
+    queueOutput(operation: OutputOperation): void {
+        if (!this._outputQueue && !operation.delay && !operation.chunk) {
+            if (operation.data) {
+                this.writeLayer(operation.data, this.transport);
+            }
+            if (operation.close) {
+                this.closeNow(operation.close);
+            }
+            return;
+        }
+        this._outputQueue = this._outputQueue || [];
+        this._outputQueue.push(Object.assign({}, operation, { transport: this.transport }));
+        if (!this._outputTimer) {
+            this.flushOutput();
+        }
+    }
+
+    /**
+     * Writes the output queue until it is empty or a delay stops it
+     */
+    flushOutput(): void {
+        const queue = this._outputQueue || [];
+        while (queue.length) {
+            const operation = queue[0] as OutputOperation;
+            if (operation.delay) {
+                const delay = operation.delay;
+                operation.delay = 0;
+                this._outputTimer = setTimeout(() => {
+                    this._outputTimer = null;
+                    this.flushOutput();
+                }, delay);
+                return;
+            }
+            if (operation.data && operation.chunk && operation.data.length > operation.chunk) {
+                // the rest waits for chunkDelay, like a delay of its own
+                this.writeLayer(operation.data.subarray(0, operation.chunk), operation.transport || null);
+                operation.data = operation.data.subarray(operation.chunk);
+                operation.delay = operation.chunkDelay;
+                continue;
+            }
+            if (operation.data) {
+                this.writeLayer(operation.data, operation.transport || null);
+            }
+            queue.shift();
+            if (operation.close) {
+                this.closeNow(operation.close);
+                return;
+            }
+        }
+        this._outputQueue = null;
+    }
+
+    /**
+     * Drops the output that waits for a delay of a script rule
+     */
+    clearOutputQueue(): void {
+        if (this._outputTimer) {
+            clearTimeout(this._outputTimer);
+            this._outputTimer = null;
+        }
+        this._outputQueue = null;
+    }
+
+    /**
+     * Writes output through a transport layer, or to the socket
+     *
+     * @param {Buffer} data Output
+     * @param {Object|null} transport Transport layer
+     */
+    writeLayer(data: Buffer, transport: Transport | null): void {
+        if (transport) {
+            transport.write(data);
+        } else {
+            this.writeRaw(data);
+        }
+    }
+
+    /**
+     * Sends output through the script rule that handles its event, if there is one
+     *
+     * @param {String} event Event name: greeting, response or continuation
+     * @param {String} output The output as a binary string
+     * @param {Object} fields Context fields of the event (tag, command, description, response)
+     * @param {Function} [compile] Compiles the response that a `mutate` action changed, null drops the output
+     */
+    scriptOutput(event: ScriptEvent, output: string, fields: Partial<ScriptContext>, compile?: (response: IMAPResponse) => string | null): void {
+        const found = this.server.script.check(this, event, Object.assign({}, fields, { data: output }));
+        if (!found) {
+            this.write(output);
+            return;
+        }
+        const { rule, context } = found;
+        if (rule.mutate && compile && context.response) {
+            // a copy, a notification object is shared by every session
+            const copy = cloneResponse(context.response);
+            const changed = compile(rule.mutate(copy, context) || copy);
+            if (changed === null) {
+                return;
+            }
+            context.data = changed;
+        }
+        sendOutput(this, rule, context, Buffer.from(context.data, 'binary'));
+    }
+
+    /**
+     * Sends a continuation request, `+ text`
+     *
+     * @param {String} text Human readable text, can be empty (SASL)
+     * @param {String} description Description for script rules
+     * @param {Function} [getLine] Returns the command line received so far, for the tag and the command of a literal continuation
+     */
+    sendContinuation(text: string, description: string, getLine?: () => string): void {
+        const output = '+ ' + text + '\r\n';
+        if (!this.server.script.watches('continuation')) {
+            this.write(output);
+            return;
+        }
+        const line = getLine ? getLine() : null;
+        this.scriptOutput('continuation', output, line === null ? { description } : { description, tag: getResponseTag(line), command: getLineCommand(line) });
     }
 
     /**
@@ -1662,12 +1810,36 @@ class IMAPConnection {
      * holds, is written out
      */
     end(): void {
+        if (this._outputQueue && this.socket) {
+            // output still waits for a delay of a script rule
+            this._closing = true;
+            this._outputQueue.push({ close: true });
+            return;
+        }
+        this.closeNow(true);
+    }
+
+    /**
+     * Closes the connection now, after the output written so far
+     *
+     * @param {Boolean|String} mode true ends the connection gracefully, "reset" destroys the socket (script rules)
+     */
+    closeNow(mode: boolean | 'reset'): void {
         const socket = this.socket;
         if (!socket) {
             return;
         }
         this._closing = true;
-        if (this.transport) {
+        this.clearOutputQueue();
+        if (mode === 'reset') {
+            this.discardInput();
+            // resetAndDestroy sends a TCP RST (Node 16.17), not every runtime has it
+            if (typeof socket.resetAndDestroy === 'function') {
+                socket.resetAndDestroy();
+            } else {
+                socket.destroy();
+            }
+        } else if (this.transport) {
             this.transport.end(() => socket.end());
         } else {
             socket.end();
@@ -1776,6 +1948,7 @@ class IMAPConnection {
             this.transport.destroy();
             this.transport = null;
         }
+        this.clearOutputQueue();
         this.server.removeListener('notify', this._notificationCallback);
         this.server.connections.delete(this);
     }
@@ -1789,6 +1962,21 @@ class IMAPConnection {
             this.socket?.end();
         } catch (E) {
             // socket is already gone
+        }
+    }
+
+    /**
+     * Passes a line to the input handler (IDLE, AUTHENTICATE), unless a script rule handles it
+     *
+     * @param {String} line Input line without CRLF
+     */
+    handleInput(line: string): void {
+        const inputHandler = this.inputHandler as (line: string) => void;
+        const found = this.server.script.check(this, 'input', { data: line });
+        if (found) {
+            handleLine(this, found.rule, found.context, () => inputHandler(line));
+        } else {
+            inputHandler(line);
         }
     }
 
@@ -1869,7 +2057,7 @@ class IMAPConnection {
                     this._earlyLiteral = false;
                     this.sendBad(getResponseTag(line), 'Literal data must wait for the continuation request', 'LITERAL TOO EARLY', line);
                 } else if (this.inputHandler) {
-                    this.inputHandler(line);
+                    this.handleInput(line);
                 } else {
                     this.scheduleCommand(line);
                 }
@@ -1927,7 +2115,9 @@ class IMAPConnection {
                     // before sending the octets of a synchronizing literal
                     this._earlyLiteral = true;
                 } else if (!this._earlyLiteral) {
-                    this.write('+ Go ahead\r\n');
+                    // the line is needed only by script rules that watch continuations
+                    const head = str.substr(0, match.index) + marker;
+                    this.sendContinuation('Go ahead', 'LITERAL', () => this._command + head);
                 }
             }
 
@@ -2012,12 +2202,7 @@ class IMAPConnection {
             return literal8 ? refuse('Literal8 is not allowed here') : false;
         }
 
-        // tag SP command, and for UID and AUTHENTICATE the word that follows
-        const words = line.match(/^[^ ]* ([^ ]*)(?: ([^ ]*))?/);
-        let command = ((words && words[1]) || '').toUpperCase();
-        if (command === 'UID' || command === 'AUTHENTICATE') {
-            command += ' ' + ((words && words[2]) || '').toUpperCase();
-        }
+        const command = getLineCommand(line);
 
         if (!COMMAND_REGEX.test(command) || !this.server.getCommandHandler(command)) {
             return refuse('Unknown command');
@@ -2501,6 +2686,36 @@ class IMAPConnection {
             }
         }
 
+        const compiled = this.compileResponse(response);
+        if (compiled === null) {
+            return;
+        }
+
+        const event = response.tag === '+' ? 'continuation' : 'response';
+        if (!this.server.script.watches(event)) {
+            this.write(compiled);
+            return;
+        }
+        // script rules see the response after every plugin and the core changed it. Without a command, an
+        // unsolicited response belongs to the command that runs or idles
+        this.scriptOutput(
+            event,
+            compiled,
+            Object.assign(
+                { description: description || null, response },
+                parsed && parsed.command ? { tag: parsed.tag || null, command: String(parsed.command).toUpperCase() } : {}
+            ),
+            output => this.compileResponse(output)
+        );
+    }
+
+    /**
+     * Compiles a response for the wire
+     *
+     * @param {Object} response Response object
+     * @return {String|null} the response with its CRLF as a binary string, or null for an untagged response that does not compile
+     */
+    compileResponse(response: IMAPResponse): string | null {
         let compiled;
         try {
             compiled = imapHandler.compiler(response, this.compilerOptions);
@@ -2510,16 +2725,14 @@ class IMAPConnection {
                 console.log('Failed to compile response: %s', (err as Error).message);
             }
             if (response.tag === '*') {
-                return;
+                return null;
             }
             compiled = response.tag + ' NO [SERVERBUG] Failed to compile response';
         }
-
         if (this.options.debug) {
             console.log('SEND: %s', compiled);
         }
-
-        this.write(compiled + '\r\n');
+        return compiled + '\r\n';
     }
 
     /**
@@ -2749,9 +2962,25 @@ class IMAPConnection {
         return path;
     }
 
-    scheduleCommand(data: string): void {
+    /**
+     * Parses a command line and queues the command, or answers it right away when it can not run
+     *
+     * @param {String} data Command line with its literals, without the final CRLF
+     * @param {Boolean} [scripted] The line comes from a script rule with `run`, it is next in the queue
+     */
+    scheduleCommand(data: string, scripted?: boolean): void {
         let parsed: ParsedCommand;
         const tag = getResponseTag(data);
+
+        // the rule is chosen when the line arrives, the state it matches is the state at that moment. The rule
+        // acts when the command's turn comes, so that its output keeps the order of the responses
+        const found =
+            !scripted && this.server.script.watches('command') ? this.server.script.check(this, 'command', { data, tag, command: getLineCommand(data) }) : null;
+        if (found) {
+            this._commandQueue.push({ parsed: { tag, command: found.context.command || '' } as ParsedCommand, data, script: found });
+            this.processQueue();
+            return;
+        }
 
         try {
             // server.parserOptions are the defaults of plugins, connection.parserOptions win
@@ -2814,10 +3043,13 @@ class IMAPConnection {
                 this.sendStatus(parsed, data, 'BAD', 'Commands with message sequence numbers must wait for the completion of earlier commands');
                 return;
             }
-            this._commandQueue.push({
-                parsed: parsed,
-                data: data
-            });
+            const element = { parsed, data };
+            if (scripted) {
+                // processQueue runs it once the script rule released the queue
+                this._commandQueue.unshift(element);
+            } else {
+                this._commandQueue.push(element);
+            }
             this.processQueue();
         } else if (/^AUTHENTICATE /i.test(parsed.command)) {
             // an unsupported mechanism is a NO, not a syntax error (RFC 3501 section 6.2.2)
@@ -2855,6 +3087,33 @@ class IMAPConnection {
         }
     }
 
+    /**
+     * Handles a command line with the script rule that matched it, after the rule's delay. With `run` the line
+     * goes through the parser and the command handler as usual afterwards
+     *
+     * @param {Object} element Queued command with the rule
+     * @param {Function} next Releases the queue
+     */
+    runScriptedCommand(element: QueuedCommand, next: () => void): void {
+        const { rule, context } = element.script as NonNullable<QueuedCommand['script']>;
+        const act = () => {
+            if (!this.socket || this._closing) {
+                return next();
+            }
+            handleLine(this, rule, context, () => {
+                // the line is not running yet, it must not count as an earlier command (RFC 3501 section 5.5)
+                this._runningCommand = null;
+                this.scheduleCommand(element.data, true);
+            });
+            next();
+        };
+        if (rule.delay) {
+            setTimeout(act, rule.delay);
+        } else {
+            act();
+        }
+    }
+
     processQueue(force?: boolean): void {
         if (!force && this._processing) {
             return;
@@ -2889,6 +3148,11 @@ class IMAPConnection {
                 this.processQueue(true);
             }
         };
+
+        if (element.script) {
+            this.runScriptedCommand(element, next);
+            return;
+        }
 
         if (options.states && options.states.indexOf(this.state) < 0) {
             this.sendStatus(element.parsed, element.data, 'BAD', stateError(command, this.state));
@@ -2944,7 +3208,12 @@ class IMAPConnection {
         try {
             // changes made while the handler runs are attributed to this session (the `origin` of notifications)
             this.server.activeConnection = this;
+            const inputHandler = this.inputHandler;
             (this.server.getCommandHandler(element.parsed.command) as CommandHandler)(this, element.parsed, element.data, next);
+            if (this.inputHandler && this.inputHandler !== inputHandler) {
+                // the command reads the lines that follow (IDLE, AUTHENTICATE), script rules match them with it
+                this.inputCommand = { tag: element.parsed.tag, command: element.parsed.command };
+            }
         } catch (E) {
             const ex = E as IMAPError;
             const badInput = ex.imapResponse === 'BAD';
@@ -3101,6 +3370,43 @@ class IMAPConnection {
             ignoreSelf || ignoreExists ? this : false
         );
     }
+}
+
+/**
+ * Copies a response tree for the `mutate` action of a script rule: arrays and plain objects are copied,
+ * other values (Buffers) are shared
+ *
+ * @param {*} value Response or a part of it
+ * @return {*} Copy
+ */
+function cloneResponse<T>(value: T): T {
+    if (Array.isArray(value)) {
+        return value.map(cloneResponse) as T;
+    }
+    if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+        const copy: Record<string, unknown> = {};
+        for (const key of Object.keys(value)) {
+            copy[key] = cloneResponse((value as Record<string, unknown>)[key]);
+        }
+        return copy as T;
+    }
+    return value;
+}
+
+/**
+ * Finds the command name in a command line that may not parse: tag SP command, and for UID and AUTHENTICATE
+ * the word that follows
+ *
+ * @param {String} line Command line
+ * @return {String} Command name in upper case, can be empty
+ */
+function getLineCommand(line: string): string {
+    const words = line.match(/^[^ ]* ([^ ]*)(?: ([^ ]*))?/);
+    let command = ((words && words[1]) || '').toUpperCase();
+    if (command === 'UID' || command === 'AUTHENTICATE') {
+        command += ' ' + ((words && words[2]) || '').toUpperCase();
+    }
+    return command;
 }
 
 /**

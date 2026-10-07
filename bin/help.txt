@@ -16,6 +16,9 @@ Usage: imapkit [OPTS]
   -d, --debug=true         Writes IMAP traffic to console
   --storage=<path>         Path to JSON file with the directory tree
   --config=<config>        Path to config JSON file
+  --script=<path>          Path to a JSON file with script rules that
+                           make the server misbehave on purpose (see
+                           "Scripted faults" below)
   --plugin=<plugin>        Enables a plugin for the server. See below for
                            available plugins.
   --smtpPort=<port>        Port number for incoming SMTP server. If not set
@@ -23,7 +26,7 @@ Usage: imapkit [OPTS]
 
 The options can also be set with environment variables: IMAPKIT_PORT,
 IMAPKIT_SECURE, IMAPKIT_DEBUG, IMAPKIT_STORAGE, IMAPKIT_CONFIG,
-IMAPKIT_PLUGINS (comma separated) and IMAPKIT_SMTPPORT.
+IMAPKIT_SCRIPT, IMAPKIT_PLUGINS (comma separated) and IMAPKIT_SMTPPORT.
 
 NB! If port or smtpPort values are below 1024 you most probably need to
 use sudo or run the command with administrator rights.
@@ -60,6 +63,29 @@ Configuration file takes the following structure
         "key": "value"
     }
 }
+
+Scripted faults
+---------------
+
+A script file holds a list of rules. Each rule watches one event
+("greeting", "command", "input", "response" or "continuation") and
+changes what the server does when its matchers fit. For example, this
+script answers the first FETCH with a literal that is too short and
+then drops the connection:
+
+[
+    {
+        "on": "response",
+        "command": "FETCH",
+        "untagged": true,
+        "times": 1,
+        "send": "* 1 FETCH (BODY[] {100}\r\nshort",
+        "close": true
+    }
+]
+
+Strings are sent as they are, "$TAG" stands for the command tag and
+"match" is a regular expression. See the README for every option.
 
 Storage file is a tree like structure starting with namespace values.
 INBOX has its own namespace.
