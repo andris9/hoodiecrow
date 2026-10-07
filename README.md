@@ -77,11 +77,13 @@ All commands are supported but might be a bit buggy
 Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running.
 All plugins are self contained and not tied to core. If you do not enable a plugin, no trace of it is left
 to the system. For example, if you do not enable CONDSTORE, messages do not have a MODSEQ value set.
+Plugin names are case insensitive and capability spellings like `LITERAL+` or `AUTH=PLAIN` are accepted too.
+An unknown plugin name throws an error, and a plugin listed more than once is loaded only once.
 
 - **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
-- **CONDSTORE** Partially implemented CONDSTORE [RFC4551] support
+- **CONDSTORE** Adds CONDSTORE [RFC7162] support (`SEARCH MODSEQ` is not supported)
 - **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
-- **ENABLE** Adds ENABLE capability [RFC5161]. Must be loaded before any plugin that requires ENABLE support (eg. CONDSTORE)
+- **ENABLE** Adds ENABLE capability [RFC5161]. Can be loaded in any order with the plugins it enables (eg. CONDSTORE)
 - **ID** Adds ID [RFC2971] capability
 - **IDLE** Adds IDLE [RFC2177] capability
 - **LITERALPLUS** Enables LITERAL+ [RFC2088] capability
