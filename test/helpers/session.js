@@ -30,6 +30,8 @@ function openSession(port, callback) {
             socket.write(data, 'binary');
         }
     };
+    // UTF-8 in quoted strings is valid once an earlier chunk enabled UTF8=ACCEPT
+    let utf8 = false;
 
     let pending = [];
 
@@ -62,7 +64,14 @@ function openSession(port, callback) {
                 }
                 compressTag = null;
                 // every chunk ends with a complete tagged response, so it can be validated on its own
-                validateThen(output, () => cb(output));
+                validateThen(
+                    output,
+                    responses => {
+                        utf8 = responses.utf8;
+                        cb(output);
+                    },
+                    { utf8 }
+                );
                 return;
             }
         }

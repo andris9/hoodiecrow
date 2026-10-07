@@ -1,0 +1,10 @@
+From: =?UTF-8?Q?J=C3=BCrgen?= <juergen@example.com>
+To: Ünicode User <ünicode@exämple.com>, Плохой <пример@пример.рф>
+Subject: Grüße aus Köln
+Date: Mon, 5 Oct 2026 10:00:00 +0000
+Message-ID: <utf8-1@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Hallo Grüße

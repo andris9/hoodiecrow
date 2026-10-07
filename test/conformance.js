@@ -18,7 +18,10 @@ const SELECT = 'L2 SELECT INBOX';
 const STATES = {
     none: [],
     auth: [LOGIN],
-    selected: [LOGIN, SELECT]
+    selected: [LOGIN, SELECT],
+    // RFC 9755: UTF8=ACCEPT enabled, needs the UTF8=ACCEPT plugin
+    utf8: [LOGIN, 'L3 ENABLE UTF8=ACCEPT'],
+    'utf8 selected': [LOGIN, 'L3 ENABLE UTF8=ACCEPT', SELECT]
 };
 
 // [description, state, commands, expected tagged results, strings that must not appear]
@@ -116,6 +119,8 @@ const CASES = [
     ['CREATE without the closing shift', 'auth', ['A1 CREATE "&Jjo!"'], { A1: 'BAD' }],
     ['CREATE with a superfluous shift', 'auth', ['A1 CREATE "&U,BTFw-&ZeVnLIqe-"'], { A1: 'BAD' }],
     ['CREATE with encoded ASCII', 'auth', ['A1 CREATE "&AGE-"'], { A1: 'BAD' }],
+    // RFC 3501 section 5.1.3 encodes 0x00-0x1f in modified BASE64, only RFC 9755 section 3 forbids control characters
+    ['CREATE with an encoded control character', 'auth', ['A1 CREATE "a&AA0-b"'], { A1: 'OK' }],
     ['CREATE with valid modified UTF-7', 'auth', ['A1 CREATE "&U,BTF2XlZyyKng-"', 'A2 CREATE "a&-b"'], { A1: 'OK', A2: 'OK' }],
     ['SELECT with invalid modified UTF-7', 'auth', ['A1 SELECT "&Jjo!"'], { A1: 'BAD' }],
     ['RENAME to invalid modified UTF-7', 'auth', ['A1 CREATE foo', 'A2 RENAME foo "&Jjo!"'], { A1: 'OK', A2: 'BAD' }],
@@ -326,6 +331,44 @@ describe('Strict COMPRESS, UNAUTHENTICATE, OAUTHBEARER and LITERAL- handling', (
     }));
 
     defineCases(ctx, CONNECTION_CASES);
+});
+
+// UTF8=ACCEPT (RFC 9755), checked with the UTF8=ACCEPT plugin loaded
+const UTF8_CASES = [
+    // section 3: once enabled, CHARSET conflicts with UTF-8 and SHOULD be refused with BAD
+    ['SEARCH with CHARSET after ENABLE UTF8=ACCEPT', 'utf8 selected', ['A1 SEARCH CHARSET UTF-8 SUBJECT x'], { A1: 'BAD' }],
+    ['SEARCH with UTF-8 text after ENABLE UTF8=ACCEPT', 'utf8 selected', ['A1 SEARCH SUBJECT "caf\xc3\xa9"'], { A1: 'OK' }],
+    // section 3: invalid UTF-8 in a quoted string MUST be rejected with BAD
+    ['quoted string with invalid UTF-8', 'utf8', ['A1 CREATE "caf\xe9"'], { A1: 'BAD' }],
+    // section 3: mailbox names MUST NOT contain control characters, LINE SEPARATOR or PARAGRAPH SEPARATOR
+    ['UTF-8 mailbox name with a C1 control character', 'utf8', ['A1 CREATE "a\xc2\x85b"'], { A1: 'BAD' }],
+    ['UTF-8 mailbox name with LINE SEPARATOR', 'utf8', ['A1 CREATE "a\xe2\x80\xa8b"'], { A1: 'BAD' }],
+    ['UTF-8 mailbox name after ENABLE UTF8=ACCEPT', 'utf8', ['A1 CREATE "caf\xc3\xa9"', 'A2 SELECT "caf\xc3\xa9"'], { A1: 'OK', A2: 'OK' }],
+    ['UTF-8 mailbox name without ENABLE UTF8=ACCEPT', 'auth', ['A1 CREATE "caf\xc3\xa9"'], { A1: 'BAD' }],
+    // section 3 applies to modified UTF-7 names too: CR, a C1 control and LINE SEPARATOR encoded in modified BASE64
+    ['modified UTF-7 mailbox name with an encoded CR', 'auth', ['A1 CREATE "a&AA0-b"'], { A1: 'BAD' }],
+    ['modified UTF-7 mailbox name with an encoded C1 control', 'auth', ['A1 SELECT "a&AIU-b"'], { A1: 'BAD' }],
+    ['modified UTF-7 mailbox name with an encoded LINE SEPARATOR', 'auth', ['A1 RENAME INBOX "a&ICg-b"'], { A1: 'BAD' }],
+    ['valid modified UTF-7 mailbox name with UTF8=ACCEPT', 'auth', ['A1 CREATE "&U,BTF2XlZyyKng-"'], { A1: 'OK' }],
+    // section 4: APPEND of a message with an 8-bit header MUST be refused with NO without ENABLE
+    ['APPEND with an 8-bit header without ENABLE UTF8=ACCEPT', 'auth', ['A1 APPEND INBOX {14}\r\nSubject: caf\xc3\xa9'], { A1: 'NO' }],
+    ['APPEND with an 8-bit header after ENABLE UTF8=ACCEPT', 'utf8', ['A1 APPEND INBOX {14}\r\nSubject: caf\xc3\xa9'], { A1: 'OK' }],
+    // section 5: UTF-8 user names and passwords MUST use AUTHENTICATE
+    ['LOGIN with a UTF-8 password', 'none', ['A1 LOGIN testuser "caf\xc3\xa9"'], { A1: 'BAD' }]
+];
+
+describe('Strict UTF8=ACCEPT handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['UTF8=ACCEPT'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, UTF8_CASES);
 });
 
 describe('Literal synchronization', () => {
