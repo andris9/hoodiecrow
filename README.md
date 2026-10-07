@@ -205,7 +205,9 @@ Missing rights are answered with `NO [NOPERM]`, or with the same error as for a 
 
 ## Existing XTOYBIRD commands
 
-To use these functions, XTOYBIRD plugin needs to be enabled and the client needs to be logged in
+To use these functions, XTOYBIRD plugin needs to be enabled and the client needs to be logged in.
+
+XTOYBIRD is a test control plugin, not an IMAP extension: it skips every access check, so any user that may use it can read the whole storage (all users' mailboxes with `XTOYBIRD STORAGE`), add users and shut the server down. Load it only in tests that need it. With the ACL plugin only the owner (`aclOwner` option, default `testuser`) may use XTOYBIRD, other users get `NO [NOPERM]`.
 
 Available commands:
 
