@@ -719,7 +719,8 @@ function enables(parsed, name) {
 
 /**
  * Validates a full server transcript. Rejects with an AssertionError naming the offending response.
- * UTF-8 in quoted strings is accepted after a "* ENABLED UTF8=ACCEPT" response. After "* ENABLED UIDONLY"
+ * UTF-8 in quoted strings is accepted after a "* ENABLED UTF8=ACCEPT" or "* ENABLED IMAP4rev2" response (RFC 9051
+ * Appendix A: no UTF-8 quoted strings before ENABLE IMAP4rev2). After "* ENABLED UIDONLY"
  * responses with message numbers are refused (RFC 9586 section 3).
  *
  * @param {Buffer|String} transcript Everything the server sent (a string is read as binary)
@@ -741,7 +742,7 @@ async function validateResponses(transcript, options) {
             fail('ImapFlow can not parse the response (' + err.message + ')', response.text);
         }
         checkResponse(response, parsed, utf8, uidonly);
-        utf8 = utf8 || enables(parsed, 'UTF8=ACCEPT');
+        utf8 = utf8 || enables(parsed, 'UTF8=ACCEPT') || enables(parsed, 'IMAP4REV2');
         uidonly = uidonly || enables(parsed, 'UIDONLY');
     }
     // lets a caller that validates a session in chunks carry the UTF8=ACCEPT and UIDONLY state forward

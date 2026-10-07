@@ -365,7 +365,8 @@ describe('THREAD', () => {
             await b.cmd('B2 EXPUNGE');
 
             let output = await a.cmd('A1 THREAD ORDEREDSUBJECT UTF-8 ALL');
-            assert.strictEqual(output, '* THREAD (1)(2)(3)\r\nA1 OK THREAD completed\r\n');
+            // the EXPUNGE is pending, EXPUNGEISSUED tells the client (RFC 5530 section 3)
+            assert.strictEqual(output, '* THREAD (1)(2)(3)\r\nA1 OK [EXPUNGEISSUED] THREAD completed\r\n');
 
             output = await a.cmd('A2 UID THREAD ORDEREDSUBJECT UTF-8 ALL');
             assert.match(output, /^\* THREAD \(1\)\(2\)\(3\)\r\n\* 1 EXPUNGE\r\n/);

@@ -55,7 +55,8 @@ const ALL_PLUGINS = [
     'CONTEXT=SORT',
     'MULTISEARCH',
     'UIDONLY',
-    'MESSAGELIMIT'
+    'MESSAGELIMIT',
+    'IMAP4rev2'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -253,8 +254,9 @@ describe('ImapFlow', () => {
             }
             // AUTH=PLAIN is only listed in the Not Authenticated state
             assert.ok(!client.capabilities.has('AUTH=PLAIN'));
-            // ImapFlow sends ENABLE CONDSTORE on its own (RFC 5161, RFC 7162 3.1)
+            // ImapFlow sends ENABLE CONDSTORE on its own (RFC 5161, RFC 7162 3.1), and IMAP4rev2 (RFC 9051 Appendix A)
             assert.ok(client.enabled.has('CONDSTORE'));
+            assert.ok(client.enabled.has('IMAP4REV2'));
             assert.strictEqual(client.serverInfo && client.serverInfo.name, 'hoodiecrow');
             // NAMESPACE response (RFC 2342 5), ImapFlow keeps the personal namespace
             assert.deepStrictEqual(client.namespace, { prefix: '', delimiter: '/' });
@@ -884,6 +886,52 @@ describe('ImapFlow', () => {
             await client.append('INBOX', large);
             const mailbox = await client.mailboxOpen('INBOX');
             assert.strictEqual(mailbox.exists, 5);
+            assert.ok(!log.some(entry => / BAD$/.test(entry)), log.join(', '));
+        });
+    });
+
+    // RFC 9051: ImapFlow enables IMAP4rev2 and then expects ESEARCH, UTF-8 names and the rev2 SELECT responses
+    describe('with IMAP4rev2', () => {
+        const log = [];
+        const ctx = setupServer(() => {
+            log.length = 0;
+            return { plugins: ['IMAP4rev2', recorder(log)], storage: storage() };
+        });
+
+        it('works in IMAP4rev2 mode', async () => {
+            const client = await connect(ctx);
+            assert.ok(client.capabilities.has('IMAP4rev2'));
+            assert.ok(client.enabled.has('IMAP4REV2'));
+            assert.ok(log.includes('AUTHENTICATE PLAIN OK'), log.join(', '));
+
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.strictEqual(mailbox.exists, 3);
+            assert.strictEqual(mailbox.uidNext, 6);
+
+            assert.deepStrictEqual(await client.search({ seen: false }, { uid: true }), [2, 5]);
+            assert.deepStrictEqual(await client.search({ subject: 'world' }), [1, 3]);
+
+            const messages = await fetchAll(client, '1:*', { uid: true, flags: true, envelope: true, bodyStructure: true, size: true });
+            assert.deepStrictEqual(
+                messages.map(message => message.uid),
+                [1, 2, 5]
+            );
+            assert.strictEqual(messages[1].bodyStructure.childNodes.length, 2);
+            assert.ok(![...messages[0].flags].includes('\\Recent'));
+
+            const name = 'Mäilbox/Ünicode';
+            await client.mailboxCreate(name);
+            const list = await client.list({ statusQuery: { messages: true } });
+            assert.ok(list.some(entry => entry.path === name));
+
+            const moved = await client.messageMove('2', name);
+            assert.strictEqual(moved.uidMap.get(2), 1);
+            const status = await client.status(name, { messages: true, size: true });
+            assert.strictEqual(status.messages, 1);
+            assert.ok(status.size > 0);
+
+            const appended = await client.append(name, 'Subject: Grüße\r\n\r\nHallo\r\n', ['\\Seen']);
+            assert.strictEqual(appended.uid, 2);
             assert.ok(!log.some(entry => / BAD$/.test(entry)), log.join(', '));
         });
     });
