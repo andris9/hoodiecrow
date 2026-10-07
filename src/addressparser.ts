@@ -69,7 +69,6 @@ function _handleAddress(tokens: Token[], inGroup?: boolean): ParsedAddress[] {
     let token: Token;
     let isGroup = false;
     let state: 'address' | 'comment' | 'group' | 'text' = 'text';
-    let address: ParsedAddress | undefined;
     const addresses: ParsedAddress[] = [];
     const data: { address: string[]; comment: string[]; group: string[]; text: string[] } = {
         address: [],
@@ -120,8 +119,8 @@ function _handleAddress(tokens: Token[], inGroup?: boolean): ParsedAddress[] {
         // http://tools.ietf.org/html/rfc2822#appendix-A.1.3
         const text = data.text.join(' ');
         addresses.push({
-            // address is never set here, so an empty group name throws like the JavaScript original did
-            name: text || address!.name,
+            // RFC 5322 section 3.4 requires a display name, but a group like ":a@b;" still parses, with an empty name
+            name: text,
             group: data.group.length ? parse(data.group.join(','), true) : []
         });
     } else {
@@ -169,24 +168,20 @@ function _handleAddress(tokens: Token[], inGroup?: boolean): ParsedAddress[] {
         const text = data.text.join(' ');
         const addressText = data.address.join(' ');
 
-        if (!addressText && isGroup) {
-            return [];
-        } else {
-            address = {
-                address: addressText || text || '',
-                name: text || addressText || ''
-            };
+        const address: ParsedAddress = {
+            address: addressText || text || '',
+            name: text || addressText || ''
+        };
 
-            if (address.address === address.name) {
-                if ((address.address || '').match(/@/)) {
-                    address.name = '';
-                } else {
-                    address.address = '';
-                }
+        if (address.address === address.name) {
+            if ((address.address || '').match(/@/)) {
+                address.name = '';
+            } else {
+                address.address = '';
             }
-
-            addresses.push(address);
         }
+
+        addresses.push(address);
     }
 
     return addresses;

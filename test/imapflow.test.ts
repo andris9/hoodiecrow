@@ -167,9 +167,6 @@ describe('ImapFlow', () => {
             Object.assign(
                 {
                     host: '127.0.0.1',
-                    // the bundled certificate is for localhost. ImapFlow passes `servername: false` to
-                    // tls.connect() for an IP address, which Bun refuses
-                    servername: 'localhost',
                     port: ctx.port,
                     secure: false,
                     doSTARTTLS: false,
