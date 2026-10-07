@@ -146,6 +146,14 @@ const CASES = [
     ['STORE without flags', 'selected', ['A1 STORE 1 +FLAGS'], { A1: 'BAD' }],
     ['STORE of \\Recent', 'selected', ['A1 STORE 1 +FLAGS (\\Recent)'], { A1: 'BAD' }],
     ['COPY without a mailbox', 'selected', ['A1 COPY 1'], { A1: 'BAD' }],
+    // RFC 3501 9: ":" and "," are ATOM-CHARs, so a value like "10:" is an atom, but not a sequence set
+    ['CREATE and STORE with digit-led atoms', 'selected', ['A1 CREATE 10:', 'A2 CREATE 12:30:00', 'A3 STORE 1 +FLAGS (10:)'], { A1: 'OK', A2: 'OK', A3: 'OK' }],
+    [
+        'malformed sequence sets',
+        'selected',
+        ['A1 FETCH 5: FLAGS', 'A2 FETCH 1:2:3 FLAGS', 'A3 STORE 1, +FLAGS (\\Seen)', 'A4 COPY *4 INBOX', 'A5 SEARCH (1:5,)'],
+        { A1: 'BAD', A2: 'BAD', A3: 'BAD', A4: 'BAD', A5: 'BAD' }
+    ],
     ['SEARCH with an unknown key', 'selected', ['A1 SEARCH FOO'], { A1: 'BAD' }],
     // RFC 3501 6.4.4: without CHARSET the search strings are US-ASCII
     ['SEARCH with 8-bit text and no CHARSET', 'selected', ['A1 SEARCH SUBJECT {5}\r\ncaf\xc3\xa9'], { A1: 'BAD' }],
