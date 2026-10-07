@@ -543,6 +543,20 @@ const REV2_CASES = [
     // section 5.1: mailbox names are Net-Unicode
     ['mailbox name with a control character after ENABLE IMAP4rev2', 'rev2', ['A1 CREATE "a\xc2\x85b"'], { A1: 'BAD' }],
     ['mailbox name that is not NFC after ENABLE IMAP4rev2', 'rev2', ['A1 CREATE "e\xcc\x81"'], { A1: 'BAD' }],
+    // section 9: number64 for partial ranges and LARGER/SMALLER, number (32-bit) in IMAP4rev1
+    [
+        'FETCH partial range above 32 bits without ENABLE IMAP4rev2',
+        'selected',
+        ['A1 FETCH 1 BODY.PEEK[]<4294967296.1>', 'A2 SEARCH LARGER 4294967296'],
+        { A1: 'BAD', A2: 'BAD' }
+    ],
+    [
+        'FETCH partial range above 32 bits after ENABLE IMAP4rev2',
+        'rev2 selected',
+        ['A1 FETCH 1 BODY.PEEK[]<4294967296.1>', 'A2 SEARCH LARGER 4294967296'],
+        { A1: 'OK', A2: 'OK' }
+    ],
+    ['SEARCH SMALLER above 63 bits after ENABLE IMAP4rev2', 'rev2 selected', ['A1 SEARCH SMALLER 9223372036854775808'], { A1: 'BAD' }],
     ['SEARCH CHARSET after ENABLE IMAP4rev2', 'rev2 selected', ['A1 SEARCH CHARSET UTF-8 SUBJECT "caf\xc3\xa9"'], { A1: 'OK' }]
 ];
 
