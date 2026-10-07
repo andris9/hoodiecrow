@@ -7,7 +7,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { setupServer } = require('./helpers');
-const { openSession } = require('./helpers/session');
+const { useSessions } = require('./helpers/session');
 
 const message = subject => 'From: sender@example.com\r\nSubject: ' + subject + '\r\n\r\nBody\r\n';
 
@@ -39,24 +39,16 @@ describe('RFC 2683 implementation recommendations', () => {
 
     const run = cmds => new Promise(resolve => ctx.run(cmds, resp => resolve(resp.toString('binary'))));
 
-    const session = () =>
-        new Promise(resolve => {
-            openSession(ctx.server.address().port, s => {
-                const cmd = line => new Promise(done => s.run(line, done));
-                cmd('L1 LOGIN testuser testpass').then(() => resolve({ cmd, session: s }));
-            });
-        });
+    const open = useSessions(ctx);
 
     it('does not expunge when the client closes the socket without LOGOUT, or logs out (section 3.1.2)', async () => {
-        const a = await session();
-        await a.cmd('S1 SELECT INBOX');
-        await a.cmd('S2 STORE 1 +FLAGS.SILENT (\\Deleted)');
+        const a = await open('INBOX');
+        await a.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
         a.session.close();
 
-        const b = await session();
-        await b.cmd('S1 SELECT INBOX');
-        await b.cmd('S2 STORE 2 +FLAGS.SILENT (\\Deleted)');
-        assert.match(await b.cmd('S3 LOGOUT'), /^\* BYE /m);
+        const b = await open('INBOX');
+        await b.cmd('STORE 2 +FLAGS.SILENT (\\Deleted)');
+        assert.match(await b.cmd('LOGOUT'), /^\* BYE /m);
 
         const resp = await run([...login, 'A2 SELECT INBOX', 'A3 FETCH 1:* (UID FLAGS)', 'ZZ LOGOUT']);
         assert.match(resp, /^\* 2 EXISTS\r$/m);

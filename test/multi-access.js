@@ -13,10 +13,10 @@
 // - DELETE: other sessions that have the mailbox selected get an untagged BYE (3.3)
 // - RENAME: the mailbox keeps its messages under the new name, other sessions keep working (3.4)
 
-const { describe, it, afterEach } = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { setupServer } = require('./helpers');
-const { openSession } = require('./helpers/session');
+const { useSessions } = require('./helpers/session');
 
 const message = n => 'From: sender@example.com\r\nSubject: message ' + n + '\r\n\r\nBody ' + n + '\r\n';
 
@@ -44,35 +44,7 @@ const fetches = output => lines(output).filter(line => /^\* \d+ FETCH /.test(lin
 
 function setup(plugins) {
     const ctx = setupServer(() => ({ plugins: plugins || [], storage: storage() }));
-    let sessions = [];
-    let tagCounter = 0;
-
-    /**
-     * Opens a logged in session, with `mailbox` selected (or examined). `session.cmd(line)` sends a command with a
-     * fresh tag and resolves with everything the server sent up to and including the tagged response
-     */
-    const open = (mailbox, examine) =>
-        new Promise(resolve => {
-            openSession(ctx.server.address().port, session => {
-                sessions.push(session);
-                const wrapped = {
-                    session,
-                    cmd: line =>
-                        new Promise(done => {
-                            session.run('T' + ++tagCounter + ' ' + line, done);
-                        })
-                };
-                wrapped
-                    .cmd('LOGIN testuser testpass')
-                    .then(() => mailbox && wrapped.cmd((examine ? 'EXAMINE ' : 'SELECT ') + mailbox))
-                    .then(() => resolve(wrapped));
-            });
-        });
-
-    afterEach(() => {
-        sessions.forEach(session => session.close());
-        sessions = [];
-    });
+    const open = useSessions(ctx);
 
     // two sessions on INBOX, the second one expunged messages 4:7, the first one has not been told yet
     const expunged = async () => {

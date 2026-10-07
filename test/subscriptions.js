@@ -242,7 +242,9 @@ describe('CREATE', () => {
             '': {
                 folders: {
                     Existing: {},
-                    Leaf: { flags: ['\\NoInferiors'] }
+                    Leaf: { flags: ['\\Noinferiors'] },
+                    // mailbox attributes are case-insensitive (RFC 3501 section 9, note 1)
+                    Upper: { flags: ['\\NOINFERIORS'] }
                 }
             }
         }
@@ -265,6 +267,32 @@ describe('CREATE', () => {
             assert.ok(/^A3 NO \[ALREADYEXISTS\]/m.test(resp), resp);
             assert.ok(/^A4 NO \[CANNOT\]/m.test(resp), resp);
             assert.ok(/^A5 NO \[CANNOT\]/m.test(resp), resp);
+            done();
+        });
+    });
+
+    // RFC 3501 section 7.2.2: no child levels can be created under a \Noinferiors name, in any spelling
+    it('refuses CREATE and RENAME below a \\Noinferiors mailbox', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 CREATE Leaf/child',
+            'A3 CREATE Upper/child/deeper',
+            'A4 RENAME Existing Leaf/moved',
+            'A5 LIST "" "*"',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(/^A2 NO \[CANNOT\]/m.test(resp), resp);
+            assert.ok(/^A3 NO \[CANNOT\]/m.test(resp), resp);
+            assert.ok(/^A4 NO \[CANNOT\]/m.test(resp), resp);
+            // the failed RENAME keeps the source, nothing was created, the attribute is listed in RFC spelling
+            assert.ok(/^\* LIST \(\\HasNoChildren\) "\/" "Existing"\r$/m.test(resp), resp);
+            assert.ok(/^\* LIST \(\\Noinferiors\) "\/" "Leaf"\r$/m.test(resp), resp);
+            assert.ok(/^\* LIST \(\\Noinferiors\) "\/" "Upper"\r$/m.test(resp), resp);
+            assert.ok(!/child|moved/.test(resp.replace(/^A\d .*$/gm, '')), resp);
+            assert.ok(/^A5 OK/m.test(resp), resp);
             done();
         });
     });

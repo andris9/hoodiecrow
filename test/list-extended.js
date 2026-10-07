@@ -165,7 +165,7 @@ describe('LIST-EXTENDED', () => {
                 ['\\HasNoChildren', 'Tofu', ''],
                 ['\\HasChildren', 'Vegetable', ''],
                 // RFC 3348 section 3: \HasNoChildren is redundant with \Noinferiors
-                ['\\NoInferiors', 'Drafts', ''],
+                ['\\Noinferiors', 'Drafts', ''],
                 ['\\HasNoChildren', 'Sent', '']
             ]);
             done();
@@ -298,7 +298,7 @@ describe('LIST-EXTENDED with SPECIAL-USE', () => {
                 run(['A2 LIST (SPECIAL-USE) "" "*"'], resp => {
                     assert.deepStrictEqual(listed(resp), [
                         ['\\Archive \\HasNoChildren', 'Fruit/Apple', ''],
-                        ['\\Drafts \\NoInferiors', 'Drafts', ''],
+                        ['\\Drafts \\Noinferiors', 'Drafts', ''],
                         ['\\HasNoChildren \\Sent', 'Sent', '']
                     ]);
                     done();

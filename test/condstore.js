@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { setupServer } = require('./helpers');
-const { openSession } = require('./helpers/session');
+const { openSession, useSessions } = require('./helpers/session');
 
 function storage() {
     return {
@@ -70,6 +70,7 @@ describe('CONDSTORE', () => {
             plugins: ['CONDSTORE'],
             storage: storage()
         }));
+        const open = useSessions(ctx);
 
         it('keeps MODSEQ values from storage and reports HIGHESTMODSEQ', (t, done) => {
             const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 FETCH 1:* (MODSEQ)', 'ZZ LOGOUT'];
@@ -231,6 +232,19 @@ describe('CONDSTORE', () => {
                     });
                 });
             });
+        });
+
+        it('reports a message changed twice by another session once, with its current MODSEQ', async () => {
+            const watcher = await open('INBOX (CONDSTORE)');
+            const other = await open('INBOX');
+            await other.cmd('STORE 3 +FLAGS (\\Flagged)');
+            await other.cmd('STORE 3 +FLAGS (\\Answered)');
+            const resp = await watcher.cmd('NOOP');
+            assert.deepStrictEqual(
+                resp.split('\r\n').filter(line => /^\* \d+ FETCH /.test(line)),
+                ['* 3 FETCH (UID 3 FLAGS (\\Flagged \\Answered) MODSEQ (103))'],
+                resp
+            );
         });
 
         it('appended messages get a new MODSEQ', (t, done) => {
