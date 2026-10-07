@@ -11,12 +11,19 @@ describe('XOAUTH2', () => {
 
     it('Invalid argument', (t, done) => {
         // invalid base64 is a syntax error, a malformed payload is a failed login
-        const cmds = ['A1 AUTHENTICATE XOAUTH2 zzzzz', 'A2 AUTHENTICATE XOAUTH2 ' + Buffer.from('garbage').toString('base64'), 'ZZ LOGOUT'];
+        const cmds = [
+            'A1 AUTHENTICATE XOAUTH2 zzzzz',
+            'A2 AUTHENTICATE XOAUTH2 ' + Buffer.from('garbage').toString('base64'),
+            'A3 AUTHENTICATE XOAUTH2 ' + Buffer.from(['user=test\xffuser', 'auth=Bearer testtoken', '', ''].join('\x01'), 'binary').toString('base64'),
+            'ZZ LOGOUT'
+        ];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.ok(resp.indexOf('\nA1 BAD') >= 0);
             assert.ok(resp.indexOf('\nA2 NO') >= 0);
+            // the payload is UTF-8
+            assert.ok(resp.indexOf('\nA3 NO') >= 0, resp);
             done();
         });
     });
