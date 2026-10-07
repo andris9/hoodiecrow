@@ -1,0 +1,9 @@
+# PREVIEW (RFC 8970), run with --plugin PREVIEW
+# LAZY returns NIL until a FETCH without LAZY has generated the preview, in both servers
+SELECT INBOX
+FETCH 1:* (PREVIEW (LAZY))
+FETCH 1:* (UID PREVIEW)
+FETCH 1:* PREVIEW (LAZY)
+FETCH 1 (PREVIEW (FOO))
+FETCH 1 (PREVIEW ())
+FETCH 1 (PREVIEW LAZY)
