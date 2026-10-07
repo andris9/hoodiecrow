@@ -29,7 +29,8 @@ const ALL_PLUGINS = [
     'X-GM-EXT-1',
     'LIST-EXTENDED',
     'LIST-STATUS',
-    'STATUS=SIZE'
+    'STATUS=SIZE',
+    'METADATA'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));

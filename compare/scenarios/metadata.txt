@@ -1,0 +1,39 @@
+# METADATA (RFC 5464). Run: node compare/compare.js --plugin METADATA,ENABLE compare/scenarios/metadata.txt
+# Known differences: Dovecot always sends values as literals, accepts "()" as an empty entry or option
+# list, an atom as a value and "/shared" in SETMETADATA, refuses server annotations with [CANNOT],
+# and moves (instead of copies) the annotations of INBOX on RENAME
+GETMETADATA "" /shared/comment
+GETMETADATA "" (/shared/admin /private/comment)
+SETMETADATA INBOX (/private/comment "hello" /shared/comment "shared")
+GETMETADATA INBOX (/private/comment /shared/comment /private/missing)
+GETMETADATA INBOX /SHARED/COMMENT
+SETMETADATA Drafts (/private/filters/values/small "SMALLER 5000" /private/filters/values/boss {23}\r\nFROM "boss@example.com")
+GETMETADATA Drafts /private/filters/values
+GETMETADATA (DEPTH 1) Drafts /private/filters
+GETMETADATA (DEPTH infinity) Drafts /private
+GETMETADATA (MAXSIZE 12) Drafts (/private/filters/values/small /private/filters/values/boss)
+GETMETADATA (MAXSIZE 0 DEPTH infinity) INBOX /shared
+SETMETADATA INBOX (/shared/comment NIL)
+GETMETADATA INBOX /shared/comment
+SETMETADATA Missing (/shared/comment "x")
+GETMETADATA Missing /shared/comment
+# invalid entry names and options are BAD
+GETMETADATA INBOX /shared//x
+GETMETADATA INBOX /shared/x/
+GETMETADATA INBOX "/shared/x*"
+GETMETADATA INBOX /comment
+GETMETADATA INBOX shared/comment
+GETMETADATA (DEPTH 2) INBOX /shared
+GETMETADATA (FOO) INBOX /shared
+SETMETADATA INBOX (/shared/x)
+SETMETADATA INBOX /shared/x "y"
+SETMETADATA INBOX (/shared/b "1" /shared/c//d "2")
+GETMETADATA INBOX /shared/b
+# annotations follow RENAME and are removed by DELETE
+CREATE Foo
+SETMETADATA Foo (/private/comment "foo comment")
+RENAME Foo Bar
+GETMETADATA Bar /private/comment
+DELETE Bar
+CREATE Bar
+GETMETADATA Bar /private/comment
