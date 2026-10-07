@@ -60,4 +60,10 @@ jobs:
                   cache: npm
             - run: npm ci
             - name: Run tests
+              if: ${{ matrix.node != '24' }}
               run: npm run test:unit
+            # Node 24 runs the same tests with coverage; the run fails if line coverage of lib/
+            # drops below the threshold in package.json (measured at 86.8% when it was added)
+            - name: Run tests with coverage
+              if: ${{ matrix.node == '24' }}
+              run: npm run test:coverage
