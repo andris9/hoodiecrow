@@ -418,7 +418,7 @@ async function seedDovecot(session, seed, timeout) {
         for (const message of folder.messages) {
             const tagged = await run(
                 `APPEND ${quote(folder.path)} (${message.flags.join(' ')}) ${quote(message.internaldate)}`,
-                Buffer.from(message.raw, 'utf8')
+                Buffer.from(message.raw, 'binary')
             );
             const appendUid = tagged.match(/\[APPENDUID \d+ (\d+)\]/i);
             if (appendUid && Number(appendUid[1]) !== message.uid) {
