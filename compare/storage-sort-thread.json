@@ -1,0 +1,146 @@
+{
+    "INBOX": {
+        "messages": [
+            {
+                "raw": "From: \"Zed Zulu\" <zed@b.example>\r\nTo: carl@x.example\r\nSubject: Re: [list] Hello world (fwd)\r\nDate: Mon, 05 Oct 2026 10:00:00 +0000\r\nMessage-ID: <m1@example.com>\r\n\r\nBody of message 1\r\n\r\n",
+                "internaldate": "01-Sep-2026 00:00:00 +0000"
+            },
+            {
+                "raw": "From: =?UTF-8?Q?=C3=84nne?= <anne@a.example>\r\nTo: Bob <bob@x.example>\r\nCc: zz@c.example\r\nSubject: hello world\r\nDate: Sun, 04 Oct 2026 23:00:00 -0300\r\nMessage-ID: <\"m2\"@example.com>\r\nIn-Reply-To: <m1@example.com> (comment)\r\n\r\nBody of message 2\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 05:00:00 +0000"
+            },
+            {
+                "raw": "From: bob@c.example\r\nSubject: [fwd: Re: hello world]\r\nReferences: <m1@example.com>\r\n <m2@example.com>\r\n\r\nBody of message 3\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 10:00:00 +0000"
+            },
+            {
+                "raw": "From: Carl <carl@d.example>\r\nTo: =?ISO-8859-1?Q?J=F6rg?= <jorg@x.example>\r\nCc: Abe <ABE@c.example>\r\nSubject: Fwd: RE:  re: [blob] [another]\t Topic\r\nDate: garbage\r\nReferences: <missing@example.com>\r\nMessage-ID: <m4@example.com>\r\n\r\nBody of message 4\r\nxxxxxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 15:00:00 +0000"
+            },
+            {
+                "raw": "From: alice@e.example\r\nSubject: [blob only]\r\nDate: 05 Oct 26 08:00 EDT\r\nReferences: <missing@example.com>\r\nMessage-ID: <m5@example.com>\r\n\r\nBody of message 5\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 20:00:00 +0000"
+            },
+            {
+                "raw": "Subject: Topic\r\nDate: Tue, 06 Oct 2026 09:00:00 +0200\r\nMessage-ID: <m1@example.com>\r\n\r\nBody of message 6\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 01:00:00 +0000"
+            },
+            {
+                "raw": "From: \"Émile\" <emile@f.example>\r\nTo: undisclosed-recipients:;\r\nSubject: =?ISO-8859-1?Q?=E9t=E9?=\r\nDate: Wed, 07 Oct 2026 12:00:00 +0000\r\nMessage-ID: <m7@example.com>\r\nX-Note: €\r\n\r\nBody of message 7\r\nxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 06:00:00 +0000"
+            },
+            {
+                "raw": "From: \"a, b\" <ab@g.example>\r\nSubject: re: topic\r\nDate: Wed, 07 Oct 2026 13:00:00 +0000\r\nIn-Reply-To: <m4@example.com>\r\n\r\nBody of message 8\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 11:00:00 +0000"
+            },
+            {
+                "raw": "From: nobody@h.example\r\nDate: Thu, 08 Oct 2026 00:00:00 +0000\r\nMessage-ID: <m9@example.com>\r\nReferences: <m10@example.com>\r\n\r\nBody of message 9\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 16:00:00 +0000"
+            },
+            {
+                "raw": "From: =?UTF-8?B?w4FsdmFy?= <alvar@i.example>\r\nSubject: Re: Re: hello WORLD\r\nDate: Thu, 08 Oct 2026 01:00:00 +0000\r\nMessage-ID: <m10@example.com>\r\nReferences: <m9@example.com>\r\n\r\nBody of message 10\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 21:00:00 +0000"
+            },
+            {
+                "raw": "From: \"émile\" <EMILE@f.example>\r\nSubject:   Été  (fwd) (fwd)\r\nDate: Wed, 07 Oct 2026 12:00:00 +0000\r\nMessage-ID: <m11@example.com>\r\nX-Note: €\r\n\r\nBody of message 11\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 02:00:00 +0000"
+            },
+            {
+                "raw": "From: Zed <zed@a.example>\r\nSubject: [fwd: [fwd: Topic]]\r\nDate: Wed, 07 Oct 2026 11:00:00 +0000\r\nReferences: <m5@example.com> <m4@example.com>\r\n\r\nBody of message 12\r\nxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 07:00:00 +0000"
+            },
+            {
+                "raw": "From: <bare@j.example>\r\nSubject: Re: [blob] \r\nDate: Fri, 09 Oct 2026 08:00:00 +0000\r\nIn-Reply-To: foo bar <m7@example.com> <m1@example.com>\r\n\r\nBody of message 13\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 12:00:00 +0000"
+            },
+            {
+                "raw": "From: Group: ;\r\nTo: Friends: amy@h.example, al@h.example;\r\nSubject: Fw: hello world\r\nDate: Fri, 09 Oct 2026 10:00:00 +0000 (Pacific Time)\r\nMessage-ID: <m14@example.com>\r\n\r\nBody of message 14\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 17:00:00 +0000"
+            },
+            {
+                "raw": "From: zed@b.example\r\nTo: carl@x.example\r\nSubject: Fwd: [fwd: hello world]\r\nDate: Mon, 05 Oct 2026 10:00:00 +0000\r\nMessage-ID: <m15@example.com>\r\nReferences: <m15@example.com>\r\n\r\nBody of message 15\r\nxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 22:00:00 +0000"
+            },
+            {
+                "raw": "From: yy@k.example\r\nSubject: unrelated\r\nDate: Sat, 10 Oct 2026 10:00:00 +0000\r\nMessage-ID: <m16@example.com>\r\nReferences: <lost1@example.com> <lost2@example.com>\r\n\r\nBody of message 16\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 03:00:00 +0000"
+            },
+            {
+                "raw": "From: yy@k.example\r\nSubject: other\r\nDate: Sat, 10 Oct 2026 09:00:00 +0000\r\nMessage-ID: <m17@example.com>\r\nReferences: <lost1@example.com> <lost3@example.com>\r\n\r\nBody of message 17\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 08:00:00 +0000"
+            },
+            {
+                "raw": "Subject: Parallel\r\nDate: Sun, 11 Oct 2026 10:00:00 +0000\r\n\r\nBody of message 18\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 13:00:00 +0000"
+            },
+            {
+                "raw": "Subject: parallel\r\nDate: Sun, 11 Oct 2026 09:00:00 +0000\r\n\r\nBody of message 19\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 18:00:00 +0000"
+            },
+            {
+                "raw": "Subject: spacing\r\nDate: Sun, 11 Oct 2026 11:00:00 +0000\r\nMessage-ID: < m20 @ example.com > (comment)\r\n\r\nBody of message 20\r\nxxx\r\n",
+                "internaldate": "22-Sep-2026 23:00:00 +0000"
+            },
+            {
+                "raw": "Subject: child of spacing\r\nDate: Sun, 11 Oct 2026 12:00:00 +0000\r\nReferences: <m20@example.com>\r\n\r\nBody of message 21\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 04:00:00 +0000"
+            },
+            {
+                "raw": "Subject: no at sign\r\nDate: Sun, 11 Oct 2026 13:00:00 +0000\r\nMessage-ID: <noat>\r\n\r\nBody of message 22\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 09:00:00 +0000"
+            },
+            {
+                "raw": "Subject: child of no at sign\r\nDate: Sun, 11 Oct 2026 14:00:00 +0000\r\nReferences: <noat>\r\n\r\nBody of message 23\r\nxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 14:00:00 +0000"
+            },
+            {
+                "raw": "Subject: fallback\r\nDate: Sun, 11 Oct 2026 15:00:00 +0000\r\nReferences: garbage\r\nIn-Reply-To: <m20@example.com>\r\n\r\nBody of message 24\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 19:00:00 +0000"
+            },
+            {
+                "raw": "Subject: badtime\r\nDate: Sun, 11 Oct 2026 25:61:00 +0000\r\n\r\nBody of message 25\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 00:00:00 +0000"
+            },
+            {
+                "raw": "Subject: badzone\r\nDate: Sun, 11 Oct 2026 10:00:00 +2360\r\n\r\nBody of message 26\r\nxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 05:00:00 +0000"
+            },
+            {
+                "raw": "Subject: notime\r\nDate: 11 Oct 2026\r\n\r\nBody of message 27\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 10:00:00 +0000"
+            },
+            {
+                "raw": "Subject: oldzone\r\nDate: Sun, 11 Oct 2026 01:00 PST\r\n\r\nBody of message 28\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 15:00:00 +0000"
+            },
+            {
+                "raw": "Subject: [a][b]\r\nDate: Mon, 12 Oct 2026 01:00:00 +0000\r\n\r\nBody of message 29\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 20:00:00 +0000"
+            },
+            {
+                "raw": "Subject: re:re:RE: x\r\nDate: Mon, 12 Oct 2026 02:00:00 +0000\r\n\r\nBody of message 30\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 01:00:00 +0000"
+            },
+            {
+                "raw": "Subject: Re  [x]  : x\r\nDate: Mon, 12 Oct 2026 03:00:00 +0000\r\n\r\nBody of message 31\r\nxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 06:00:00 +0000"
+            },
+            {
+                "raw": "Subject: FWD[x]: x\r\nDate: Mon, 12 Oct 2026 04:00:00 +0000\r\n\r\nBody of message 32\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "22-Sep-2026 11:00:00 +0000"
+            },
+            {
+                "raw": "Subject: chain one\r\nDate: Mon, 12 Oct 2026 05:00:00 +0000\r\nMessage-ID: <c31@example.com>\r\nReferences: <p1@example.com> <p2@example.com>\r\n\r\nBody of message 33\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "01-Sep-2026 16:00:00 +0000"
+            },
+            {
+                "raw": "Subject: chain two\r\nDate: Mon, 12 Oct 2026 06:00:00 +0000\r\nMessage-ID: <p2@example.com>\r\nReferences: <p4@example.com>\r\n\r\nBody of message 34\r\nxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "08-Sep-2026 21:00:00 +0000"
+            },
+            {
+                "raw": "Subject: x\r\nDate: Mon, 12 Oct 2026 07:00:00 +0000\r\nMessage-ID: <p4@example.com>\r\n\r\nBody of message 35\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n",
+                "internaldate": "15-Sep-2026 02:00:00 +0000"
+            }
+        ]
+    }
+}
