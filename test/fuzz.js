@@ -62,7 +62,11 @@ const PLUGINS = [
     'SAVEDATE',
     'OAUTHBEARER',
     'UNAUTHENTICATE',
-    'ACL'
+    'ACL',
+    'MULTIAPPEND',
+    'CATENATE',
+    'REPLACE',
+    'APPENDLIMIT'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
@@ -119,6 +123,9 @@ const CORPUS = [
     { state: 'auth', input: 'C1 SUBSCRIBE Archive\r\nC2 UNSUBSCRIBE Archive\r\n' },
     { state: 'auth', input: 'C1 APPEND INBOX (\\Seen) "07-Oct-2026 10:00:00 +0000" {28}\r\nSubject: hi\r\n\r\nHello there!\r\n' },
     { state: 'auth', input: 'C1 APPEND INBOX {28+}\r\nSubject: hi\r\n\r\nHello there!\r\n' },
+    { state: 'auth', input: 'C1 APPEND INBOX {5}\r\nhello (\\Seen) {5}\r\nworld\r\n' },
+    { state: 'auth', input: 'C1 APPEND Archive CATENATE (TEXT {3}\r\nabc URL "/INBOX/;UID=1/;SECTION=1/;PARTIAL=0.5")\r\n' },
+    { state: 'auth', input: 'C1 STATUS INBOX (APPENDLIMIT)\r\n' },
     { state: 'auth', input: 'C1 IDLE\r\nDONE\r\n' },
     { state: 'auth', input: 'C1 ENABLE METADATA\r\nC2 SETMETADATA INBOX (/private/comment "hello" /shared/comment {5}\r\nworld)\r\n' },
     { state: 'auth', input: 'C1 GETMETADATA (MAXSIZE 1024 DEPTH infinity) "" (/shared /private/comment)\r\n' },
@@ -166,6 +173,8 @@ const CORPUS = [
     { state: 'selected', input: 'C1 STORE 2 +FLAGS (\\Deleted)\r\nC2 UID EXPUNGE 2\r\n' },
     { state: 'selected', input: 'C1 CHECK\r\nC2 CLOSE\r\n' },
     { state: 'selected', input: 'C1 UNSELECT\r\n' },
+    { state: 'selected', input: 'C1 REPLACE 1 INBOX (\\Draft) {5}\r\nhello\r\n' },
+    { state: 'selected', input: 'C1 UID REPLACE 2 Archive CATENATE (URL "/INBOX/;UID=2/;SECTION=HEADER" TEXT {2}\r\nhi)\r\n' },
     { state: 'selected', input: 'C1 IDLE\r\nDONE\r\nC2 NOOP\r\n' }
 ];
 
