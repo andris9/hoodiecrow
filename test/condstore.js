@@ -45,7 +45,7 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* ENABLED CONDSTORE\r\n* OK [HIGHESTMODSEQ 101]\r\nA3 OK') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* ENABLED CONDSTORE\r\n* OK [HIGHESTMODSEQ 101] Completed\r\nA3 OK') >= 0, resp);
                 assert.ok(resp.indexOf('\r\n* 1 FETCH (FLAGS (\\Seen \\Flagged) MODSEQ (102))\r\n') >= 0, resp);
                 done();
             });
@@ -63,7 +63,7 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* OK [HIGHESTMODSEQ 101]\r\n') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* OK [HIGHESTMODSEQ 101] Completed\r\n') >= 0, resp);
                 assert.ok(resp.indexOf('\r\n* 1 FETCH (MODSEQ (2))\r\n') >= 0, resp);
                 assert.ok(resp.indexOf('\r\n* 2 FETCH (MODSEQ (100))\r\n') >= 0, resp);
                 assert.ok(resp.indexOf('\r\n* 3 FETCH (MODSEQ (101))\r\n') >= 0, resp);
@@ -77,7 +77,7 @@ describe('CONDSTORE', () => {
             ctx.run(cmds, resp => {
                 resp = resp.toString();
                 assert.ok(resp.indexOf('\r\n* STATUS empty (MESSAGES 0 HIGHESTMODSEQ 1)\r\n') >= 0, resp);
-                assert.ok(resp.indexOf('\r\n* OK [HIGHESTMODSEQ 1]\r\n') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* OK [HIGHESTMODSEQ 1] Completed\r\n') >= 0, resp);
                 done();
             });
         });
@@ -191,7 +191,7 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* OK [HIGHESTMODSEQ 103]\r\n') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* OK [HIGHESTMODSEQ 103] Completed\r\n') >= 0, resp);
                 done();
             });
         });
