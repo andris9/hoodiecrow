@@ -1,5 +1,51 @@
 # Changelog
 
+## [3.3.0](https://github.com/postalsys/hoodiecrow-imap/compare/v3.2.0...v3.3.0) (2026-10-07)
+
+
+### Features
+
+* add IMAP4rev2 plugin (RFC 9051) and RFC 5530 response codes ([b8daf1d](https://github.com/postalsys/hoodiecrow-imap/commit/b8daf1dc5327885a6bd8f31544690dff55af0a40))
+* add IMAP4rev2 plugin (RFC 9051) and RFC 5530 response codes ([69415ef](https://github.com/postalsys/hoodiecrow-imap/commit/69415ef0aac58affc143223af67bb37646508b0c))
+* add NOTIFY plugin (RFC 5465) ([9b0c2f5](https://github.com/postalsys/hoodiecrow-imap/commit/9b0c2f5f017be480a6254023c218c6231b337393))
+* add NOTIFY plugin (RFC 5465) ([881a7a1](https://github.com/postalsys/hoodiecrow-imap/commit/881a7a1bf77dbd0f14ed7fc18805de543e3aa60f))
+* add PARTIAL, CONTEXT=SEARCH, CONTEXT=SORT, ESORT and MULTISEARCH plugins ([94e923e](https://github.com/postalsys/hoodiecrow-imap/commit/94e923eab1dd5935eab48ca00cdb38276d9963a2))
+* add PARTIAL, CONTEXT=SEARCH, CONTEXT=SORT, ESORT and MULTISEARCH plugins ([148a7dc](https://github.com/postalsys/hoodiecrow-imap/commit/148a7dca12b056fbe6249157bbfc8027e7b9ef61))
+* add UIDONLY (RFC 9586), MESSAGELIMIT and SAVELIMIT (RFC 9738) plugins ([517bdc6](https://github.com/postalsys/hoodiecrow-imap/commit/517bdc6a3771b14e7fc7a39070dd343b28ccf6f5))
+* add UIDONLY (RFC 9586), MESSAGELIMIT and SAVELIMIT (RFC 9738) plugins ([af4de8b](https://github.com/postalsys/hoodiecrow-imap/commit/af4de8bab604964ca494ebcbfbca269069a5406f))
+* number64 partial ranges, LARGER and SMALLER in IMAP4rev2 sessions ([ee52da0](https://github.com/postalsys/hoodiecrow-imap/commit/ee52da0beb61567018db204523734ae11fb04ae1))
+* number64 partial ranges, LARGER and SMALLER in IMAP4rev2 sessions ([82c0a13](https://github.com/postalsys/hoodiecrow-imap/commit/82c0a13f9a2b8e557f6f44bda8e5661136cecaa3))
+* X-GM-THRID follows the OBJECTID THREADID when both are loaded ([7bb4916](https://github.com/postalsys/hoodiecrow-imap/commit/7bb491674dd8222094386488613574455a5776e1))
+
+
+### Bug Fixes
+
+* ACL refuses APPEND and REPLACE targets before the literal ([5737da8](https://github.com/postalsys/hoodiecrow-imap/commit/5737da88bde0b1da12e0a6c609f2460aa0da37ab))
+* answer BAD for sequence numbers past the end of the mailbox ([15b0152](https://github.com/postalsys/hoodiecrow-imap/commit/15b015251504ac0ef00f1d7efc9c200e7be92340))
+* answer changes to a read-only mailbox with NO [CLIENTBUG] ([3fa6d38](https://github.com/postalsys/hoodiecrow-imap/commit/3fa6d380dd1a0478187f95c5085d994225f292fe))
+* CHANGEDSINCE and UNCHANGEDSINCE follow the RFC 7162 grammar ([2ae6802](https://github.com/postalsys/hoodiecrow-imap/commit/2ae680294942ee7e4b042f37bcaa3b1d0927246f))
+* close the selected mailbox in one place, with CLOSED on ACL refusals ([5900768](https://github.com/postalsys/hoodiecrow-imap/commit/5900768f0ed70c7f2546cd1de74212b4ffc6b075))
+* DELETE leaves a bare \Noselect placeholder and CREATE replaces it ([23367f8](https://github.com/postalsys/hoodiecrow-imap/commit/23367f8e8874d26b5b54ababfe64937ebbe5c093))
+* enforce \Noinferiors in any spelling for CREATE and RENAME ([db9a7ad](https://github.com/postalsys/hoodiecrow-imap/commit/db9a7ad00053475bb32344fbc1c346d12c302c13))
+* enforce \Noinferiors in any spelling, report flag changes once per message ([d724227](https://github.com/postalsys/hoodiecrow-imap/commit/d724227132616fa7c593b5c985468af8671b46ab))
+* follow RFC 2180 for messages expunged by another session and DELETE of a selected mailbox ([0a4ee79](https://github.com/postalsys/hoodiecrow-imap/commit/0a4ee7958e08b2c18a3ccf090e3ebc70c9c0aa5b))
+* keep keywords in FLAGS after the last message with them is gone ([63e2aa5](https://github.com/postalsys/hoodiecrow-imap/commit/63e2aa517bc9abf11274970b14fe89ae5547fc73))
+* keep subscriptions as names that outlive DELETE and RENAME ([fb796f5](https://github.com/postalsys/hoodiecrow-imap/commit/fb796f51e4bf1ee180950e88b1d1910f627c019c))
+* NIL is an atom in astring arguments, STORE takes astring labels ([7e210e1](https://github.com/postalsys/hoodiecrow-imap/commit/7e210e1798b05756eafd689615f439c593872f20))
+* refuse APPEND to a missing mailbox before the literal is sent ([d6ad3ed](https://github.com/postalsys/hoodiecrow-imap/commit/d6ad3eddb5cd0bf385f3cd985136e5825293a267))
+* refuse mailbox names with an empty hierarchy level ([df82005](https://github.com/postalsys/hoodiecrow-imap/commit/df8200518a9e5123d8c70719f561b324d557d17f))
+* refuse sequence set and URL numbers above 2^32-1 ([ee8091b](https://github.com/postalsys/hoodiecrow-imap/commit/ee8091bb13c720bf3d02809405298ac165ca6f40))
+* refuse STARTTLS with pipelined commands through a noPipelining option ([76fc470](https://github.com/postalsys/hoodiecrow-imap/commit/76fc47075a991fb8ad4538a3117262821c391e07))
+* refuse the commands pipelined after a refused STARTTLS or COMPRESS ([8981241](https://github.com/postalsys/hoodiecrow-imap/commit/8981241b6a1c52df0c40c440469d0926afad742c))
+* report a flag change of another session once per message ([5f3a9ff](https://github.com/postalsys/hoodiecrow-imap/commit/5f3a9ffc189f51e8f8588baf7824459ef7bd7850))
+* RFC 2180 multi-access behavior and RFC 2683 checks ([6463734](https://github.com/postalsys/hoodiecrow-imap/commit/64637348f87953677dd3542b246ae36800cc0824))
+* STATUS DELETED only after ENABLE IMAP4rev2, ENABLED lists canonical names ([680f051](https://github.com/postalsys/hoodiecrow-imap/commit/680f0514579df77888be17c80aa7e6417e484d07))
+* subscriptions, DELETE placeholders, keywords, user names, sequence ranges and X-GM-EXT-1 ([ba051a2](https://github.com/postalsys/hoodiecrow-imap/commit/ba051a20ef150b36e551416340cfdbd444ba2efa))
+* treat user names as unicode strings for every login method ([5a64632](https://github.com/postalsys/hoodiecrow-imap/commit/5a6463270932d5434e495d67350cdb2e1fa08f8b))
+* X-GM-EXT-1 labels follow the session mailbox name form, add X-GM-RAW ([1c4c7b8](https://github.com/postalsys/hoodiecrow-imap/commit/1c4c7b85427ac20485a12230b0a1cf634f35a880))
+* X-GM-RAW treats operator names like constructor: as text ([d79ba75](https://github.com/postalsys/hoodiecrow-imap/commit/d79ba7523d575d5cda99de0fb9a70eb4f99c1e30))
+* XTOYBIRD only for the ACL owner when ACL is loaded ([3efb210](https://github.com/postalsys/hoodiecrow-imap/commit/3efb210abfcebc6a18a0e2fe3add7a7c3c330fb7))
+
 ## [3.2.0](https://github.com/postalsys/hoodiecrow-imap/compare/v3.1.0...v3.2.0) (2026-10-07)
 
 
