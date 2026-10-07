@@ -78,6 +78,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
 - `ENABLE` after `SELECT` or `EXAMINE` (RFC 5161 section 3.1), and `ID` lists that break the RFC 2971 limits
 - unknown `SEARCH RETURN` options or `RETURN` after `CHARSET` (RFC 4466 section 2.6.1), `$` combined with numbers, and `SEARCH MODSEQ` values or entry names that break the RFC 7162 grammar
+- extended LIST commands (RFC 5258) with unknown options, `RECURSIVEMATCH` without a base option like `SUBSCRIBED` (also `(SPECIAL-USE RECURSIVEMATCH)`, RFC 6154 section 6), an empty pattern list, options with values they do not take, a repeated `STATUS` return option with different items, and invalid `STATUS` items (RFC 5819)
 
 Responses follow the grammar strictly too: strings that can not be quoted are sent as literals.
 
@@ -106,6 +107,8 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **ENABLE** Adds ENABLE capability [RFC5161]. Can be loaded in any order with the plugins it enables (eg. CONDSTORE)
 - **ID** Adds ID [RFC2971] capability
 - **IDLE** Adds IDLE [RFC2177] capability
+- **LIST-EXTENDED** Adds LIST-EXTENDED [RFC5258]: selection options `SUBSCRIBED`, `REMOTE` (there are no remote mailboxes) and `RECURSIVEMATCH`, return options `SUBSCRIBED` and `CHILDREN`, multiple mailbox patterns and the `CHILDINFO` extended data item. `\Noselect` mailboxes are listed as `\NonExistent` in extended LIST responses. With SPECIAL-USE loaded, the `SPECIAL-USE` selection and return options [RFC6154] combine with the other options. The plain RFC 3501 LIST is not changed
+- **LIST-STATUS** Adds LIST-STATUS [RFC5819], the `STATUS` return option of LIST. Loads LIST-EXTENDED as well
 - **LITERALPLUS** Enables LITERAL+ [RFC2088] capability
 - **LOGINDISABLED** Disables LOGIN support for unencrypted connections
 - **MOVE** Adds MOVE [RFC6851] capability (MOVE and UID MOVE commands)
@@ -114,6 +117,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **SEARCHRES** Adds SEARCHRES [RFC5182] capability, also loads ESEARCH: `SEARCH RETURN (SAVE)` stores the result and `$` refers to it in FETCH, STORE, COPY, MOVE, UID EXPUNGE, SEARCH and their UID variants. `$` must be used alone, not combined with numbers like `1,$`
 - **SPECIAL-USE** Enables SPECIAL-USE [RFC6154] capability Mailboxes need to have a "special-use" property (String or Array) that will be used as extra flag for LIST and LSUB responses
 - **STARTTLS** Adds STARTTLS command
+- **STATUS=SIZE** Adds STATUS=SIZE [RFC8438], the `SIZE` status item (also with LIST-STATUS). The plugin file is `status-size`
 - **UIDPLUS** Adds UIDPLUS [RFC4315] capability (APPENDUID, COPYUID and UID EXPUNGE)
 - **UNSELECT** Adds UNSELECT [RFC3691] capability
 - **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is supported: every message is its own thread unless the storage sets an `X-GM-THRID` value for it. `X-GM-RAW` is not supported.

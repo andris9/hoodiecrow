@@ -180,6 +180,46 @@ describe('Strict extended SEARCH handling', () => {
     defineCases(ctx, SEARCH_CASES);
 });
 
+// Extended LIST: RFC 5258 (LIST-EXTENDED), RFC 6154 (SPECIAL-USE), RFC 5819 (LIST-STATUS)
+const LIST_EXTENDED_CASES = [
+    // RFC 5258 section 3.1: RECURSIVEMATCH must not be the only selection option (or only with REMOTE)
+    ['LIST (RECURSIVEMATCH)', 'auth', ['A1 LIST (RECURSIVEMATCH) "" "*"'], { A1: 'BAD' }],
+    ['LIST (REMOTE RECURSIVEMATCH)', 'auth', ['A1 LIST (REMOTE RECURSIVEMATCH) "" "*"'], { A1: 'BAD' }],
+    // RFC 6154 section 6: SPECIAL-USE is a list-select-independent-opt, RECURSIVEMATCH needs a base option
+    ['LIST (SPECIAL-USE RECURSIVEMATCH)', 'auth', ['A1 LIST (SPECIAL-USE RECURSIVEMATCH) "" "*"'], { A1: 'BAD' }],
+    ['LIST (SUBSCRIBED REMOTE RECURSIVEMATCH)', 'auth', ['A1 LIST (SUBSCRIBED REMOTE RECURSIVEMATCH) "" "*" RETURN ()'], { A1: 'OK' }],
+    // RFC 5258 section 3: unknown options are BAD
+    ['LIST with an unknown selection option', 'auth', ['A1 LIST (FOO) "" "*"'], { A1: 'BAD' }],
+    ['LIST with an unknown return option', 'auth', ['A1 LIST "" "*" RETURN (FOO)'], { A1: 'BAD' }],
+    // RFC 5258 section 6: option-standard-tag is an atom, option-value only for options that take one
+    ['LIST with a quoted selection option', 'auth', ['A1 LIST ("SUBSCRIBED") "" "*"'], { A1: 'BAD' }],
+    ['LIST with a value for SUBSCRIBED', 'auth', ['A1 LIST (SUBSCRIBED (x)) "" "*"'], { A1: 'BAD' }],
+    ['LIST with a value for CHILDREN', 'auth', ['A1 LIST "" "*" RETURN (CHILDREN (x))'], { A1: 'BAD' }],
+    // RFC 5258 section 6: patterns = "(" list-mailbox *(SP list-mailbox) ")"
+    ['LIST with an empty pattern list', 'auth', ['A1 LIST "" ()'], { A1: 'BAD' }],
+    ['LIST with a nested pattern list', 'auth', ['A1 LIST "" (("INBOX"))'], { A1: 'BAD' }],
+    ['LIST with a list as the reference', 'auth', ['A1 LIST () ("INBOX") "*"'], { A1: 'BAD' }],
+    ['LIST with selection options and no pattern', 'auth', ['A1 LIST (SUBSCRIBED) ""'], { A1: 'BAD' }],
+    // RFC 5258 section 6: list-return-opts = "RETURN" SP "(" [return-option *(SP return-option)] ")"
+    ['LIST with RETURN and no list', 'auth', ['A1 LIST "" "*" RETURN'], { A1: 'BAD' }],
+    ['LIST with RETURN and an atom', 'auth', ['A1 LIST "" "*" RETURN CHILDREN'], { A1: 'BAD' }],
+    ['LIST with a misspelled RETURN', 'auth', ['A1 LIST "" "*" RETURNS (CHILDREN)'], { A1: 'BAD' }],
+    ['LIST with arguments after the return options', 'auth', ['A1 LIST "" "*" RETURN (CHILDREN) x'], { A1: 'BAD' }],
+    // RFC 5819 section 4: status-option = "STATUS" SP "(" status-att *(SP status-att) ")"
+    ['LIST RETURN (STATUS) without items', 'auth', ['A1 LIST "" "*" RETURN (STATUS)'], { A1: 'BAD' }],
+    ['LIST RETURN (STATUS) with an empty list', 'auth', ['A1 LIST "" "*" RETURN (STATUS ())'], { A1: 'BAD' }],
+    ['LIST RETURN (STATUS) with an unknown item', 'auth', ['A1 LIST "" "*" RETURN (STATUS (FOO))'], { A1: 'BAD' }],
+    ['LIST RETURN (STATUS) with valid items', 'auth', ['A1 LIST "" "*" RETURN (STATUS (MESSAGES SIZE))'], { A1: 'OK' }]
+];
+
+describe('Strict extended LIST', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['LIST-EXTENDED', 'LIST-STATUS', 'SPECIAL-USE', 'STATUS=SIZE']
+    }));
+
+    defineCases(ctx, LIST_EXTENDED_CASES);
+});
+
 describe('Literal synchronization', () => {
     const ctx = setupServer();
 
