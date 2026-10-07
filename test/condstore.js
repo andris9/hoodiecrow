@@ -40,13 +40,25 @@ describe('CONDSTORE', () => {
             });
         });
 
-        it('ENABLE CONDSTORE in Selected state reports HIGHESTMODSEQ and turns on MODSEQ in STORE responses', (t, done) => {
-            const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 ENABLE CONDSTORE', 'A4 STORE 1 +FLAGS (\\Flagged)', 'ZZ LOGOUT'];
+        it('ENABLE CONDSTORE turns on MODSEQ in STORE responses', (t, done) => {
+            const cmds = ['A1 LOGIN testuser testpass', 'A2 ENABLE CONDSTORE', 'A3 SELECT INBOX', 'A4 STORE 1 +FLAGS (\\Flagged)', 'ZZ LOGOUT'];
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* ENABLED CONDSTORE\r\n* OK [HIGHESTMODSEQ 101]\r\nA3 OK') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* ENABLED CONDSTORE\r\nA2 OK') >= 0, resp);
                 assert.ok(resp.indexOf('\r\n* 1 FETCH (FLAGS (\\Seen \\Flagged) MODSEQ (102))\r\n') >= 0, resp);
+                done();
+            });
+        });
+
+        // RFC 5161 section 3.1: clients MUST NOT issue ENABLE once they SELECT/EXAMINE a mailbox
+        it('ENABLE after SELECT is refused', (t, done) => {
+            const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 ENABLE CONDSTORE', 'A4 CLOSE', 'A5 ENABLE CONDSTORE', 'ZZ LOGOUT'];
+
+            ctx.run(cmds, resp => {
+                resp = resp.toString();
+                assert.ok(/^A3 BAD/m.test(resp), resp);
+                assert.ok(/^A5 BAD/m.test(resp), resp);
                 done();
             });
         });
