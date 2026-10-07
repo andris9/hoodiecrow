@@ -77,6 +77,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE
 - pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
 - `ENABLE` after `SELECT` or `EXAMINE` (RFC 5161 section 3.1), and `ID` lists that break the RFC 2971 limits
+- unknown `SEARCH RETURN` options or `RETURN` after `CHARSET` (RFC 4466 section 2.6.1), `$` combined with numbers, and `SEARCH MODSEQ` values or entry names that break the RFC 7162 grammar
 
 Responses follow the grammar strictly too: strings that can not be quoted are sent as literals.
 
@@ -99,8 +100,9 @@ Plugin names are case insensitive and capability spellings like `LITERAL+` or `A
 An unknown plugin name throws an error, and a plugin listed more than once is loaded only once.
 
 - **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
-- **CONDSTORE** Adds CONDSTORE [RFC7162] support (`SEARCH MODSEQ` is not supported)
+- **CONDSTORE** Adds CONDSTORE [RFC7162] support, including the `SEARCH MODSEQ` search key
 - **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
+- **ESEARCH** Adds ESEARCH [RFC4731] capability: `SEARCH RETURN (MIN MAX ALL COUNT)` and `UID SEARCH RETURN (...)` answer with an ESEARCH response. With CONDSTORE the response includes `MODSEQ` for a `MODSEQ` search
 - **ENABLE** Adds ENABLE capability [RFC5161]. Can be loaded in any order with the plugins it enables (eg. CONDSTORE)
 - **ID** Adds ID [RFC2971] capability
 - **IDLE** Adds IDLE [RFC2177] capability
@@ -109,6 +111,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **MOVE** Adds MOVE [RFC6851] capability (MOVE and UID MOVE commands)
 - **NAMESPACE** Adds NAMESPACE [RFC2342] capability
 - **SASL-IR** Enables SASL-IR [RFC4959] capability
+- **SEARCHRES** Adds SEARCHRES [RFC5182] capability, also loads ESEARCH: `SEARCH RETURN (SAVE)` stores the result and `$` refers to it in FETCH, STORE, COPY, MOVE, UID EXPUNGE, SEARCH and their UID variants. `$` must be used alone, not combined with numbers like `1,$`
 - **SPECIAL-USE** Enables SPECIAL-USE [RFC6154] capability Mailboxes need to have a "special-use" property (String or Array) that will be used as extra flag for LIST and LSUB responses
 - **STARTTLS** Adds STARTTLS command
 - **UIDPLUS** Adds UIDPLUS [RFC4315] capability (APPENDUID, COPYUID and UID EXPUNGE)
@@ -168,8 +171,7 @@ S: A1 OK XTOYBIRD Completed
 - FETCH (MODSEQ) works
 - FETCH (CHANGEDSINCE modseq) works
 - STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)
-
-**SEARCH MODSEQ** is not supported
+- SEARCH MODSEQ works, the entry name and type are checked but ignored since MODSEQ is not stored per flag
 
 # Known issues
 

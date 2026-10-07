@@ -262,6 +262,57 @@ function checkResponse(response, parsed) {
             }
         });
     }
+
+    if (name === 'ESEARCH') {
+        checkEsearch(parsed, response);
+    }
+}
+
+/**
+ * RFC 4466 section 2.6.2: esearch-response = "ESEARCH" [search-correlator] [SP "UID"] *(SP search-return-data),
+ * search-correlator = SP "(" "TAG" SP tag-string ")", search-return-data = search-modifier-name SP search-return-value.
+ * The return data of RFC 4731 section 4 (MIN, MAX, ALL, COUNT, MODSEQ) is checked by its own grammar
+ */
+function checkEsearch(parsed, response) {
+    const attrs = (parsed.attributes || []).slice();
+    if (Array.isArray(attrs[0])) {
+        const correlator = attrs.shift();
+        const ok =
+            correlator.length === 2 &&
+            String(correlator[0].value).toUpperCase() === 'TAG' &&
+            correlator[0].type === 'ATOM' &&
+            ['STRING', 'LITERAL'].includes(correlator[1] && correlator[1].type);
+        if (!ok) {
+            fail('ESEARCH search correlator must be (TAG string)', response.text);
+        }
+    }
+    if (attrs[0] && attrs[0].type === 'ATOM' && String(attrs[0].value).toUpperCase() === 'UID') {
+        attrs.shift();
+    }
+    if (attrs.length % 2) {
+        fail('ESEARCH return data must be name and value pairs', response.text);
+    }
+
+    const SEQUENCE_SET_RE = /^[1-9][0-9]*(:[1-9][0-9]*)?(,[1-9][0-9]*(:[1-9][0-9]*)?)*$/;
+    const VALUES = { MIN: NZ_NUMBER_RE, MAX: NZ_NUMBER_RE, COUNT: NUMBER_RE, ALL: SEQUENCE_SET_RE, MODSEQ: NZ_NUMBER_RE };
+    const seen = new Set();
+    for (let i = 0; i < attrs.length; i += 2) {
+        const label = attrs[i];
+        // tagged-ext-label = tagged-label-fchar *tagged-label-char, tagged-label-fchar = ALPHA / "-" / "_" / "."
+        if (!label || label.type !== 'ATOM' || !/^[A-Za-z\-_.][A-Za-z0-9\-_.:]*$/.test(label.value)) {
+            fail('ESEARCH return data name must be a tagged-ext-label', response.text);
+        }
+        const key = label.value.toUpperCase();
+        // RFC 4466 section 2.6.2: any return item name SHOULD appear only once
+        if (seen.has(key)) {
+            fail('ESEARCH return data ' + key + ' appears more than once', response.text);
+        }
+        seen.add(key);
+        const value = attrs[i + 1];
+        if (VALUES[key] && (!value || Array.isArray(value) || !VALUES[key].test(value.value))) {
+            fail('ESEARCH ' + key + ' has an invalid value', response.text);
+        }
+    }
 }
 
 /**

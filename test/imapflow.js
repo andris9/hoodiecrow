@@ -17,6 +17,8 @@ const ALL_PLUGINS = [
     'IDLE',
     'ENABLE',
     'CONDSTORE',
+    'ESEARCH',
+    'SEARCHRES',
     'UIDPLUS',
     'MOVE',
     'SPECIAL-USE',
@@ -452,6 +454,16 @@ describe('ImapFlow', () => {
 
             // UID SEARCH returns UIDs
             assert.deepStrictEqual(await client.search({ seen: false }, { uid: true }), [2, 5]);
+
+            // ESEARCH result options (RFC 4731)
+            assert.deepStrictEqual(await client.search({ seen: false }, { returnOptions: ['MIN', 'MAX', 'COUNT', 'ALL'] }), {
+                min: 2,
+                max: 3,
+                count: 2,
+                all: '2:3'
+            });
+            assert.deepStrictEqual(await client.search({ seen: false }, { uid: true, returnOptions: ['COUNT', 'ALL'] }), { count: 2, all: '2,5' });
+            assert.deepStrictEqual(await client.search({ deleted: true }, { returnOptions: ['MIN', 'COUNT'] }), { count: 0 });
         });
 
         it('adds, removes and replaces flags', async () => {

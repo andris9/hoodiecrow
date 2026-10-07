@@ -32,6 +32,8 @@ const CONTINUATION_TIMEOUT = 100;
 const PLUGINS = [
     'ENABLE',
     'CONDSTORE',
+    'ESEARCH',
+    'SEARCHRES',
     'IDLE',
     'LITERALPLUS',
     'MOVE',
@@ -114,6 +116,9 @@ const CORPUS = [
     { state: 'selected', input: 'C1 SEARCH HEADER Subject {5}\r\nhello\r\n' },
     { state: 'selected', input: 'C1 SEARCH MODSEQ 1 X-GM-RAW "hello"\r\n' },
     { state: 'selected', input: 'C1 UID SEARCH NOT DELETED\r\n' },
+    { state: 'selected', input: 'C1 SEARCH RETURN (MIN MAX ALL COUNT) MODSEQ "/flags/\\\\seen" all 1\r\n' },
+    { state: 'selected', input: 'C1 UID SEARCH RETURN (SAVE MIN) UNSEEN\r\nC2 FETCH $ (FLAGS)\r\nC3 STORE $ +FLAGS (\\Seen)\r\n' },
+    { state: 'selected', input: 'C1 SEARCH RETURN () OR $ 1:2 NOT DELETED\r\n' },
     { state: 'selected', input: 'C1 COPY 1:2 Archive\r\n' },
     { state: 'selected', input: 'C1 UID COPY 1 "Archive"\r\n' },
     { state: 'selected', input: 'C1 MOVE 2 Archive\r\n' },
