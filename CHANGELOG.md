@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.3.1](https://github.com/postalsys/hoodiecrow-imap/compare/v3.3.0...v3.3.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* accept atom command names and only load built-in command handlers ([24279bb](https://github.com/postalsys/hoodiecrow-imap/commit/24279bbba9d8490adce6a2a381f0603d83afa2a9))
+* accept atom command names and only load built-in command handlers ([ecb2d85](https://github.com/postalsys/hoodiecrow-imap/commit/ecb2d8509280d19ff3c8291fe79ab0f222cae994))
+
 ## [3.3.0](https://github.com/postalsys/hoodiecrow-imap/compare/v3.2.0...v3.3.0) (2026-10-07)
 
 
