@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.0](https://github.com/postalsys/imapkit/compare/v4.0.3...v4.1.0) (2026-10-07)
+
+
+### Features
+
+* migrate to TypeScript with ES module and CommonJS builds ([04552ba](https://github.com/postalsys/imapkit/commit/04552baa8c6d3dfac31b485fb6c2c1a79dcb71ca))
+* migrate to TypeScript with ES module and CommonJS builds ([b76037e](https://github.com/postalsys/imapkit/commit/b76037e9985cb619b5fc9a11a1992864636d7d55))
+
 ## [4.0.3](https://github.com/postalsys/imapkit/compare/v4.0.2...v4.0.3) (2026-10-07)
 
 
