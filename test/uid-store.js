@@ -51,13 +51,21 @@ describe('Hoodiecrow tests', () => {
     });
 
     it('Custom flag', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 UID STORE 31 +FLAGS ("Custom Flag")', 'ZZ LOGOUT'];
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 UID STORE 31 +FLAGS ("Custom Flag")',
+            'A4 UID STORE 31 +FLAGS ("CustomFlag")',
+            'ZZ LOGOUT'
+        ];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
 
-            assert.ok(resp.indexOf('\nA3 OK') >= 0);
-            assert.ok(resp.indexOf('FLAGS (\\Seen "Custom Flag") UID 31') >= 0);
+            // RFC 3501 9: a keyword is an atom, it can not contain a space
+            assert.ok(resp.indexOf('\nA3 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA4 OK') >= 0);
+            assert.ok(resp.indexOf('FLAGS (\\Seen CustomFlag) UID 31') >= 0);
 
             done();
         });
@@ -159,7 +167,7 @@ describe('Custom flags not allowed', () => {
     });
 
     it('Custom flag', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 UID STORE 31 +FLAGS ("Custom Flag")', 'ZZ LOGOUT'];
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 UID STORE 31 +FLAGS (CustomFlag)', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
