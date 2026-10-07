@@ -670,6 +670,93 @@ describe('ACL options', () => {
         });
     });
 
+    describe('with unsolicited METADATA responses', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'METADATA', 'ENABLE'], users: users(), storage: storage() }));
+
+        // RFC 5464 section 4.4.2 and section 3.3: only sessions that may read the annotations hear about changes
+        it('are only sent to sessions with rights for the mailbox', (t, done) => {
+            openSession(ctx.server.address().port, owner => {
+                openSession(ctx.server.address().port, bob => {
+                    bob.run(BOB, () => {
+                        bob.run('B1 ENABLE METADATA', () => {
+                            owner.run(OWNER, () => {
+                                owner.run('O1 SETMETADATA Secret (/shared/comment "hidden")', () => {
+                                    owner.run('O2 SETMETADATA ReadOnly (/shared/comment "visible")', () => {
+                                        owner.run('O3 SETMETADATA "" (/shared/comment "server")', () => {
+                                            bob.run('B2 NOOP', resp => {
+                                                assert.doesNotMatch(resp, /Secret/);
+                                                assert.match(resp, /^\* METADATA "?ReadOnly"? \/shared\/comment\r$/m);
+                                                assert.match(resp, /^\* METADATA "" \/shared\/comment\r$/m);
+                                                owner.close();
+                                                bob.close();
+                                                done();
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+
+    describe('with QUOTA', () => {
+        const ctx = setupServer(() => ({
+            plugins: ['ACL', 'QUOTA'],
+            users: users(),
+            storage: storage(),
+            quota: { root: 'User quota', STORAGE: 100, MESSAGE: 50, MAILBOX: 40 }
+        }));
+
+        const run = (commands, callback) => ctx.run(commands.concat('ZZ LOGOUT'), resp => callback(resp.toString('binary')));
+
+        // RFC 9208 section 6
+        it('needs "r" for the MESSAGE and STORAGE resources in GETQUOTAROOT', (t, done) => {
+            run(
+                [BOB, 'A1 GETQUOTAROOT ReadOnly', 'A2 GETQUOTAROOT Lookup', 'A3 GETQUOTAROOT Secret', 'A4 GETQUOTAROOT Nope', 'A5 GETQUOTA "User quota"'],
+                resp => {
+                    assert.match(resp, /^\* QUOTA "User quota" \(STORAGE \d+ 100 MESSAGE \d+ 50 MAILBOX \d+ 40\)\r\nA1 OK/m);
+                    // without "r", and for hidden or missing mailboxes alike, only MAILBOX is listed
+                    assert.match(resp, /^\* QUOTAROOT Lookup "User quota"\r\n\* QUOTA "User quota" \(MAILBOX \d+ 40\)\r\nA2 OK/m);
+                    assert.match(resp, /^\* QUOTAROOT Secret "User quota"\r\n\* QUOTA "User quota" \(MAILBOX \d+ 40\)\r\nA3 OK/m);
+                    assert.match(resp, /^\* QUOTAROOT Nope "User quota"\r\n\* QUOTA "User quota" \(MAILBOX \d+ 40\)\r\nA4 OK/m);
+                    // GETQUOTA needs no rights
+                    assert.match(resp, /^\* QUOTA "User quota" \(STORAGE \d+ 100 MESSAGE \d+ 50 MAILBOX \d+ 40\)\r\nA5 OK/m);
+                    done();
+                }
+            );
+        });
+
+        it('needs "a" on the mailboxes of the quota root for SETQUOTA', (t, done) => {
+            run([BOB, 'A1 SETQUOTA "User quota" (MESSAGE 1)', 'A2 SETQUOTA "User quota" x'], resp => {
+                assert.strictEqual(tagged(resp, 'A1'), 'NO [NOPERM]');
+                assert.strictEqual(tagged(resp, 'A2'), 'BAD');
+                done();
+            });
+        });
+
+        it('lets the owner do everything', (t, done) => {
+            run([OWNER, 'A1 GETQUOTAROOT Secret', 'A2 SETQUOTA "User quota" (MESSAGE 1)'], resp => {
+                assert.match(resp, /^\* QUOTA "User quota" \(STORAGE \d+ 100 MESSAGE \d+ 50 MAILBOX \d+ 40\)\r\nA1 OK/m);
+                assert.match(resp, /^A2 OK /m);
+                done();
+            });
+        });
+    });
+
+    describe('with QUOTA without a MAILBOX limit', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'QUOTA'], users: users(), storage: storage(), quota: { root: 'User quota', MESSAGE: 50 } }));
+
+        it('sends no QUOTA response without "r"', (t, done) => {
+            ctx.run([BOB, 'A1 GETQUOTAROOT Lookup', 'ZZ LOGOUT'], resp => {
+                assert.match(resp.toString('binary'), /^\* QUOTAROOT Lookup "User quota"\r\nA1 OK/m);
+                done();
+            });
+        });
+    });
+
     describe('with X-GM-EXT-1', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL', 'X-GM-EXT-1'], users: users(), storage: storage() }));
 

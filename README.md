@@ -165,7 +165,8 @@ The rights of other users are enforced as RFC 4314 section 4 describes:
 - CREATE needs `k` on the nearest existing parent (so other users can not create top level mailboxes), DELETE needs `x`, RENAME needs `x` on the mailbox and `k` on the new parent
 - GETACL, SETACL, DELETEACL and LISTRIGHTS need `a`, MYRIGHTS needs any of `l`, `r`, `i`, `k`, `x`, `a`
 - with LIST-STATUS, mailboxes without `r` get no STATUS response and are listed with `\Noselect` (RFC 5819 section 2)
-- with METADATA, GETMETADATA and SETMETADATA on a mailbox need `l` and any of `r`, `s`, `w`, `i`, `p` (RFC 5464 section 3.3)
+- with METADATA, GETMETADATA and SETMETADATA on a mailbox need `l` and any of `r`, `s`, `w`, `i`, `p` (RFC 5464 section 3.3), and unsolicited METADATA responses only go to sessions with these rights
+- with QUOTA, GETQUOTAROOT only lists the MAILBOX resource without `r` on the mailbox, and SETQUOTA needs `a` on every mailbox of the quota root (RFC 9208 section 6)
 
 Missing rights are answered with `NO [NOPERM]`, or with the same error as for a mailbox that does not exist when the user does not have `l` either, so the existence of the mailbox is not disclosed (RFC 4314 section 6). The rights on the selected mailbox are taken when it is selected. A new mailbox inherits the ACL of its parent and DELETE removes the ACL. The obsolete `c` and `d` rights are accepted as `kx` and `et` and are added to ACL and MYRIGHTS responses (RFC 4314 section 2.1.1). The rights of the owner can not be changed.
 
