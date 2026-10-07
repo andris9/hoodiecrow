@@ -75,6 +75,8 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - invalid sequence sets (`0`, `abc`), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
 - 8-bit SEARCH strings without `CHARSET UTF-8`, invalid UTF-8, unsupported charsets (`NO [BADCHARSET]`)
 - invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE
+- pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
+- `ENABLE` after `SELECT` or `EXAMINE` (RFC 5161 section 3.1), and `ID` lists that break the RFC 2971 limits
 
 Responses follow the grammar strictly too: strings that can not be quoted are sent as literals.
 
