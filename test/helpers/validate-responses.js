@@ -179,6 +179,14 @@ function checkRespText(rest, response) {
             // RFC 5464 section 5: "METADATA" SP ("LONGENTRIES" SP number / "MAXSIZE" SP number / "TOOMANY" / "NOPRIVATE")
             fail('Invalid METADATA response code', response.text);
         }
+        if (name.toUpperCase() === 'BADEVENT' && !/^BADEVENT \([A-Za-z]+( [A-Za-z]+)*\)$/i.test(code)) {
+            // RFC 5465 section 8: "BADEVENT" SP "(" event-name *(SP event-name) ")"
+            fail('Invalid BADEVENT response code', response.text);
+        }
+        if (name.toUpperCase() === 'NOTIFICATIONOVERFLOW' && space >= 0) {
+            // RFC 5465 section 8: the code takes no arguments
+            fail('NOTIFICATIONOVERFLOW takes no arguments', response.text);
+        }
         text = text.substr(end + 1);
         if (text.charAt(0) !== ' ') {
             fail('Response code must be followed by SP and text', response.text);
@@ -236,6 +244,15 @@ function checkMailboxList(name, attrs, response) {
     // mbox-list-extended-item = mbox-list-extended-item-tag SP tagged-ext-val
     if (attrs.length === 4 && (!Array.isArray(attrs[3]) || attrs[3].length % 2 || attrs[3].some((item, i) => !(i % 2) && !isString(item)))) {
         fail('LIST response has invalid extended data', response.text);
+    }
+    if (attrs.length === 4) {
+        for (let i = 0; i < attrs[3].length; i += 2) {
+            const value = attrs[3][i + 1];
+            // RFC 5465 section 8: oldname-extended-item = "OLDNAME" SP "(" mailbox ")"
+            if (String(attrs[3][i].value).toUpperCase() === 'OLDNAME' && (!Array.isArray(value) || value.length !== 1 || !isString(value[0]))) {
+                fail('LIST response has an invalid OLDNAME extended data item', response.text);
+            }
+        }
     }
 }
 

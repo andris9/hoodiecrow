@@ -14,6 +14,7 @@ const ALL_PLUGINS = [
     'STARTTLS',
     'AUTH-PLAIN',
     'NAMESPACE',
+    'NOTIFY',
     'IDLE',
     'ENABLE',
     'CONDSTORE',

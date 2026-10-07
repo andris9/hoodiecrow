@@ -40,6 +40,7 @@ const PLUGINS = [
     'LITERALPLUS',
     'MOVE',
     'NAMESPACE',
+    'NOTIFY',
     'UIDPLUS',
     'PREVIEW',
     'UNSELECT',

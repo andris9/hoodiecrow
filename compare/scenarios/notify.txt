@@ -1,0 +1,34 @@
+# NOTIFY (RFC 5465), run with --plugin NOTIFY,UIDPLUS
+# Session 1 watches, session 2 makes the changes
+1: NOTIFY SET STATUS (selected (MessageNew (UID FLAGS) MessageExpunge FlagChange)) (personal (MessageNew MessageExpunge FlagChange MailboxName SubscriptionChange))
+1: SELECT INBOX
+2: SELECT INBOX
+2: STORE 1 +FLAGS (\Flagged)
+!wait 1000
+2: APPEND INBOX {file:../messages/simple.eml}
+!wait 1000
+2: APPEND Drafts {file:../messages/simple.eml}
+!wait 1000
+2: SELECT Drafts
+2: STORE 1 +FLAGS (\Seen)
+!wait 1000
+2: STORE 1 +FLAGS (\Deleted)
+2: EXPUNGE
+!wait 1000
+2: CREATE Foo/Bar
+!wait 1000
+# Dovecot sends no LIST with OLDNAME for RENAME (RFC 5465 section 5.4)
+2: RENAME Foo/Bar Foo/Baz
+!wait 1000
+2: SUBSCRIBE Foo/Baz
+!wait 1000
+2: UNSUBSCRIBE Foo/Baz
+!wait 1000
+2: DELETE Foo/Baz
+!wait 1000
+1: NOOP
+# errors: BAD for broken rules, NO [BADEVENT] for unsupported events
+1: NOTIFY SET (selected (MessageNew))
+1: NOTIFY SET (selected (MailboxName))
+1: NOTIFY SET (personal (MessageNew MessageExpunge AnnotationChange))
+1: NOTIFY NONE

@@ -420,6 +420,39 @@ describe('Strict COMPRESS, UNAUTHENTICATE, OAUTHBEARER and LITERAL- handling', (
     defineCases(ctx, CONNECTION_CASES);
 });
 
+// NOTIFY (RFC 5465), checked with the NOTIFY plugin loaded
+const NOTIFY_CASES = [
+    ['NOTIFY before login', 'none', ['A1 NOTIFY NONE'], { A1: 'BAD' }],
+    // section 8: notify-set = "SET" [status-indicator] SP event-groups
+    ['NOTIFY SET without event groups', 'auth', ['A1 NOTIFY SET STATUS'], { A1: 'BAD' }],
+    ['NOTIFY NONE with arguments', 'auth', ['A1 NOTIFY NONE STATUS'], { A1: 'BAD' }],
+    // section 5: MessageNew and MessageExpunge MUST go together, FlagChange MUST have both
+    ['MessageNew without MessageExpunge', 'auth', ['A1 NOTIFY SET (personal (MessageNew))'], { A1: 'BAD' }],
+    ['FlagChange without MessageNew and MessageExpunge', 'selected', ['A1 NOTIFY SET (selected (FlagChange))'], { A1: 'BAD' }],
+    // section 6.1: only one selected filter, only message events with it
+    ['SELECTED together with SELECTED-DELAYED', 'auth', ['A1 NOTIFY SET (selected NONE) (selected-delayed NONE)'], { A1: 'BAD' }],
+    ['MailboxName with SELECTED', 'auth', ['A1 NOTIFY SET (selected (MailboxName))'], { A1: 'BAD' }],
+    // section 8: the fetch attributes are only allowed with the selected filters
+    ['MessageNew fetch attributes with PERSONAL', 'auth', ['A1 NOTIFY SET (personal (MessageNew (UID) MessageExpunge))'], { A1: 'BAD' }],
+    // section 3.1: an unsupported event is NO, not BAD
+    ['an unsupported event', 'auth', ['A1 NOTIFY SET (personal (AnnotationChange MessageNew MessageExpunge))'], { A1: 'NO' }],
+    ['a valid NOTIFY SET', 'selected', ['A1 NOTIFY SET STATUS (selected (MessageNew (UID) MessageExpunge FlagChange)) (personal (MailboxName))'], { A1: 'OK' }]
+];
+
+describe('Strict NOTIFY handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['NOTIFY'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, NOTIFY_CASES);
+});
+
 // UTF8=ACCEPT (RFC 9755), checked with the UTF8=ACCEPT plugin loaded
 const UTF8_CASES = [
     // section 3: once enabled, CHARSET conflicts with UTF-8 and SHOULD be refused with BAD
