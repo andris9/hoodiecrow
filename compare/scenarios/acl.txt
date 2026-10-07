@@ -1,0 +1,22 @@
+# ACL (RFC 4314) as seen by the mailbox owner. Run: node compare/compare.js --plugin ACL,LIST-STATUS compare/scenarios/acl.txt
+# Rights are listed in a different order by Dovecot, and Dovecot answers MYRIGHTS for mailboxes that do not exist.
+MYRIGHTS INBOX
+LISTRIGHTS INBOX anyone
+SETACL INBOX bob lrd
+GETACL INBOX
+SETACL INBOX bob +ck
+SETACL INBOX bob -x
+GETACL INBOX
+SETACL INBOX -bob w
+DELETEACL INBOX bob
+GETACL INBOX
+SETACL INBOX bob lrQ
+SETACL INBOX bob lrq
+SETACL INBOX "" lr
+CREATE Shared
+SETACL Shared bob lr
+CREATE Shared/Child
+GETACL Shared/Child
+GETACL Nonexistent
+LIST "" "%" RETURN (MYRIGHTS)
+LIST (SUBSCRIBED) "" "*" RETURN (STATUS (MESSAGES) MYRIGHTS)

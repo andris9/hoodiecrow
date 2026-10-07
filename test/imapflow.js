@@ -39,7 +39,8 @@ const ALL_PLUGINS = [
     'SAVEDATE',
     'COMPRESS',
     'OAUTHBEARER',
-    'UNAUTHENTICATE'
+    'UNAUTHENTICATE',
+    'ACL'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
