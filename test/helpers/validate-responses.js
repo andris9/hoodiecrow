@@ -475,19 +475,33 @@ function checkResponse(response, parsed, utf8) {
 /**
  * RFC 4466 section 2.6.2: esearch-response = "ESEARCH" [search-correlator] [SP "UID"] *(SP search-return-data),
  * search-correlator = SP "(" "TAG" SP tag-string ")", search-return-data = search-modifier-name SP search-return-value.
- * The return data of RFC 4731 section 4 (MIN, MAX, ALL, COUNT, MODSEQ) is checked by its own grammar
+ * RFC 7377 section 4 extends the correlator: one-correlator = ("TAG" SP tag-string) / ("MAILBOX" SP astring) /
+ * ("UIDVALIDITY" SP nz-number), each one at most once. The return data of RFC 4731 section 4 (MIN, MAX, ALL, COUNT,
+ * MODSEQ), RFC 5267 section 5 (ADDTO, REMOVEFROM, PARTIAL) and RFC 9394 section 4 (PARTIAL) is checked by its own grammar
  */
 function checkEsearch(parsed, response) {
     const attrs = (parsed.attributes || []).slice();
     if (Array.isArray(attrs[0])) {
         const correlator = attrs.shift();
-        const ok =
-            correlator.length === 2 &&
-            String(correlator[0].value).toUpperCase() === 'TAG' &&
-            correlator[0].type === 'ATOM' &&
-            ['STRING', 'LITERAL'].includes(correlator[1] && correlator[1].type);
-        if (!ok) {
-            fail('ESEARCH search correlator must be (TAG string)', response.text);
+        const seenCorrelators = new Set();
+        let ok = correlator.length >= 2 && correlator.length % 2 === 0;
+        for (let i = 0; ok && i < correlator.length; i += 2) {
+            const name = correlator[i] && correlator[i].type === 'ATOM' ? String(correlator[i].value).toUpperCase() : '';
+            const value = correlator[i + 1];
+            if (seenCorrelators.has(name)) {
+                ok = false;
+            }
+            seenCorrelators.add(name);
+            if (name === 'TAG' || name === 'MAILBOX') {
+                ok = ok && !!value && ['STRING', 'LITERAL'].concat(name === 'MAILBOX' ? 'ATOM' : []).includes(value.type);
+            } else if (name === 'UIDVALIDITY') {
+                ok = ok && !!value && value.type === 'ATOM' && NZ_NUMBER_RE.test(value.value);
+            } else {
+                ok = false;
+            }
+        }
+        if (!ok || !seenCorrelators.has('TAG')) {
+            fail('ESEARCH search correlator must be (TAG string [MAILBOX astring] [UIDVALIDITY nz-number])', response.text);
         }
     }
     if (attrs[0] && attrs[0].type === 'ATOM' && String(attrs[0].value).toUpperCase() === 'UID') {
@@ -498,7 +512,28 @@ function checkEsearch(parsed, response) {
     }
 
     const SEQUENCE_SET_RE = /^[1-9][0-9]*(:[1-9][0-9]*)?(,[1-9][0-9]*(:[1-9][0-9]*)?)*$/;
-    const VALUES = { MIN: NZ_NUMBER_RE, MAX: NZ_NUMBER_RE, COUNT: NUMBER_RE, ALL: SEQUENCE_SET_RE, MODSEQ: NZ_NUMBER_RE };
+    const isSequenceSet = value => !!value && !Array.isArray(value) && SEQUENCE_SET_RE.test(value.value);
+    // RFC 5267 section 5: "(" context-position SP sequence-set *(SP context-position SP sequence-set) ")"
+    const isUpdateList = value =>
+        Array.isArray(value) &&
+        value.length >= 2 &&
+        value.length % 2 === 0 &&
+        value.every((item, i) => (i % 2 ? isSequenceSet(item) : !!item && !Array.isArray(item) && NUMBER_RE.test(item.value)));
+    // RFC 9394 section 4: "(" partial-range SP partial-results ")", partial-results = sequence-set / "NIL"
+    const isPartial = value =>
+        Array.isArray(value) &&
+        value.length === 2 &&
+        !!value[0] &&
+        /^(?:[1-9][0-9]*:[1-9][0-9]*|-[1-9][0-9]*:-[1-9][0-9]*)$/.test(value[0].value) &&
+        (value[1] === null || isSequenceSet(value[1]));
+    const VALUES = {
+        MIN: NZ_NUMBER_RE,
+        MAX: NZ_NUMBER_RE,
+        COUNT: NUMBER_RE,
+        ALL: SEQUENCE_SET_RE,
+        MODSEQ: NZ_NUMBER_RE
+    };
+    const LISTS = { ADDTO: isUpdateList, REMOVEFROM: isUpdateList, PARTIAL: isPartial };
     const seen = new Set();
     for (let i = 0; i < attrs.length; i += 2) {
         const label = attrs[i];
@@ -507,13 +542,17 @@ function checkEsearch(parsed, response) {
             fail('ESEARCH return data name must be a tagged-ext-label', response.text);
         }
         const key = label.value.toUpperCase();
-        // RFC 4466 section 2.6.2: any return item name SHOULD appear only once
-        if (seen.has(key)) {
+        // RFC 4466 section 2.6.2: any return item name SHOULD appear only once. RFC 5267 section 4.3.3 shows
+        // ADDTO more than once in a response, and the updates are processed in order
+        if (seen.has(key) && key !== 'ADDTO' && key !== 'REMOVEFROM') {
             fail('ESEARCH return data ' + key + ' appears more than once', response.text);
         }
         seen.add(key);
         const value = attrs[i + 1];
         if (VALUES[key] && (!value || Array.isArray(value) || !VALUES[key].test(value.value))) {
+            fail('ESEARCH ' + key + ' has an invalid value', response.text);
+        }
+        if (LISTS[key] && !LISTS[key](value)) {
             fail('ESEARCH ' + key + ' has an invalid value', response.text);
         }
     }

@@ -35,7 +35,7 @@ describe('ESEARCH', () => {
         // RFC 4731 section 3.2 and RFC 5182 section 2.4
         it('selects the returned messages', () => {
             const list = ['a', 'b', 'c'];
-            const pick = options => selectReturned(list, new Set(options));
+            const pick = options => selectReturned(list, new Map(options.map(name => [name, true])));
             assert.deepStrictEqual(pick([]), list);
             assert.deepStrictEqual(pick(['MIN']), ['a']);
             assert.deepStrictEqual(pick(['MAX']), ['c']);
@@ -43,8 +43,17 @@ describe('ESEARCH', () => {
             assert.deepStrictEqual(pick(['MIN', 'COUNT']), list);
             assert.deepStrictEqual(pick(['MAX', 'ALL']), list);
             assert.deepStrictEqual(pick(['SAVE']), list);
-            assert.deepStrictEqual(selectReturned(['a'], new Set(['MIN', 'MAX'])), ['a']);
-            assert.deepStrictEqual(selectReturned([], new Set(['MIN'])), []);
+            assert.deepStrictEqual(
+                selectReturned(
+                    ['a'],
+                    new Map([
+                        ['MIN', true],
+                        ['MAX', true]
+                    ])
+                ),
+                ['a']
+            );
+            assert.deepStrictEqual(selectReturned([], new Map([['MIN', true]])), []);
         });
     });
 

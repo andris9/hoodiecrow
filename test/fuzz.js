@@ -69,7 +69,12 @@ const PLUGINS = [
     'REPLACE',
     'APPENDLIMIT',
     'UTF8=ACCEPT',
-    'BINARY'
+    'BINARY',
+    'PARTIAL',
+    'ESORT',
+    'CONTEXT=SEARCH',
+    'CONTEXT=SORT',
+    'MULTISEARCH'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
