@@ -912,6 +912,57 @@ describe('ACL options', () => {
         });
     });
 
+    describe('UTF-8 user names', () => {
+        // user names are unicode strings: the keys of `users`, ACL identifiers in storage and in commands
+        const ctx = setupServer(() => ({
+            plugins: ['ACL', 'AUTH-PLAIN', 'SASL-IR'],
+            users: Object.assign(users(), { jürgen: { password: 'pässword' } }),
+            storage: { INBOX: {}, '': { folders: { Stored: { acl: { jürgen: 'lr' } }, Granted: {} } } }
+        }));
+
+        const utf8 = value => Buffer.from(value, 'utf-8').toString('binary');
+        const plain = (user, password) => Buffer.from('\0' + user + '\0' + password, 'utf-8').toString('base64');
+
+        it('match ACL identifiers whatever way they were set', (t, done) => {
+            const identifier = utf8('jürgen');
+            ctx.run(
+                [OWNER, 'A1 SETACL Granted {' + identifier.length + '}\r\n' + identifier + ' lrs', 'A2 GETACL Stored', 'A3 GETACL Granted', 'ZZ LOGOUT'],
+                resp => {
+                    resp = resp.toString('binary');
+                    assert.strictEqual(tagged(resp, 'A1'), 'OK');
+                    // identifiers are sent as UTF-8, in a literal without UTF8=ACCEPT
+                    assert.match(resp, new RegExp('^\\* ACL Stored testuser lrswipkxteacd \\{7\\}\\r\\n' + identifier + ' lr\\r$', 'm'));
+                    assert.match(resp, new RegExp('^\\* ACL Granted testuser lrswipkxteacd \\{7\\}\\r\\n' + identifier + ' lrs\\r$', 'm'));
+
+                    ctx.run(['A1 AUTHENTICATE PLAIN ' + plain('jürgen', 'pässword'), 'A2 MYRIGHTS Stored', 'A3 MYRIGHTS Granted', 'ZZ LOGOUT'], resp => {
+                        resp = resp.toString('binary');
+                        assert.strictEqual(tagged(resp, 'A1'), 'OK');
+                        assert.match(resp, /^\* MYRIGHTS Stored lr\r$/m);
+                        assert.match(resp, /^\* MYRIGHTS Granted lrs\r$/m);
+                        done();
+                    });
+                }
+            );
+        });
+
+        // RFC 9755 section 5: UTF-8 user names and passwords need AUTHENTICATE
+        it('are refused by LOGIN', (t, done) => {
+            const name = utf8('jürgen');
+            ctx.run(['A1 LOGIN {' + name.length + '}\r\n' + name + ' p', 'ZZ LOGOUT'], resp => {
+                assert.match(resp.toString('binary'), /^A1 BAD .*AUTHENTICATE/m);
+                done();
+            });
+        });
+
+        // RFC 4616 section 2: the PLAIN message is UTF-8
+        it('must be valid UTF-8 in AUTHENTICATE PLAIN', (t, done) => {
+            ctx.run(['A1 AUTHENTICATE PLAIN ' + Buffer.from('\0j\xfcrgen\0p', 'binary').toString('base64'), 'ZZ LOGOUT'], resp => {
+                assert.match(resp.toString('binary'), /^A1 BAD /m);
+                done();
+            });
+        });
+    });
+
     describe('invalid storage', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL'], storage: { INBOX: { acl: { bob: 'lrZ' } } } }));
 

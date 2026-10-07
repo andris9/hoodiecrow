@@ -72,10 +72,11 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ or LITERAL- is enabled, and with LITERAL- only up to 4096 octets, a larger one is answered with `BAD [TOOBIG]` (RFC 7888 section 5)
 - literals for unknown commands, or for commands that can not run in the current state, are refused without a continuation request
 - mailbox names that are not valid modified UTF-7 (RFC 3501 section 5.1.3), including 8-bit names
-- invalid sequence sets (`0`, `abc`), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
+- invalid sequence sets (`0`, `abc`), message sequence numbers greater than the number of messages in FETCH, STORE, COPY and MOVE, also `*` in an empty mailbox (RFC 3501 section 9, seq-number; UID sets and SEARCH keys can point past the end), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
 - 8-bit SEARCH strings without `CHARSET UTF-8`, invalid UTF-8, unsupported charsets (`NO [BADCHARSET]`)
 - SORT and THREAD (RFC 5256 section 5) with a charset that is not an atom or a quoted string, an empty sort criteria list, `REVERSE` that is not followed by a sort key (`REVERSE REVERSE DATE`), or a threading algorithm that is not an atom
 - invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE
+- 8-bit user names or passwords in `LOGIN` (RFC 9755 section 5: UTF-8 user names need `AUTHENTICATE`), and invalid UTF-8 in an `AUTHENTICATE PLAIN` message (RFC 4616 section 2). User names are unicode strings everywhere: the keys of `users`, SASL user names and ACL identifiers
 - OAUTHBEARER client responses that break the RFC 7628 or GS2 (RFC 5801) grammar, and anything other than a single `%x01` after an OAUTHBEARER error result
 - commands pipelined after `COMPRESS` (RFC 4978 section 3), and `COMPRESS` while compression is active (`BAD [COMPRESSIONACTIVE]`)
 - pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
@@ -89,7 +90,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - CATENATE URLs that are not absolute-path references (`/INBOX/;UID=1`), including relative-path references like `;UID=1` that RFC 5092 section 7.2 forbids, and URLs of message parts that do not exist (`NO [BADURL ...]`)
 - with UIDONLY (RFC 9586): every command that takes message sequence numbers, and sequence sets in search criteria, answered with `BAD [UIDREQUIRED]`
 - `UIDAFTER` and `UIDBEFORE` (MESSAGELIMIT, RFC 9738 section 3.2) with anything but a single UID
-- with UTF8=ACCEPT (RFC 9755): invalid UTF-8 in quoted strings, `SEARCH CHARSET` after `ENABLE UTF8=ACCEPT`, mailbox names with control characters (UTF-8, or encoded in modified UTF-7 like `&AA0-`), U+2028, U+2029, a leading BOM, unassigned code points or a name that is not in Unicode Normalization Form C, UTF-8 in `LOGIN` (section 5), and `NO` for `APPEND` of a message with an 8-bit header before `ENABLE UTF8=ACCEPT` (section 4)
+- with UTF8=ACCEPT (RFC 9755): invalid UTF-8 in quoted strings, `SEARCH CHARSET` after `ENABLE UTF8=ACCEPT`, mailbox names with control characters (UTF-8, or encoded in modified UTF-7 like `&AA0-`), U+2028, U+2029, a leading BOM, unassigned code points or a name that is not in Unicode Normalization Form C, and `NO` for `APPEND` of a message with an 8-bit header before `ENABLE UTF8=ACCEPT` (section 4)
 - literal8 (`~{n}`) anywhere but in an APPEND or REPLACE message with BINARY, or a SETMETADATA value with METADATA, refused without a continuation request; NUL octets in a normal literal; a literal8 `TEXT` part in CATENATE
 - with BINARY: `BINARY[]`, `BINARY` of multipart or message/rfc822 parts (RFC 9051 section 6.4.5 allows leaf body parts only), `HEADER`, `TEXT` or `MIME` sections, and a partial range on `BINARY.SIZE`
 - with NOTIFY (RFC 5465): MessageNew without MessageExpunge or the other way round, FlagChange without both (section 5), mailbox events or two selected filters with `selected`/`selected-delayed` (section 6.1), fetch attributes outside the selected filters, empty event or mailbox lists, `NOTIFY SET` without event groups; unknown events get `NO [BADEVENT (...)]` listing the supported ones (section 3.1)
@@ -105,7 +106,12 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
 ### IMAP4rev1
 
-All commands are supported but might be a bit buggy
+All commands are supported but might be a bit buggy. Some choices that the RFCs leave to the server:
+
+- The subscription list holds names, not mailboxes (RFC 3501 section 6.3.6). DELETE does not unsubscribe, so LSUB and `LIST (SUBSCRIBED)` keep listing the name (as `\NonExistent` in extended LIST) until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name (RFC 9051 section 6.3.6). A mailbox from the storage object is subscribed unless it has `"subscribed": false`, a new mailbox is not. SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name
+- CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3, Dovecot creates a `\Noselect` level instead). An existing `\Noselect` level stays `\Noselect`
+- DELETE of a mailbox with children leaves a `\Noselect` level that keeps nothing but the children, CREATE of that name makes a new mailbox with a new UIDVALIDITY
+- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6, like Dovecot)
 
 ### Supported Plugins
 
@@ -167,7 +173,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **UNAUTHENTICATE** Adds UNAUTHENTICATE [RFC8437] capability. Returns to the Not Authenticated state and resets the session: the selected mailbox is closed without expunging, ENABLEd extensions and CONDSTORE are turned off, and COMPRESS ends after the tagged OK. TLS stays
 - **UNSELECT** Adds UNSELECT [RFC3691] capability
 - **UTF8=ACCEPT** Adds UTF8=ACCEPT [RFC9755] capability and loads ENABLE. After `ENABLE UTF8=ACCEPT` mailbox names are UTF-8 in both directions (storage keeps modified UTF-7 names, so `&` is an ordinary character), strings that are valid UTF-8 are sent quoted, and SEARCH strings are UTF-8 without `CHARSET`. UTF8=ONLY, the obsolete `APPEND ... UTF8 (...)` data item of RFC 6855 and downgrading of 8-bit headers for clients that did not enable UTF-8 (RFC 9755 section 8) are not implemented
-- **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is supported: every message is its own thread unless the storage sets an `X-GM-THRID` value for it. `X-GM-RAW` is not supported.
+- **X-GM-EXT-1** Adds [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) extensions. `X-GM-MSGID` and `X-GM-THRID` work with FETCH and SEARCH (every message is its own thread unless the storage sets an `X-GM-THRID` value for it). `X-GM-LABELS` works with FETCH, STORE (`+`, `-`, `.SILENT`) and SEARCH: system labels are atoms that start with `\` (`\Inbox` for INBOX, the special-use attribute for special-use mailboxes), other labels are mailbox names, sent and read in the form the session uses for mailbox names (modified UTF-7, or UTF-8 after `ENABLE UTF8=ACCEPT`) and quoted when they are not atoms. In SEARCH a label that starts with `\` is a system label. Setting a label does not change message behavior, for example the message does not get copied to another mailbox. `X-GM-RAW` supports a subset of the Gmail search syntax: words and `"phrases"` (TEXT), `-term`, `OR`, `( )`, `{ }`, `from:`, `to:`, `cc:`, `bcc:`, `subject:`, `label:`, `in:` (`inbox`, `sent`, `drafts`, `trash`, `spam`, `anywhere` or a label), `is:` (`read`, `unread`, `starred`, `important`), `larger:` and `smaller:` (with `k` or `m`), `after:` and `before:` (`YYYY/MM/DD`) and `rfc822msgid:`. Other Gmail operators (`has:`, `older_than:` ...) are answered with NO
 - **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
 - **XTOYBIRD** Custom plugin to allow programmatic control of the server. XTOYBIRD commands are only allowed after login
 
