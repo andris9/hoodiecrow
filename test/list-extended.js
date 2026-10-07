@@ -231,7 +231,7 @@ describe('LIST-EXTENDED', () => {
                 // no CHILDINFO, Old/Child is not subscribed
                 assert.deepStrictEqual(byName(section(resp, 'A7')).Old, ['\\HasChildren \\NonExistent \\Subscribed', 'Old', '']);
                 // plain LIST still reports \Noselect
-                assert.match(section(resp, 'A8'), /^\* LIST \(\\HasChildren \\Noselect\) "\/" "Old"\r\nA8 OK/);
+                assert.match(section(resp, 'A8'), /^\* LIST \(\\Noselect \\HasChildren\) "\/" "Old"\r\nA8 OK/);
                 done();
             }
         );
