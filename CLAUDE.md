@@ -9,7 +9,7 @@ Hoodiecrow (`hoodiecrow-imap` on npm) is a scriptable, in-memory IMAP4rev1 mock 
 ## Commands
 
 - `npm test`: ESLint, then all tests (`npm run test:unit`, which is `node --test test/*.js`).
-- `npm run test:coverage`: the tests with Node's built-in coverage for `lib/` (Node >= 22.8). Fails below 85% line coverage; CI runs it on Node 24.
+- `npm run test:coverage`: the tests with Node's built-in coverage for `lib/` (Node >= 22.8). Fails below 94% line coverage; CI runs it on Node 24.
 - Single test file: `node --test test/uid-fetch.js`. Single test case: add `--test-name-pattern="<test name>"`.
 - `npm run lint`, `npm run format` / `npm run format:check` (Prettier: single quotes, 4 spaces, 160 columns). CI fails on unformatted files. `npm install` sets `core.hooksPath` to `.githooks`, whose pre-commit hook runs Prettier on staged JS.
 - `npm run update`: refresh all dependencies to latest (`ncu -u`, config in `.ncurc.js`). Dependencies are pinned to exact versions.

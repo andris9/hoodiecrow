@@ -15,7 +15,7 @@
         "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
         "test": "npm run lint && npm run test:unit",
         "test:unit": "node --test test/*.js",
-        "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='lib/**' --test-coverage-lines=85 test/*.js",
+        "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='lib/**' --test-coverage-lines=94 test/*.js",
         "lint": "eslint",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
