@@ -750,6 +750,57 @@ describe('ACL options', () => {
         });
     });
 
+    describe('with REPLACE', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'REPLACE'], users: users(), storage: storage() }));
+        const run = (commands, callback) => ctx.run(commands.concat('ZZ LOGOUT'), resp => callback(resp.toString('binary')));
+
+        // RFC 4314 section 6: a mailbox the user can not see gets the same answers as a missing one, also before the
+        // message literal, so whether a continuation request is sent does not disclose it
+        it('refuses hidden and missing APPEND targets the same way before the literal', (t, done) => {
+            run(
+                [BOB, 'A1 APPEND Secret {5}\r\nhello', 'A1 APPEND Nothere {5}\r\nhello', 'A2 APPEND Lookup {5}\r\nhello', 'A3 APPEND Insert {5}\r\nhello'],
+                resp => {
+                    const lines = resp.split('\r\n').filter(line => /^(A1|\+)/.test(line));
+                    assert.deepStrictEqual(lines.slice(0, 2), [
+                        'A1 NO [TRYCREATE] Target mailbox does not exist',
+                        'A1 NO [TRYCREATE] Target mailbox does not exist'
+                    ]);
+                    // visible without "i": NOPERM, also before the literal
+                    assert.match(resp, /^A2 NO \[NOPERM\] /m);
+                    assert.match(resp, /^\+ [^\r]*\r\nA3 OK /m);
+                    assert.strictEqual(resp.match(/^\+ /gm).length, 1);
+                    done();
+                }
+            );
+        });
+
+        // RFC 8508 section 4.1: the rights of UID STORE and UID EXPUNGE on the selected mailbox, and of APPEND on the target
+        it('needs "t" and "e" on the selected mailbox and "i" on the target', (t, done) => {
+            run(
+                [
+                    BOB,
+                    'A1 SELECT Shared',
+                    'A2 REPLACE 1 Secret {5}\r\nhello',
+                    'A2 REPLACE 1 Nothere {5}\r\nhello',
+                    'A3 UID REPLACE 1 Lookup {5}\r\nhello',
+                    'A4 SELECT NoSeen',
+                    'A5 REPLACE 1 Shared {5}\r\nhello',
+                    'A6 SELECT Shared',
+                    'A7 REPLACE 1 Shared {5}\r\nhello'
+                ],
+                resp => {
+                    assert.strictEqual(resp.match(/^A2 NO \[TRYCREATE\] Target mailbox does not exist\r$/gm).length, 2);
+                    assert.match(resp, /^A3 NO \[NOPERM\] /m);
+                    // NoSeen gives "lrw", no "t" or "e"
+                    assert.match(resp, /^A5 NO \[NOPERM\] /m);
+                    assert.match(resp, /^\+ [^\r]*\r\n(\* [^\r]*\r\n)*A7 OK /m);
+                    assert.strictEqual(resp.match(/^\+ /gm).length, 1);
+                    done();
+                }
+            );
+        });
+    });
+
     describe('with CONDSTORE', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL', 'CONDSTORE'], users: users(), storage: storage() }));
 
