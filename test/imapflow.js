@@ -47,7 +47,12 @@ const ALL_PLUGINS = [
     'REPLACE',
     'APPENDLIMIT',
     'UTF8=ACCEPT',
-    'BINARY'
+    'BINARY',
+    'PARTIAL',
+    'ESORT',
+    'CONTEXT=SEARCH',
+    'CONTEXT=SORT',
+    'MULTISEARCH'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));

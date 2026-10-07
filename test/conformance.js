@@ -117,6 +117,9 @@ const CASES = [
     ['FETCH $ without SEARCHRES', 'selected', ['A1 FETCH $ FLAGS'], { A1: 'BAD' }],
     ['SEARCH MODSEQ without CONDSTORE', 'selected', ['A1 SEARCH MODSEQ 1'], { A1: 'BAD' }],
     ['SELECT QRESYNC without QRESYNC', 'auth', ['A1 SELECT INBOX (QRESYNC (1 1))'], { A1: 'BAD' }],
+    ['FETCH PARTIAL without PARTIAL', 'selected', ['A1 UID FETCH 1:* FLAGS (PARTIAL 1:5)'], { A1: 'BAD' }],
+    ['CANCELUPDATE without CONTEXT=SEARCH', 'selected', ['A1 CANCELUPDATE "A1"'], { A1: 'BAD' }],
+    ['ESEARCH without MULTISEARCH', 'selected', ['A1 ESEARCH ALL'], { A1: 'BAD' }],
 
     // Mailbox names use modified UTF-7, RFC 3501 section 5.1.3
     ['CREATE with 8-bit characters', 'auth', ['A1 CREATE {5}\r\ncaf\xe9'], { A1: 'BAD' }],
@@ -149,6 +152,43 @@ const SEARCH_CASES = [
     ['MODSEQ with \\Recent', 'selected', ['A1 SEARCH MODSEQ "/flags/\\\\recent" all 1'], { A1: 'BAD' }],
     ['MODSEQ with an unknown entry type', 'selected', ['A1 SEARCH MODSEQ "/flags/\\\\seen" any 1'], { A1: 'BAD' }],
     ['MODSEQ over 63 bits', 'selected', ['A1 SEARCH MODSEQ 9223372036854775808'], { A1: 'BAD' }]
+];
+
+// PARTIAL (RFC 9394), CONTEXT=SEARCH and CONTEXT=SORT (RFC 5267), MULTISEARCH (RFC 7377), with these and SEARCHRES loaded
+const CONTEXT_CASES = [
+    // RFC 9394 section 3.1 and RFC 5267 section 4.4: one PARTIAL or one ALL
+    ['PARTIAL with ALL', 'selected', ['A1 SEARCH RETURN (PARTIAL 1:5 ALL) ALL'], { A1: 'BAD' }],
+    ['PARTIAL twice', 'selected', ['A1 SEARCH RETURN (PARTIAL 1:5 PARTIAL 6:9) ALL'], { A1: 'BAD' }],
+    ['ALL twice with PARTIAL loaded', 'selected', ['A1 SEARCH RETURN (ALL ALL) ALL'], { A1: 'BAD' }],
+    // RFC 9394 section 4: partial-range-first = nz-number ":" nz-number, partial-range-last = MINUS nz-number ":" MINUS nz-number
+    ['PARTIAL without a range', 'selected', ['A1 SEARCH RETURN (PARTIAL) ALL'], { A1: 'BAD' }],
+    ['PARTIAL with zero', 'selected', ['A1 SEARCH RETURN (PARTIAL 0:5) ALL'], { A1: 'BAD' }],
+    ['PARTIAL with "*"', 'selected', ['A1 SEARCH RETURN (PARTIAL 1:*) ALL'], { A1: 'BAD' }],
+    ['PARTIAL with mixed signs', 'selected', ['A1 SEARCH RETURN (PARTIAL -1:5) ALL'], { A1: 'BAD' }],
+    ['PARTIAL with a single number', 'selected', ['A1 SEARCH RETURN (PARTIAL 5) ALL'], { A1: 'BAD' }],
+    ['PARTIAL with a quoted range', 'selected', ['A1 SEARCH RETURN (PARTIAL "1:5") ALL'], { A1: 'BAD' }],
+    ['PARTIAL over 32 bits', 'selected', ['A1 SEARCH RETURN (PARTIAL 1:4294967296) ALL'], { A1: 'BAD' }],
+    ['PARTIAL fetch modifier twice', 'selected', ['A1 UID FETCH 1:* FLAGS (PARTIAL 1:5 PARTIAL 1:2)'], { A1: 'BAD' }],
+    ['PARTIAL fetch modifier without a range', 'selected', ['A1 UID FETCH 1:* FLAGS (PARTIAL)'], { A1: 'BAD' }],
+    // RFC 5267 section 4.3, tag reuse is covered in test/context-search.js
+    ['UPDATE twice', 'selected', ['A1 SEARCH RETURN (UPDATE UPDATE) ALL'], { A1: 'BAD' }],
+    // RFC 5267 section 5: command-select =/ "CANCELUPDATE" 1*(SP quoted)
+    ['CANCELUPDATE without tags', 'selected', ['A1 CANCELUPDATE'], { A1: 'BAD' }],
+    ['CANCELUPDATE with an atom', 'selected', ['A1 SEARCH RETURN (UPDATE) ALL', 'A2 CANCELUPDATE A1'], { A1: 'OK', A2: 'BAD' }],
+    ['CANCELUPDATE with an unknown tag', 'selected', ['A1 CANCELUPDATE "A1"'], { A1: 'NO' }],
+    ['CANCELUPDATE without a selected mailbox', 'auth', ['A1 CANCELUPDATE "A1"'], { A1: 'BAD' }],
+    // RFC 7377 section 2.2
+    ['ESEARCH with selected-delayed', 'selected', ['A1 ESEARCH IN (selected-delayed) ALL'], { A1: 'BAD' }],
+    ['ESEARCH with an empty source list', 'selected', ['A1 ESEARCH IN () ALL'], { A1: 'BAD' }],
+    ['ESEARCH with scope options', 'selected', ['A1 ESEARCH IN (personal (depth 1)) ALL'], { A1: 'BAD' }],
+    ['ESEARCH with mailboxes but no name', 'selected', ['A1 ESEARCH IN (mailboxes) ALL'], { A1: 'BAD' }],
+    ['ESEARCH with an invalid mailbox name', 'selected', ['A1 ESEARCH IN (mailboxes "&Jjo!") ALL'], { A1: 'BAD' }],
+    ['ESEARCH of the selected mailbox without one', 'auth', ['A1 ESEARCH ALL', 'A2 ESEARCH IN (selected personal) ALL'], { A1: 'BAD', A2: 'BAD' }],
+    ['ESEARCH of other mailboxes without a selected one', 'auth', ['A1 ESEARCH IN (personal) ALL'], { A1: 'OK' }],
+    ['ESEARCH SAVE of other mailboxes', 'selected', ['A1 ESEARCH IN (selected personal) RETURN (SAVE) ALL'], { A1: 'BAD' }],
+    ['ESEARCH UPDATE without a selected mailbox', 'auth', ['A1 ESEARCH IN (personal) RETURN (UPDATE) ALL'], { A1: 'BAD' }],
+    ['ESEARCH before login', 'none', ['A1 ESEARCH IN (personal) ALL'], { A1: 'BAD' }],
+    ['UID ESEARCH', 'selected', ['A1 UID ESEARCH ALL'], { A1: 'BAD' }]
 ];
 
 // RFC 5464 (METADATA), with the verified errata 2785 and 2786, with METADATA loaded
@@ -268,6 +308,20 @@ describe('Strict extended SEARCH handling', () => {
     }));
 
     defineCases(ctx, SEARCH_CASES);
+});
+
+describe('Strict PARTIAL, CONTEXT and MULTISEARCH handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['PARTIAL', 'CONTEXT=SORT', 'MULTISEARCH', 'SEARCHRES'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, CONTEXT_CASES);
 });
 
 // Extended LIST: RFC 5258 (LIST-EXTENDED), RFC 6154 (SPECIAL-USE), RFC 5819 (LIST-STATUS)

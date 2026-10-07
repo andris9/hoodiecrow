@@ -591,6 +591,42 @@ describe('ACL options', () => {
         });
     });
 
+    // RFC 7377 section 2.2: "r" for every searched mailbox, "l" for those the client did not name, others are left out
+    describe('with MULTISEARCH', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'MULTISEARCH'], users: users(), storage: storage() }));
+        const mailboxes = (resp, tag) => [...resp.matchAll(new RegExp('^\\* ESEARCH \\(TAG "' + tag + '" MAILBOX (\\S+) ', 'gm'))].map(m => m[1]);
+
+        it('searches only the mailboxes the user may read', (t, done) => {
+            ctx.run(
+                [
+                    BOB,
+                    'A1 ESEARCH IN (personal) ALL',
+                    'A2 ESEARCH IN (mailboxes (Hidden Secret Neg)) ALL',
+                    'A3 ESEARCH IN (subtree Hidden) ALL',
+                    'A4 ESEARCH IN (subscribed) ALL',
+                    'ZZ LOGOUT'
+                ],
+                resp => {
+                    resp = resp.toString();
+                    assert.deepStrictEqual(mailboxes(resp, 'A1'), ['INBOX', 'Shared', 'ReadOnly', 'NoSeen']);
+                    assert.deepStrictEqual(mailboxes(resp, 'A2'), ['Hidden']);
+                    assert.deepStrictEqual(mailboxes(resp, 'A3'), ['Hidden']);
+                    assert.deepStrictEqual(mailboxes(resp, 'A4'), ['INBOX', 'Shared', 'ReadOnly', 'NoSeen']);
+                    ['A1', 'A2', 'A3', 'A4'].forEach(tag => assert.strictEqual(tagged(resp, tag), 'OK'));
+                    done();
+                }
+            );
+        });
+
+        it('lets the owner search every mailbox', (t, done) => {
+            ctx.run([OWNER, 'A1 ESEARCH IN (personal) ALL', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString();
+                assert.deepStrictEqual(mailboxes(resp, 'A1'), ['INBOX', 'Shared', 'ReadOnly', 'NoSeen', 'Hidden', 'Secret']);
+                done();
+            });
+        });
+    });
+
     describe('with CATENATE', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL', 'CATENATE'], users: users(), storage: storage() }));
 
