@@ -577,6 +577,10 @@ describe('Search with unusual data', () => {
                     {
                         raw: 'Subject: second\r\nDate: Mon, 5 Oct 26 10:00:00 +0300\r\n\r\nbody',
                         internaldate: '06-Oct-2026 10:00:00 +0300'
+                    },
+                    {
+                        raw: 'Subject: =?UTF-8?Q?R=C3=A9servation?=\r\nFrom: =?ISO-8859-1?B?SvZyZw==?= <jorg@example.com>\r\nX-Note: =?UTF-8?Q?caf=C3?=\r\n =?UTF-8?Q?=A9?=\r\n\r\nbody',
+                        internaldate: '01-Jan-2020 10:00:00 +0000'
                     }
                 ]
             }
@@ -601,6 +605,32 @@ describe('Search with unusual data', () => {
             resp = resp.toString();
             assert.ok(resp.indexOf('\n* SEARCH 1\r\nA3 OK') >= 0, resp);
             assert.ok(resp.indexOf('\n* SEARCH 1\r\nA4 OK') >= 0);
+            done();
+        });
+    });
+
+    it('header values are compared after decoding encoded words', (t, done) => {
+        // RFC 3501 and RFC 9051 section 6.4.4: [MIME-HDRS] strings in headers MUST be decoded before comparing text
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 SEARCH CHARSET UTF-8 SUBJECT {12}\r\nR\xc3\xa9servation',
+            'A4 SEARCH CHARSET UTF-8 FROM {5}\r\nJ\xc3\xb6rg',
+            'A5 SEARCH CHARSET UTF-8 HEADER X-Note {5}\r\ncaf\xc3\xa9',
+            'A6 SEARCH SUBJECT reservation',
+            'A7 SEARCH SUBJECT "=?UTF-8?Q?"',
+            'A8 SEARCH SUBJECT SERVATION FROM jorg@example.com',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* SEARCH 3\r\nA3 OK/m);
+            assert.match(resp, /^\* SEARCH 3\r\nA4 OK/m);
+            assert.match(resp, /^\* SEARCH 3\r\nA5 OK/m);
+            assert.match(resp, /^\* SEARCH\r\nA6 OK/m);
+            assert.match(resp, /^\* SEARCH\r\nA7 OK/m);
+            assert.match(resp, /^\* SEARCH 3\r\nA8 OK/m);
             done();
         });
     });

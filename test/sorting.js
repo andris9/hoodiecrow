@@ -4,7 +4,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { decodeHeader, collationKey, baseSubject, sentTime, arrivalTime, addressMailbox, displayAddress, parseMessageIds } = require('../lib/sorting');
+const { decodeHeader } = require('../lib/encoded-words');
+const { collationKey, baseSubject, sentTime, arrivalTime, addressMailbox, displayAddress, parseMessageIds } = require('../lib/sorting');
 
 const message = (raw, internaldate) => ({ raw, internaldate: internaldate || '01-Jan-2020 00:00:00 +0000' });
 
