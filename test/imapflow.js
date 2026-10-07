@@ -46,7 +46,8 @@ const ALL_PLUGINS = [
     'CATENATE',
     'REPLACE',
     'APPENDLIMIT',
-    'UTF8=ACCEPT'
+    'UTF8=ACCEPT',
+    'BINARY'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -235,7 +236,8 @@ describe('ImapFlow', () => {
                 'NAMESPACE',
                 'ID',
                 'LITERAL+',
-                'UTF8=ACCEPT'
+                'UTF8=ACCEPT',
+                'BINARY'
             ]) {
                 assert.ok(client.capabilities.has(capability), capability);
             }
@@ -477,6 +479,30 @@ describe('ImapFlow', () => {
 
             const many = await client.downloadMany('2', ['1', '2'], { uid: true });
             assert.ok(many['2'].content.equals(ATTACHMENT));
+        });
+
+        it('appends binary content as a literal8 and downloads decoded parts with BINARY (RFC 3516)', async () => {
+            const client = await connect(ctx);
+            const binary = Buffer.from([0, 1, 2, 13, 10, 255, 0, 10]);
+            const raw = Buffer.concat([
+                Buffer.from(
+                    'Subject: binary\r\nContent-Type: multipart/mixed; boundary="b"\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\ntext\r\n' +
+                        '--b\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: binary\r\n\r\n'
+                ),
+                binary,
+                Buffer.from('\r\n--b--\r\n')
+            ]);
+            // ImapFlow sends content with NUL octets as a literal8
+            const result = await client.append('Sent', raw);
+            await client.mailboxOpen('Sent');
+
+            const attachment = await client.download(String(result.uid), '2', { uid: true, binary: true });
+            assert.ok((await readStream(attachment.content)).equals(binary));
+            // the binary part is stored base64 encoded, so BODY[] stays valid IMAP4rev1
+            const message = await client.fetchOne(String(result.uid), { bodyStructure: true }, { uid: true });
+            assert.strictEqual(message.bodyStructure.childNodes[1].encoding, 'base64');
+            const text = await client.download(String(result.uid), '1', { uid: true, binary: true });
+            assert.strictEqual((await readStream(text.content)).toString(), 'text');
         });
 
         it('searches with various criteria', async () => {

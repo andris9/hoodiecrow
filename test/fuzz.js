@@ -68,7 +68,8 @@ const PLUGINS = [
     'CATENATE',
     'REPLACE',
     'APPENDLIMIT',
-    'UTF8=ACCEPT'
+    'UTF8=ACCEPT',
+    'BINARY'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
@@ -130,6 +131,10 @@ const CORPUS = [
     { state: 'auth', input: 'C1 APPEND INBOX {5}\r\nhello (\\Seen) {5}\r\nworld\r\n' },
     { state: 'auth', input: 'C1 APPEND Archive CATENATE (TEXT {3}\r\nabc URL "/INBOX/;UID=1/;SECTION=1/;PARTIAL=0.5")\r\n' },
     { state: 'auth', input: 'C1 STATUS INBOX (APPENDLIMIT)\r\n' },
+    {
+        state: 'auth',
+        input: 'C1 APPEND INBOX ~{80}\r\nSubject: bin\r\nContent-Transfer-Encoding: binary\r\n\r\n\x00\x01\x02\xff\r\nbinary data\x00 with NUL\r\n'
+    },
     { state: 'auth', input: 'C1 IDLE\r\nDONE\r\n' },
     { state: 'auth', input: 'C1 ENABLE METADATA\r\nC2 SETMETADATA INBOX (/private/comment "hello" /shared/comment {5}\r\nworld)\r\n' },
     { state: 'auth', input: 'C1 GETMETADATA (MAXSIZE 1024 DEPTH infinity) "" (/shared /private/comment)\r\n' },
@@ -150,6 +155,8 @@ const CORPUS = [
     { state: 'selected', input: 'C1 UID FETCH 1:* PREVIEW (LAZY) (CHANGEDSINCE 1)\r\n' },
     { state: 'selected', input: 'C1 FETCH 1 (X-GM-MSGID X-GM-THRID X-GM-LABELS MODSEQ)\r\n' },
     { state: 'selected', input: 'C1 UID FETCH 1:* (FLAGS BODY.PEEK[HEADER])\r\n' },
+    { state: 'selected', input: 'C1 FETCH 1:* (BINARY.PEEK[1] BINARY.SIZE[1])\r\n' },
+    { state: 'selected', input: 'C1 UID FETCH 3 (BINARY[2]<1.3> BINARY.SIZE[1])\r\n' },
     { state: 'selected', input: 'C1 STORE 1 +FLAGS (\\Flagged)\r\n' },
     { state: 'selected', input: 'C1 STORE 1:2 -FLAGS.SILENT (\\Seen)\r\n' },
     { state: 'selected', input: 'C1 STORE 2 (UNCHANGEDSINCE 100) FLAGS (\\Answered $Custom)\r\n' },

@@ -35,8 +35,10 @@ const DOVECOT_PASS = 'pass';
  * In commands and verbatim lines, the four characters \r\n become CRLF and
  * {file:path} or {file+:path} become a synchronizing or non-synchronizing
  * literal with the file contents (line endings converted to CRLF, path relative
- * to the scenario file). $USER and $PASS expand to the target's credentials,
- * $UIDVALIDITY to the last UIDVALIDITY value the target sent (for QRESYNC).
+ * to the scenario file). ~{file:path} and ~{file+:path} become a literal8
+ * (RFC 3516) with the file octets as they are. $USER and $PASS expand to the
+ * target's credentials, $UIDVALIDITY to the last UIDVALIDITY value the target
+ * sent (for QRESYNC).
  *
  * @param {String} text Scenario source
  * @return {Array} steps
@@ -90,7 +92,7 @@ function parseScenario(text) {
  */
 function buildPayload(text, vars, baseDir) {
     const parts = [];
-    const re = /\{file(\+?):([^}]+)\}/g;
+    const re = /(~?)\{file(\+?):([^}]+)\}/g;
     let last = 0;
     let match;
 
@@ -105,8 +107,10 @@ function buildPayload(text, vars, baseDir) {
 
     while ((match = re.exec(text))) {
         pushText(text.slice(last, match.index));
-        const content = Buffer.from(fs.readFileSync(path.resolve(baseDir, match[2].trim()), 'utf8').replace(/\r?\n/g, '\r\n'), 'utf8');
-        parts.push(Buffer.from(`{${content.length}${match[1]}}\r\n`), content);
+        const file = path.resolve(baseDir, match[3].trim());
+        // a literal8 (RFC 3516) carries the file octets as they are, they may be binary
+        const content = match[1] ? fs.readFileSync(file) : Buffer.from(fs.readFileSync(file, 'utf8').replace(/\r?\n/g, '\r\n'), 'utf8');
+        parts.push(Buffer.from(`${match[1]}{${content.length}${match[2]}}\r\n`), content);
         last = re.lastIndex;
     }
     pushText(text.slice(last));

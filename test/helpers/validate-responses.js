@@ -286,6 +286,16 @@ function checkResponse(response, parsed, utf8) {
         if (!response.literal8[i] && literal.indexOf(0) >= 0) {
             fail('Literal contains a NUL octet', response.text);
         }
+        // a server sends a literal8 only as the value of BINARY[section-binary] (RFC 3516 section 7) or of a
+        // METADATA entry (RFC 5464 section 5)
+        if (response.literal8[i]) {
+            const line = response.lines[i].toString('binary');
+            const binaryItem = /^\* [0-9]+ FETCH \(/i.test(first) && /(?:^|[ (])BINARY\[[0-9.]*\](?:<[0-9]+>)? ~\{[0-9]+\}$/i.test(line);
+            const metadataValue = /^\* METADATA /i.test(first) && / ~\{[0-9]+\}$/.test(line);
+            if (!binaryItem && !metadataValue) {
+                fail('Literal8 outside of a BINARY[] FETCH item or a METADATA value', response.text);
+            }
+        }
     });
 
     if (parsed.tag === '+') {

@@ -133,7 +133,10 @@ const CASES = [
     ['command ending with a bare LF', 'none', ['A1 NOOP\nA2 NOOP'], { A1: 'BAD', A2: 'OK' }],
     ['literal for an unknown command', 'auth', ['A1 FOOBAR {3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
     ['literal for a command in the wrong state', 'none', ['A1 APPEND INBOX {3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
-    ['literal for LOGIN before login', 'none', ['A1 LOGIN {8}\r\ntestuser testpass'], { A1: 'OK' }]
+    ['literal for LOGIN before login', 'none', ['A1 LOGIN {8}\r\ntestuser testpass'], { A1: 'OK' }],
+    // RFC 3516: literal8 only exists with the BINARY extension
+    ['literal8 without BINARY', 'auth', ['A1 APPEND INBOX ~{3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
+    ['BINARY fetch item without BINARY', 'selected', ['A1 FETCH 1 BINARY.PEEK[1]'], { A1: 'BAD' }]
 ];
 
 // Extended SEARCH (RFC 4466 section 2.6.1, RFC 4731, RFC 5182, RFC 7162 section 3.1.5), with ESEARCH, SEARCHRES and CONDSTORE loaded
@@ -191,8 +194,9 @@ const METADATA_CASES = [
     ['SETMETADATA with a bare LF in a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment {3}\r\na\nb)'], { A1: 'BAD' }],
     ['SETMETADATA with a bare CR in a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment {3}\r\na\rb)'], { A1: 'BAD' }],
     ['SETMETADATA with CRLF in a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment {4}\r\na\r\nb)'], { A1: 'OK' }],
-    // literal8 (RFC 3516) values are not supported by the parser yet
-    ['SETMETADATA with a literal8 value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment ~{1}\r\na)'], { A1: 'BAD' }],
+    // RFC 5464 section 5: value = nstring / literal8, binary data is not held to the CRLF rule
+    ['SETMETADATA with a literal8 value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment ~{3}\r\na\nb)'], { A1: 'OK' }],
+    ['literal8 as a GETMETADATA entry name', 'auth', ['A1 GETMETADATA INBOX ~{15}\r\n/shared/comment'], { A1: 'BAD' }, ['+ Go ahead']],
     // RFC 5464 section 4.2 and 4.3: authenticated or selected state only
     ['GETMETADATA before login', 'none', ['A1 GETMETADATA "" /shared/comment'], { A1: 'BAD' }],
     ['SETMETADATA before login', 'none', ['A1 SETMETADATA "" (/shared/comment "x")'], { A1: 'BAD' }]
