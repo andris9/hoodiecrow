@@ -17,7 +17,7 @@ const CR = 0x0d;
 
 // Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
-// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464), SORT and THREAD (RFC 5256), QUOTA and QUOTAROOT (RFC 9208),
+// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162 and RFC 9586), METADATA (RFC 5464), SORT and THREAD (RFC 5256), QUOTA and QUOTAROOT (RFC 9208),
 // ACL, LISTRIGHTS and MYRIGHTS (RFC 4314). "X" prefixed names are
 // experimental extensions (RFC 3501 section 6.5.1 allows X commands, and their responses).
 const UNTAGGED = new Set([
@@ -50,12 +50,14 @@ const UNTAGGED = new Set([
 // RFC 4314 section 7: rights = astring, only lowercase ASCII letters and digits are allowed
 const RIGHTS_RE = /^[a-z0-9]*$/;
 
-// RFC 3501 section 9: message-data uses nz-number, EXISTS and RECENT use number
+// RFC 3501 section 9: message-data uses nz-number, EXISTS and RECENT use number. RFC 9586 section 4:
+// uidfetch-resp = uniqueid SP "UIDFETCH" SP msg-att, uniqueid = nz-number
 const NUMERIC = {
     EXISTS: 'number',
     RECENT: 'number',
     EXPUNGE: 'nz-number',
-    FETCH: 'nz-number'
+    FETCH: 'nz-number',
+    UIDFETCH: 'nz-number'
 };
 
 // RFC 3501 section 9: resp-text-code = ... / atom [SP 1*<any TEXT-CHAR except "]">]
@@ -149,9 +151,10 @@ function fail(message, data) {
 
 /**
  * Checks `resp-text` (RFC 3501 section 9: resp-text = ["[" resp-text-code "]" SP] text) that
- * follows a status keyword. `rest` is everything after the keyword.
+ * follows a status keyword. `rest` is everything after the keyword. `uidonly` is true after
+ * ENABLE UIDONLY.
  */
-function checkRespText(rest, response) {
+function checkRespText(rest, response, uidonly) {
     if (rest.charAt(0) !== ' ') {
         // RFC 3501 section 9: resp-cond-state = ("OK" / "NO" / "BAD") SP resp-text
         fail('Status response keyword must be followed by SP and text', response.text);
@@ -186,6 +189,18 @@ function checkRespText(rest, response) {
         if (name.toUpperCase() === 'NOTIFICATIONOVERFLOW' && space >= 0) {
             // RFC 5465 section 8: the code takes no arguments
             fail('NOTIFICATIONOVERFLOW takes no arguments', response.text);
+        }
+        if (name.toUpperCase() === 'UIDREQUIRED' && space >= 0) {
+            // RFC 9586 section 4: resp-text-code =/ "UIDREQUIRED"
+            fail('UIDREQUIRED response code takes no arguments', response.text);
+        }
+        if (name.toUpperCase() === 'MESSAGELIMIT' && !/^MESSAGELIMIT [1-9][0-9]*( [1-9][0-9]*)?$/i.test(code)) {
+            // RFC 9738 section 5: resp-text-code =/ "MESSAGELIMIT" SP message-limit [SP uniqueid]
+            fail('Invalid MESSAGELIMIT response code', response.text);
+        }
+        if (uidonly && name.toUpperCase() === 'UNSEEN') {
+            // RFC 9586 section 3: no message sequence numbers in any response once UIDONLY is enabled
+            fail('UNSEEN response code holds a message number, not allowed once UIDONLY is enabled', response.text);
         }
         text = text.substr(end + 1);
         if (text.charAt(0) !== ' ') {
@@ -294,7 +309,7 @@ function checkOctets(line, response, utf8) {
     }
 }
 
-function checkResponse(response, parsed, utf8) {
+function checkResponse(response, parsed, utf8, uidonly) {
     const first = response.lines[0].toString('binary');
 
     // Literals (CHAR8 = %x01-ff) must not contain NUL, literal8 (RFC 3516) may.
@@ -330,7 +345,7 @@ function checkResponse(response, parsed, utf8) {
         if (!match || !TAG_REGEX.test(match[1])) {
             fail('Tagged response must be "tag OK|NO|BAD text"', response.text);
         }
-        checkRespText(match[3], response);
+        checkRespText(match[3], response, uidonly);
         return;
     }
 
@@ -344,14 +359,22 @@ function checkResponse(response, parsed, utf8) {
         if (!re.test(numeric[1])) {
             fail(name + ' requires a ' + NUMERIC[name], response.text);
         }
-        if (name === 'FETCH') {
+        // RFC 9586 sections 3.3 and 3.4: once UIDONLY is enabled, UIDFETCH and VANISHED replace FETCH and EXPUNGE,
+        // and UIDFETCH is not sent before
+        if (uidonly && (name === 'FETCH' || name === 'EXPUNGE')) {
+            fail(name + ' response holds a message number, not allowed once UIDONLY is enabled', response.text);
+        }
+        if (!uidonly && name === 'UIDFETCH') {
+            fail('UIDFETCH response before ENABLE UIDONLY', response.text);
+        }
+        if (name === 'FETCH' || name === 'UIDFETCH') {
             // RFC 3501 section 9: "FETCH" SP msg-att, msg-att = "(" att SP value *(SP att SP value) ")"
             const attrs = parsed.attributes || [];
-            if (attrs.length !== 2 || !Array.isArray(attrs[1]) || !/^\* [0-9]+ FETCH \(/i.test(first)) {
-                fail('FETCH response must have exactly one parenthesized list', response.text);
+            if (attrs.length !== 2 || !Array.isArray(attrs[1]) || !new RegExp('^\\* [0-9]+ ' + name + ' \\(', 'i').test(first)) {
+                fail(name + ' response must have exactly one parenthesized list', response.text);
             }
             if (!attrs[1].length || attrs[1].length % 2) {
-                fail('FETCH response list must hold attribute and value pairs', response.text);
+                fail(name + ' response list must hold attribute and value pairs', response.text);
             }
         } else if ((parsed.attributes || []).length !== 1) {
             fail(name + ' response takes no arguments', response.text);
@@ -366,7 +389,7 @@ function checkResponse(response, parsed, utf8) {
 
     if (['OK', 'NO', 'BAD', 'PREAUTH', 'BYE'].includes(name)) {
         // RFC 3501 section 9: resp-cond-state, resp-cond-auth, resp-cond-bye are all keyword SP resp-text
-        checkRespText(first.substr(2 + name.length), response);
+        checkRespText(first.substr(2 + name.length), response, uidonly);
         return;
     }
 
@@ -480,7 +503,7 @@ function checkResponse(response, parsed, utf8) {
     }
 
     if (name === 'ESEARCH') {
-        checkEsearch(parsed, response);
+        checkEsearch(parsed, response, uidonly);
     }
 
     // RFC 7162 section 7: expunged-resp = "VANISHED" [SP "(EARLIER)"] SP known-uids, known-uids is a sequence-set without "*"
@@ -496,7 +519,7 @@ function checkResponse(response, parsed, utf8) {
  * ("UIDVALIDITY" SP nz-number), each one at most once. The return data of RFC 4731 section 4 (MIN, MAX, ALL, COUNT,
  * MODSEQ), RFC 5267 section 5 (ADDTO, REMOVEFROM, PARTIAL) and RFC 9394 section 4 (PARTIAL) is checked by its own grammar
  */
-function checkEsearch(parsed, response) {
+function checkEsearch(parsed, response, uidonly) {
     const attrs = (parsed.attributes || []).slice();
     if (Array.isArray(attrs[0])) {
         const correlator = attrs.shift();
@@ -523,6 +546,9 @@ function checkEsearch(parsed, response) {
     }
     if (attrs[0] && attrs[0].type === 'ATOM' && String(attrs[0].value).toUpperCase() === 'UID') {
         attrs.shift();
+    } else if (uidonly) {
+        // RFC 9586 section 3: results of SEARCH (without UID) are message numbers
+        fail('ESEARCH response without UID, not allowed once UIDONLY is enabled', response.text);
     }
     if (attrs.length % 2) {
         fail('ESEARCH return data must be name and value pairs', response.text);
@@ -681,28 +707,31 @@ function isThreadData(rest) {
 }
 
 /**
- * Checks if a response is "* ENABLED" with UTF8=ACCEPT (RFC 9755 section 3)
+ * Checks if a response is "* ENABLED" with an extension, e.g. UTF8=ACCEPT (RFC 9755 section 3)
  */
-function enablesUtf8(parsed) {
+function enables(parsed, name) {
     return (
         parsed.tag === '*' &&
         String(parsed.command || '').toUpperCase() === 'ENABLED' &&
-        (parsed.attributes || []).some(attr => attr && String(attr.value).toUpperCase() === 'UTF8=ACCEPT')
+        (parsed.attributes || []).some(attr => attr && String(attr.value).toUpperCase() === name)
     );
 }
 
 /**
  * Validates a full server transcript. Rejects with an AssertionError naming the offending response.
- * UTF-8 in quoted strings is accepted after a "* ENABLED UTF8=ACCEPT" response.
+ * UTF-8 in quoted strings is accepted after a "* ENABLED UTF8=ACCEPT" response. After "* ENABLED UIDONLY"
+ * responses with message numbers are refused (RFC 9586 section 3).
  *
  * @param {Buffer|String} transcript Everything the server sent (a string is read as binary)
  * @param {Object} [options]
  * @param {Boolean} [options.utf8] if true, UTF8=ACCEPT was enabled before this transcript
- * @return {Promise} resolves with the responses once every response has been checked, `utf8` tells
- *         if UTF8=ACCEPT is enabled at the end
+ * @param {Boolean} [options.uidonly] if true, UIDONLY was enabled before this transcript
+ * @return {Promise} resolves with the responses once every response has been checked, `utf8` and `uidonly`
+ *         tell if UTF8=ACCEPT and UIDONLY are enabled at the end
  */
 async function validateResponses(transcript, options) {
     let utf8 = !!(options && options.utf8);
+    let uidonly = !!(options && options.uidonly);
     const responses = splitResponses(transcript);
     for (const response of responses) {
         let parsed;
@@ -711,11 +740,13 @@ async function validateResponses(transcript, options) {
         } catch (err) {
             fail('ImapFlow can not parse the response (' + err.message + ')', response.text);
         }
-        checkResponse(response, parsed, utf8);
-        utf8 = utf8 || enablesUtf8(parsed);
+        checkResponse(response, parsed, utf8, uidonly);
+        utf8 = utf8 || enables(parsed, 'UTF8=ACCEPT');
+        uidonly = uidonly || enables(parsed, 'UIDONLY');
     }
-    // lets a caller that validates a session in chunks carry the UTF8=ACCEPT state forward
+    // lets a caller that validates a session in chunks carry the UTF8=ACCEPT and UIDONLY state forward
     responses.utf8 = utf8;
+    responses.uidonly = uidonly;
     return responses;
 }
 

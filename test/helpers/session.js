@@ -31,8 +31,9 @@ function openSession(port, callback) {
             socket.write(data, 'binary');
         }
     };
-    // UTF-8 in quoted strings is valid once an earlier chunk enabled UTF8=ACCEPT
-    let utf8 = false;
+    // UTF-8 in quoted strings is valid once an earlier chunk enabled UTF8=ACCEPT, message numbers are
+    // invalid once an earlier chunk enabled UIDONLY
+    const enabled = { utf8: false, uidonly: false };
 
     let pending = [];
 
@@ -68,10 +69,11 @@ function openSession(port, callback) {
                 validateThen(
                     output,
                     responses => {
-                        utf8 = responses.utf8;
+                        enabled.utf8 = responses.utf8;
+                        enabled.uidonly = responses.uidonly;
                         cb(output);
                     },
-                    { utf8 }
+                    Object.assign({}, enabled)
                 );
                 return;
             }

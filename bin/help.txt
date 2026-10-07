@@ -44,6 +44,7 @@ Configuration file takes the following structure
     "port": 143,
     "maxLiteralSize": 67108864,
     "appendLimit": 5242880,
+    "messageLimit": 1000,
     "users": {
         "testuser": {
             "password": "testpass"

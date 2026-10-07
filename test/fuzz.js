@@ -75,7 +75,9 @@ const PLUGINS = [
     'ESORT',
     'CONTEXT=SEARCH',
     'CONTEXT=SORT',
-    'MULTISEARCH'
+    'MULTISEARCH',
+    'UIDONLY',
+    'MESSAGELIMIT'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
