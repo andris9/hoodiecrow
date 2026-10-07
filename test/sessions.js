@@ -290,6 +290,25 @@ describe('Multiple sessions', () => {
             assert.ok(flagged >= 0 && expunge > flagged && answered > expunge, output);
         });
 
+        it('reports each message once per flush, with its current flags, after changes held back during FETCH', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+
+            await b.cmd('STORE 2 +FLAGS (\\Flagged)');
+            // flag updates wait while A runs FETCH (RFC 3501 7.4.1 holds back EXPUNGE, flag updates go with it)
+            let output = await a.cmd('FETCH 1 (UID)');
+            assert.ok(!/^\* 2 FETCH/m.test(output), output);
+            await b.cmd('STORE 2 +FLAGS (\\Answered)');
+            await b.cmd('STORE 3 +FLAGS (\\Draft)');
+            await b.cmd('STORE 2 -FLAGS (\\Flagged)');
+            output = await a.cmd('NOOP');
+            const fetched = lines(output).filter(line => /^\* \d+ FETCH /.test(line));
+            assert.deepStrictEqual(fetched, ['* 2 FETCH (UID 2 FLAGS (\\Answered))', '* 3 FETCH (UID 3 FLAGS (\\Draft))'], output);
+            // nothing is reported again later
+            output = await a.cmd('NOOP');
+            assert.ok(!/^\* \d+ FETCH /m.test(output), output);
+        });
+
         it('the session that changes flags gets them in the STORE response', async () => {
             const a = await open('INBOX');
             const output = await a.cmd('STORE 2 +FLAGS (\\Flagged)');
