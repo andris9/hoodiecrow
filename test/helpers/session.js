@@ -39,8 +39,9 @@ function openSession(port, callback) {
     };
 
     const session = {
-        run(command, cb) {
-            const tag = command.split(' ').shift();
+        run(command, cb, waitTag) {
+            // waitTag lets a test send several pipelined commands and wait for the last one
+            const tag = waitTag || command.split(' ').shift();
             // literal data waits for the continuation request (RFC 3501 section 4.3)
             pending = (command + '\r\n').split(/(?<=\{\d+\}\r\n)/);
             waiting = { pattern: new RegExp('(^|\\r\\n)' + tag + ' [^\\r\\n]*\\r\\n'), callback: cb };

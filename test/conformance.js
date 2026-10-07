@@ -9,6 +9,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const net = require('node:net');
 const { setupServer } = require('./helpers');
+const { openSession } = require('./helpers/session');
 
 const LOGIN = 'L1 LOGIN testuser testpass';
 const SELECT = 'L2 SELECT INBOX';
@@ -165,6 +166,78 @@ describe('Literal synchronization', () => {
             socket.write('A1 LOGIN {8}\r\ntestuser testpass\r\nA2 LOGIN {0}\r\n testpass\r\nA3 NOOP\r\nA4 LOGOUT\r\n');
         });
     });
+});
+
+describe('Pipelining ambiguity', () => {
+    const ctx = setupServer(() => ({
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello 1\r\n\r\nWorld' }, { raw: 'Subject: hello 2\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    // Logs in and selects INBOX one command at a time, then sends `batch` in one write
+    const pipeline = (batch, callback) => {
+        openSession(ctx.server.address().port, session => {
+            session.run('S1 LOGIN testuser testpass', () => {
+                session.run('S2 SELECT INBOX', () => {
+                    const last = batch[batch.length - 1].split(' ').shift();
+                    session.run(
+                        batch.join('\r\n'),
+                        resp => {
+                            session.close();
+                            callback(resp);
+                        },
+                        last
+                    );
+                });
+            });
+        });
+    };
+
+    // RFC 3501 section 5.5 lists these as invalid non-waiting command sequences
+    const INVALID = [
+        ['FETCH + NOOP + STORE', ['A1 FETCH 1 FLAGS', 'A2 NOOP', 'A3 STORE 1 +FLAGS (\\Seen)'], 'A3'],
+        ['STORE + COPY + FETCH', ['A1 STORE 1 +FLAGS (\\Seen)', 'A2 COPY 1 INBOX', 'A3 FETCH 1 FLAGS'], 'A3'],
+        ['COPY + COPY', ['A1 COPY 1 INBOX', 'A2 COPY 1 INBOX'], 'A2'],
+        ['CHECK + FETCH', ['A1 CHECK', 'A2 FETCH 1 FLAGS'], 'A2'],
+        ['UID SEARCH + SEARCH with sequence numbers', ['A1 UID SEARCH ALL', 'A2 SEARCH 1:2'], 'A2']
+    ];
+
+    // and these as valid ones
+    const VALID = [
+        ['FETCH + STORE + SEARCH + CHECK', ['A1 FETCH 1 FLAGS', 'A2 STORE 1 +FLAGS (\\Seen)', 'A3 SEARCH 1', 'A4 CHECK']],
+        ['STORE + COPY + EXPUNGE', ['A1 STORE 1 +FLAGS (\\Seen)', 'A2 COPY 1 INBOX', 'A3 EXPUNGE']],
+        ['UID SEARCH + UID SEARCH without sequence numbers', ['A1 UID SEARCH ALL', 'A2 UID SEARCH UID 1:*']],
+        ['NOOP + UID FETCH', ['A1 NOOP', 'A2 UID FETCH 1:* FLAGS']]
+    ];
+
+    for (const [description, batch, refused] of INVALID) {
+        it('refuses ' + description, (t, done) => {
+            pipeline(batch, resp => {
+                for (const command of batch) {
+                    const tag = command.split(' ').shift();
+                    const expected = tag === refused ? 'BAD' : 'OK';
+                    assert.ok(new RegExp('^' + tag + ' ' + expected + ' ', 'm').test(resp), tag + ' should be ' + expected + '\n' + resp);
+                }
+                done();
+            });
+        });
+    }
+
+    for (const [description, batch] of VALID) {
+        it('accepts ' + description, (t, done) => {
+            pipeline(batch, resp => {
+                for (const command of batch) {
+                    const tag = command.split(' ').shift();
+                    assert.ok(new RegExp('^' + tag + ' OK ', 'm').test(resp), tag + ' should be OK\n' + resp);
+                }
+                done();
+            });
+        });
+    }
 });
 
 describe('Strict SASL handling', () => {
