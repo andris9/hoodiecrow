@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/postalsys/imapkit/compare/v3.3.1...v4.0.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* install imapkit instead of hoodiecrow-imap. The command is imapkit, its environment variables start with IMAPKIT_ instead of HOODIECROW_, the server greeting and SMTP banner say ImapKit, and the compare tool's Dovecot container is named imapkit-dovecot. The API, plugins, storage format and XTOYBIRD commands are unchanged.
+
+### Features
+
+* rename the project to ImapKit (npm package imapkit) ([6ebb093](https://github.com/postalsys/imapkit/commit/6ebb0939045f4c6a9889f9fa8ff5680e1935241a))
+
 ## [3.3.1](https://github.com/postalsys/hoodiecrow-imap/compare/v3.3.0...v3.3.1) (2026-10-07)
 
 
