@@ -606,31 +606,27 @@ describe('ImapFlow', () => {
             );
         });
 
-        it(
-            'receives flag changes from another client while idling',
-            { todo: 'STORE never notifies other sessions, so no untagged FETCH reaches them (RFC 3501 5.2, 7.4.2)' },
-            async () => {
-                const watcher = await connect(ctx);
-                const actor = await connect(ctx);
+        it('receives flag changes from another client while idling', async () => {
+            const watcher = await connect(ctx);
+            const actor = await connect(ctx);
 
-                await watcher.mailboxOpen('INBOX');
-                await actor.mailboxOpen('INBOX');
+            await watcher.mailboxOpen('INBOX');
+            await actor.mailboxOpen('INBOX');
 
-                const events = [];
-                watcher.on('flags', event => events.push([event.seq, [...event.flags].sort()]));
+            const events = [];
+            watcher.on('flags', event => events.push([event.seq, [...event.flags].sort()]));
 
-                const idle = watcher.idle();
-                await waitFor(isIdling, 'IDLE');
+            const idle = watcher.idle();
+            await waitFor(isIdling, 'IDLE');
 
-                // RFC 3501 5.2: a server SHOULD send flag updates without the client asking for them
-                await actor.messageFlagsAdd('2', ['\\Answered']);
-                await waitFor(() => events.length >= 1, 'FETCH', 500);
-                assert.deepStrictEqual(events.shift(), [2, ['$Work', '\\Answered', '\\Flagged']]);
+            // RFC 3501 5.2: a server SHOULD send flag updates without the client asking for them
+            await actor.messageFlagsAdd('2', ['\\Answered']);
+            await waitFor(() => events.length >= 1, 'FETCH', 500);
+            assert.deepStrictEqual(events.shift(), [2, ['$Work', '\\Answered', '\\Flagged']]);
 
-                await watcher.noop();
-                await idle;
-            }
-        );
+            await watcher.noop();
+            await idle;
+        });
 
         it('fetches only changed messages with CHANGEDSINCE', async () => {
             const client = await connect(ctx);

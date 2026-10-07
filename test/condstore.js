@@ -46,7 +46,7 @@ describe('CONDSTORE', () => {
             ctx.run(cmds, resp => {
                 resp = resp.toString();
                 assert.ok(resp.indexOf('\r\n* ENABLED CONDSTORE\r\nA2 OK') >= 0, resp);
-                assert.ok(resp.indexOf('\r\n* 1 FETCH (FLAGS (\\Seen \\Flagged) MODSEQ (102))\r\n') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* 1 FETCH (FLAGS (\\Seen \\Flagged) MODSEQ (102) UID 1)\r\n') >= 0, resp);
                 done();
             });
         });
@@ -106,8 +106,8 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* 3 FETCH (FLAGS (\\Flagged) MODSEQ (102))\r\nA4 OK') >= 0, resp);
-                assert.ok(resp.indexOf('\r\n* 3 FETCH (MODSEQ (103))\r\nA5 OK') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* 3 FETCH (FLAGS (\\Flagged) MODSEQ (102) UID 3)\r\nA4 OK') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* 3 FETCH (UID 3 MODSEQ (103))\r\nA5 OK') >= 0, resp);
                 done();
             });
         });
@@ -128,7 +128,7 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* 1 FETCH (FLAGS (\\Seen) MODSEQ (2))\r\nA3 OK') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* 1 FETCH (FLAGS (\\Seen) MODSEQ (2) UID 1)\r\nA3 OK') >= 0, resp);
                 assert.strictEqual(ctx.server.getMailbox('INBOX').HIGHESTMODSEQ, 101);
                 done();
             });
@@ -139,7 +139,7 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('\r\n* 1 FETCH (MODSEQ (102))\r\n* 2 FETCH (MODSEQ (103))\r\nA3 OK [MODIFIED 3]') >= 0, resp);
+                assert.ok(resp.indexOf('\r\n* 1 FETCH (UID 1 MODSEQ (102))\r\n* 2 FETCH (UID 2 MODSEQ (103))\r\nA3 OK [MODIFIED 3]') >= 0, resp);
                 const messages = ctx.server.getMailbox('INBOX').messages;
                 assert.deepStrictEqual(messages[2].flags, []);
                 assert.strictEqual(messages[2].MODSEQ, 101);
@@ -186,7 +186,7 @@ describe('CONDSTORE', () => {
 
             ctx.run(cmds, resp => {
                 resp = resp.toString();
-                assert.ok(resp.indexOf('World 3! MODSEQ (102) FLAGS (\\Seen))\r\nA3 OK') >= 0, resp);
+                assert.ok(resp.indexOf('World 3! MODSEQ (102) FLAGS (\\Seen) UID 3)\r\nA3 OK') >= 0, resp);
                 done();
             });
         });

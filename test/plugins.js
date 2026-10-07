@@ -52,7 +52,7 @@ describe('Plugin loading', () => {
                 resp = resp.toString();
                 assert.strictEqual((resp.match(/HIGHESTMODSEQ/g) || []).length, 1, resp);
                 assert.ok(resp.indexOf('A2 OK [READ-WRITE] Completed, CONDSTORE is now enabled') >= 0, resp);
-                assert.ok(resp.indexOf('* 1 FETCH (FLAGS (\\Seen) MODSEQ (3))') >= 0, resp);
+                assert.ok(resp.indexOf('* 1 FETCH (FLAGS (\\Seen) MODSEQ (3) UID 1)') >= 0, resp);
                 done();
             });
         });

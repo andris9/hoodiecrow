@@ -290,14 +290,15 @@ describe('Multiple sessions', () => {
     });
 
     describe('flag changes from another session (RFC 3501 5.2, 7.4.2)', () => {
-        it('STORE in one session produces an untagged FETCH in another selected session', { todo: 'STORE does not notify other sessions' }, async () => {
+        it('STORE in one session produces an untagged FETCH in another selected session', async () => {
             const a = await open('INBOX');
             const b = await open('INBOX');
 
             await b.cmd('STORE 2 +FLAGS (\\Flagged)');
             const output = await a.cmd('NOOP');
             // RFC 3501 5.2: "A server SHOULD send message flag updates automatically"
-            assert.ok(/(^|\r\n)\* 2 FETCH \(FLAGS \(\\Flagged\)\)\r\n/.test(output), output);
+            // the UID is included, RFC 9051 6.3.13 requires it in unsolicited FETCH responses
+            assert.ok(/(^|\r\n)\* 2 FETCH \(UID 2 FLAGS \(\\Flagged\)\)\r\n/.test(output), output);
         });
 
         it('the session that changes flags gets them in the STORE response', async () => {
@@ -383,12 +384,12 @@ describe('Multiple sessions', () => {
             ]);
         });
 
-        it('delivers flag changes while idling', { todo: 'STORE does not notify other sessions' }, async () => {
+        it('delivers flag changes while idling', async () => {
             const watcher = await startIdle('INBOX');
             const b = await open('INBOX');
             await b.cmd('STORE 3 +FLAGS (\\Answered)');
             const output = await watcher.waitFor('))\r\n', 300);
-            assert.ok(/(^|\r\n)\* 3 FETCH \(FLAGS \(\\Answered\)\)\r\n$/.test(output), output);
+            assert.ok(/(^|\r\n)\* 3 FETCH \(UID 3 FLAGS \(\\Answered\)\)\r\n$/.test(output), output);
         });
 
         it('sends nothing for changes to other mailboxes', async () => {
