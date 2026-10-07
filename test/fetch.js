@@ -171,13 +171,13 @@ describe('Hoodiecrow tests', () => {
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
             assert.ok(
                 resp.indexOf(
-                    '\n* 7 FETCH (BODYSTRUCTURE (("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 107 (NIL NIL ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL "<test1>" NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) 5 NIL NIL NIL) ("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 85 (NIL NIL ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) 4 NIL NIL NIL) ("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 0 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
+                    '\n* 7 FETCH (BODYSTRUCTURE (("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 107 (NIL NIL ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL "<test1>" NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) 5 NIL NIL NIL)("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 85 (NIL NIL ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "kreata.ee")) ((NIL NIL "andris" "pangalink.net")) NIL NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) 4 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 0 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
                 ) >= 0
             );
             assert.ok(resp.indexOf('\nA4 OK') >= 0);
             assert.ok(
                 resp.indexOf(
-                    '\n* 8 FETCH (BODYSTRUCTURE (("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL) ("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 0 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
+                    '\n* 8 FETCH (BODYSTRUCTURE (("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL)("TEXT" "PLAIN" NIL NIL NIL "7BIT" 14 0 NIL NIL NIL)("TEXT" "HTML" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 21 0 NIL NIL NIL) "MIXED" ("BOUNDARY" "----mailcomposer-?=_1-1328088797399") NIL NIL))\r\n'
                 ) >= 0
             );
             assert.ok(resp.indexOf('\nA5 OK') >= 0);

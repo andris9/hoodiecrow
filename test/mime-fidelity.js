@@ -392,17 +392,10 @@ describe('MIME fidelity', () => {
                     assert.deepStrictEqual(result.parsed, await parseResponse(expectedResponse));
                 });
 
-                const spaced = /\)\(/.test(golden);
-                it(
-                    'sends ' + item + ' in the RFC 3501 9 wire form',
-                    spaced
-                        ? { todo: 'the imap-handler compiler puts SP between all list members, also between the bodies of a multipart and between addresses' }
-                        : {},
-                    async () => {
-                        const [result] = await fetchMessage(seq, [item]);
-                        assert.strictEqual(result.text, expectedText);
-                    }
-                );
+                it('sends ' + item + ' in the RFC 3501 9 wire form', async () => {
+                    const [result] = await fetchMessage(seq, [item]);
+                    assert.strictEqual(result.text, expectedText);
+                });
             });
         });
     });
