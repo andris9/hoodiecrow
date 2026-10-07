@@ -475,6 +475,31 @@ describe('UTF8=ACCEPT with QUOTA and UNAUTHENTICATE', () => {
     });
 });
 
+describe('UTF8=ACCEPT with ACL', () => {
+    const ctx = setupServer(() => ({ plugins: ['UTF8=ACCEPT', 'ACL'], storage: storage() }));
+
+    // ACL responses carry the mailbox name in the form the session uses
+    it('sends the mailbox names of ACL, LISTRIGHTS and MYRIGHTS in the session form', (t, done) => {
+        const cmds = [
+            LOGIN,
+            'A1 MYRIGHTS "&BBYEMARA-"',
+            ENABLE,
+            utf8('A2 MYRIGHTS "Жар"'),
+            utf8('A3 GETACL "Жар"'),
+            utf8('A4 LISTRIGHTS "Жар" bob'),
+            'ZZ LOGOUT'
+        ];
+        ctx.run(cmds, resp => {
+            resp = resp.toString('utf-8');
+            assert.match(resp, /^\* MYRIGHTS &BBYEMARA- /m);
+            assert.match(resp, /^\* MYRIGHTS "Жар" /m);
+            assert.match(resp, /^\* ACL "Жар" testuser /m);
+            assert.match(resp, /^\* LISTRIGHTS "Жар" bob /m);
+            done();
+        });
+    });
+});
+
 describe('Without UTF8=ACCEPT', () => {
     const ctx = setupServer(() => ({ plugins: ['ENABLE'], storage: storage() }));
 
