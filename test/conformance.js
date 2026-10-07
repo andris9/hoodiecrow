@@ -105,6 +105,13 @@ const CASES = [
     ['FETCH without items', 'selected', ['A1 FETCH 1'], { A1: 'BAD' }],
     ['FETCH with an unknown item', 'selected', ['A1 FETCH 1 (FOO)'], { A1: 'BAD' }],
     ['FETCH with sequence number 0', 'selected', ['A1 FETCH 0 FLAGS'], { A1: 'BAD' }],
+    // RFC 3501 and RFC 9051 section 9: seq-number = nz-number / "*", nz-number is a 32-bit value, for UIDs too
+    [
+        'sequence sets with numbers above 2^32-1',
+        'selected',
+        ['A1 UID FETCH 4294967296 FLAGS', 'A2 UID FETCH 1:9999999999 FLAGS', 'A3 UID STORE 1,4294967296 +FLAGS (\\Seen)', 'A4 UID FETCH 1:4294967295 FLAGS'],
+        { A1: 'BAD', A2: 'BAD', A3: 'BAD', A4: 'OK' }
+    ],
     // RFC 3501 and RFC 9051 section 9 (seq-number): a sequence number greater than the number of messages
     // is answered with BAD, "*" too when the mailbox is empty. UID sets and SEARCH keys are not affected
     [
