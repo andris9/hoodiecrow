@@ -5,7 +5,7 @@ const assert = require('node:assert');
 const { splitResponses, splitAtLiterals } = require('../lib/framing');
 const { hasSequenceSetKey } = require('../lib/commands/handlers/search');
 const { monthIndex, isRealDate } = require('../lib/dates');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 
 describe('Response framing', () => {
     it('splits strings and buffers into responses with literals', () => {
@@ -45,7 +45,7 @@ describe('Response framing', () => {
 });
 
 describe('Sequence numbers in SEARCH criteria', () => {
-    const server = hoodiecrow({ plugins: ['X-GM-EXT-1'] });
+    const server = imapkit({ plugins: ['X-GM-EXT-1'] });
     const atoms = list => list.map(item => (Array.isArray(item) ? atoms(item) : { type: 'ATOM', value: item }));
     const uses = list => hasSequenceSetKey(server, atoms(list));
 

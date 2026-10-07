@@ -2,7 +2,7 @@
 
 const { beforeEach, afterEach, after } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../../lib/server');
+const imapkit = require('../../lib/server');
 const mockClient = require('../../lib/mock-client');
 const { validateThen } = require('./validate-responses');
 
@@ -33,7 +33,7 @@ function setupServer(getOptions) {
     };
 
     beforeEach((t, done) => {
-        ctx.server = hoodiecrow(getOptions && getOptions());
+        ctx.server = imapkit(getOptions && getOptions());
         servers.add(ctx.server);
         ctx.server.listen(0, done);
     });

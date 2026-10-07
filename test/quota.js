@@ -349,8 +349,8 @@ describe('QUOTA', () => {
     });
 
     it('refuses invalid limits in the server options', () => {
-        const hoodiecrow = require('../lib/server');
-        assert.throws(() => hoodiecrow({ plugins: ['QUOTA'], quota: { STORAGE: -1 } }), /Invalid quota limit/);
-        assert.throws(() => hoodiecrow({ plugins: ['QUOTA'], quota: { MESSAGE: 'many' } }), /Invalid quota limit/);
+        const imapkit = require('../lib/server');
+        assert.throws(() => imapkit({ plugins: ['QUOTA'], quota: { STORAGE: -1 } }), /Invalid quota limit/);
+        assert.throws(() => imapkit({ plugins: ['QUOTA'], quota: { MESSAGE: 'many' } }), /Invalid quota limit/);
     });
 });

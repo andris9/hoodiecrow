@@ -4,7 +4,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 const { openSession } = require('./helpers/session');
 
@@ -109,7 +109,7 @@ describe('LITERAL-', () => {
 describe('LITERAL+ and LITERAL-', () => {
     // RFC 7888 section 5: servers MUST NOT advertise both
     it('can not be loaded together', () => {
-        assert.throws(() => hoodiecrow({ plugins: ['LITERAL+', 'LITERAL-'] }), /LITERAL/);
-        assert.throws(() => hoodiecrow({ plugins: ['LITERALMINUS', 'LITERALPLUS'] }), /LITERAL/);
+        assert.throws(() => imapkit({ plugins: ['LITERAL+', 'LITERAL-'] }), /LITERAL/);
+        assert.throws(() => imapkit({ plugins: ['LITERALMINUS', 'LITERALPLUS'] }), /LITERAL/);
     });
 });

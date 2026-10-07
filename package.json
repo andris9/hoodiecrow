@@ -1,10 +1,10 @@
 {
-    "name": "hoodiecrow-imap",
+    "name": "imapkit",
     "version": "3.3.1",
-    "description": "Scriptable IMAP mock server for testing purposes",
+    "description": "Scriptable, strictly RFC compliant in-memory IMAP server for testing IMAP clients",
     "main": "lib/server.js",
     "bin": {
-        "hoodiecrow": "bin/hoodiecrow.js"
+        "imapkit": "bin/imapkit.js"
     },
     "files": [
         "bin",
@@ -26,16 +26,22 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/postalsys/hoodiecrow-imap.git"
+        "url": "git+https://github.com/postalsys/imapkit.git"
     },
     "bugs": {
-        "url": "https://github.com/postalsys/hoodiecrow-imap/issues"
+        "url": "https://github.com/postalsys/imapkit/issues"
     },
-    "homepage": "https://github.com/postalsys/hoodiecrow-imap#readme",
+    "homepage": "https://imapkit.com",
     "keywords": [
-        "IMAP",
+        "imap",
+        "imap-server",
         "mock",
-        "testing"
+        "testing",
+        "test-server",
+        "imap4rev2",
+        "rfc3501",
+        "rfc9051",
+        "email"
     ],
     "author": "Postal Systems OÜ",
     "license": "MIT",

@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 'use strict';
 
-// Replays the same IMAP commands against hoodiecrow and a Dovecot reference
+// Replays the same IMAP commands against ImapKit and a Dovecot reference
 // server and shows where the responses differ. This is a development aid for
 // checking what RFC compliant input and output look like, not a test suite:
 // Dovecot has its own bugs and extensions, so a difference is a hint to check
-// the RFC, not proof that hoodiecrow is wrong. See CLAUDE.md for usage.
+// the RFC, not proof that ImapKit is wrong. See CLAUDE.md for usage.
 
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { parseArgs } = require('node:util');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { splitAtLiterals } = require('../lib/framing');
 const DeflateLayer = require('../lib/deflate-layer');
 
 const DEFAULT_STORAGE = path.join(__dirname, 'storage.json');
 
-const HOODIECROW_USER = 'testuser';
-const HOODIECROW_PASS = 'testpass';
+const IMAPKIT_USER = 'testuser';
+const IMAPKIT_PASS = 'testpass';
 const DOVECOT_PASS = 'pass';
 
 /**
@@ -374,14 +374,14 @@ class Session extends EventEmitter {
 }
 
 /**
- * Reads hoodiecrow storage and returns the folders and messages to seed Dovecot with,
- * as processed by hoodiecrow itself (uids, internaldates, flags)
+ * Reads ImapKit storage and returns the folders and messages to seed Dovecot with,
+ * as processed by ImapKit itself (uids, internaldates, flags)
  *
- * @param {Object} storage hoodiecrow storage object (not modified)
+ * @param {Object} storage ImapKit storage object (not modified)
  * @return {Object} { folders: [{path, subscribed, messages}], warnings: [] }
  */
 function collectSeed(storage) {
-    const server = hoodiecrow({ storage: structuredClone(storage) });
+    const server = imapkit({ storage: structuredClone(storage) });
     const warnings = [];
     const folders = [];
 
@@ -463,12 +463,12 @@ async function seedDovecot(session, seed, timeout) {
         for (const message of folder.messages) {
             const tagged = await run(
                 `APPEND ${quote(folder.path)} (${message.flags.join(' ')}) ${quote(message.internaldate)}`,
-                // hoodiecrow keeps message sources as binary strings, one char per octet
+                // ImapKit keeps message sources as binary strings, one char per octet
                 Buffer.from(message.raw, 'binary')
             );
             const appendUid = tagged.match(/\[APPENDUID \d+ (\d+)\]/i);
             if (appendUid && Number(appendUid[1]) !== message.uid) {
-                warnings.push(`${folder.path}: hoodiecrow UID ${message.uid} is UID ${appendUid[1]} in Dovecot`);
+                warnings.push(`${folder.path}: imapkit UID ${message.uid} is UID ${appendUid[1]} in Dovecot`);
             }
         }
     }
@@ -564,11 +564,11 @@ async function runTarget(target, steps, options) {
 }
 
 /**
- * Starts an in-process hoodiecrow server for the comparison
+ * Starts an in-process ImapKit server for the comparison
  */
-function startHoodiecrow(storage, plugins) {
+function startImapKit(storage, plugins) {
     return new Promise((resolve, reject) => {
-        const server = hoodiecrow({ storage: structuredClone(storage), plugins });
+        const server = imapkit({ storage: structuredClone(storage), plugins });
         server.server.once('error', reject);
         server.listen(0, '127.0.0.1', () => resolve(server));
     });
@@ -625,14 +625,14 @@ async function main() {
     if (argv.help || (!positionals.length && !argv.command)) {
         console.log(`Usage: node compare/compare.js [options] [scenario-file]
 
-Replays IMAP commands against hoodiecrow and Dovecot (start it with
+Replays IMAP commands against imapkit and Dovecot (start it with
 "npm run dovecot:start") and shows where the responses differ.
 
   -c, --command <cmd>   command to run (repeatable), instead of a scenario file
-  --storage <file>      hoodiecrow storage JSON, also seeded into Dovecot
+  --storage <file>      imapkit storage JSON, also seeded into Dovecot
                         (default compare/storage.json)
-  --plugin <names>      hoodiecrow plugins, comma separated (repeatable)
-  --target <name>       both (default), hoodiecrow or dovecot
+  --plugin <names>      imapkit plugins, comma separated (repeatable)
+  --target <name>       both (default), imapkit or dovecot
   --manual-login        do not log in automatically; use $USER and $PASS
   --keep-text           also compare the human readable text of OK/NO/BAD
   --exact               do not sort LIST responses and flag lists or unquote
@@ -663,11 +663,11 @@ Scenario syntax: see the comment on parseScenario() in compare/compare.js.`);
 
     // each runner runs the scenario against one server and returns its results
     const runners = {
-        hoodiecrow: async () => {
-            const server = await startHoodiecrow(storage, plugins);
+        imapkit: async () => {
+            const server = await startImapKit(storage, plugins);
             try {
                 return await runTarget(
-                    { name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: HOODIECROW_USER, pass: HOODIECROW_PASS },
+                    { name: 'imapkit', host: '127.0.0.1', port: server.address().port, user: IMAPKIT_USER, pass: IMAPKIT_PASS },
                     steps,
                     options
                 );
@@ -679,8 +679,8 @@ Scenario syntax: see the comment on parseScenario() in compare/compare.js.`);
             const seed = collectSeed(storage);
             const target = {
                 name: 'dovecot',
-                host: process.env.HOODIECROW_DOVECOT_HOST || '127.0.0.1',
-                port: Number(process.env.HOODIECROW_DOVECOT_PORT) || 32143,
+                host: process.env.IMAPKIT_DOVECOT_HOST || '127.0.0.1',
+                port: Number(process.env.IMAPKIT_DOVECOT_PORT) || 32143,
                 user: `compare-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 pass: DOVECOT_PASS,
                 seed: async session => seed.warnings.concat(await seedDovecot(session, seed, options.timeout))
@@ -716,7 +716,7 @@ Scenario syntax: see the comment on parseScenario() in compare/compare.js.`);
                         line: step.line,
                         session: step.session,
                         send: step.text || `!wait ${step.ms}`,
-                        same: both ? sameStep(results.hoodiecrow.steps[i], results.dovecot.steps[i], compareOptions) : null,
+                        same: both ? sameStep(results.imapkit.steps[i], results.dovecot.steps[i], compareOptions) : null,
                         results: Object.fromEntries(
                             targetNames.map(name => [name, { responses: toLines(results[name].steps[i].responses), notes: results[name].steps[i].notes }])
                         )
@@ -756,14 +756,14 @@ Scenario syntax: see the comment on parseScenario() in compare/compare.js.`);
             return;
         }
 
-        if (sameStep(results.hoodiecrow.steps[i], results.dovecot.steps[i], compareOptions)) {
-            console.log(c('green', '  = same') + c('dim', ' (after normalizing, hoodiecrow output shown)'));
-            printTarget('hoodiecrow', true);
+        if (sameStep(results.imapkit.steps[i], results.dovecot.steps[i], compareOptions)) {
+            console.log(c('green', '  = same') + c('dim', ' (after normalizing, imapkit output shown)'));
+            printTarget('imapkit', true);
             return;
         }
         differences++;
-        console.log(c('red', '  hoodiecrow:'));
-        printTarget('hoodiecrow');
+        console.log(c('red', '  imapkit:'));
+        printTarget('imapkit');
         console.log(c('red', '  dovecot:'));
         printTarget('dovecot');
     });
@@ -789,6 +789,6 @@ module.exports = {
     sameStep,
     collectSeed,
     runTarget,
-    startHoodiecrow,
+    startImapKit,
     sessionLines
 };

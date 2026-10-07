@@ -1,7 +1,7 @@
 'use strict';
 
-// Table driven checks of how strictly hoodiecrow applies the IMAP grammar and the command
-// states. Hoodiecrow is a guardrail for client development, so input that a lenient server
+// Table driven checks of how strictly ImapKit applies the IMAP grammar and the command
+// states. ImapKit is a guardrail for client development, so input that a lenient server
 // would accept is refused here. RFC references are to the text at
 // https://www.rfc-editor.org/rfc/rfcXXXX.txt
 

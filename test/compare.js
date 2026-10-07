@@ -13,7 +13,7 @@ const {
     sameStep,
     collectSeed,
     runTarget,
-    startHoodiecrow,
+    startImapKit,
     sessionLines
 } = require('../compare/compare');
 
@@ -114,10 +114,10 @@ describe('Dovecot comparison tool', () => {
     });
 
     it('expands $UIDVALIDITY to the last value the target sent', async () => {
-        const server = await startHoodiecrow({ INBOX: { uidvalidity: 77, messages: ['Subject: a\r\n\r\nA'] } }, ['QRESYNC']);
+        const server = await startImapKit({ INBOX: { uidvalidity: 77, messages: ['Subject: a\r\n\r\nA'] } }, ['QRESYNC']);
         try {
             const steps = parseScenario(['ENABLE QRESYNC', 'SELECT INBOX', 'SELECT INBOX (QRESYNC ($UIDVALIDITY 1))'].join('\n'));
-            const result = await runTarget({ name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
+            const result = await runTarget({ name: 'imapkit', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
                 timeout: 2000,
                 settle: 20,
                 baseDir: compareDir
@@ -130,13 +130,13 @@ describe('Dovecot comparison tool', () => {
         }
     });
 
-    it('runs a scenario against hoodiecrow', async () => {
-        const server = await startHoodiecrow({ INBOX: { messages: ['Subject: a\r\n\r\nA'] } }, ['IDLE']);
+    it('runs a scenario against imapkit', async () => {
+        const server = await startImapKit({ INBOX: { messages: ['Subject: a\r\n\r\nA'] } }, ['IDLE']);
         try {
             const steps = parseScenario(
                 ['1: SELECT {5}\\r\\nINBOX', '1: IDLE', '2: APPEND INBOX {file:messages/simple.eml}', '1:> DONE', '2: LOGOUT', '2: NOOP'].join('\n')
             );
-            const result = await runTarget({ name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
+            const result = await runTarget({ name: 'imapkit', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
                 timeout: 2000,
                 settle: 20,
                 baseDir: compareDir
@@ -161,10 +161,10 @@ describe('Dovecot comparison tool', () => {
     });
 
     it('decompresses a session after COMPRESS DEFLATE', async () => {
-        const server = await startHoodiecrow({ INBOX: { messages: ['Subject: a\r\n\r\nA'] } }, ['COMPRESS']);
+        const server = await startImapKit({ INBOX: { messages: ['Subject: a\r\n\r\nA'] } }, ['COMPRESS']);
         try {
             const steps = parseScenario(['COMPRESS DEFLATE', 'SELECT INBOX', 'APPEND INBOX {file:messages/simple.eml}', 'FETCH 2 BODY.PEEK[]'].join('\n'));
-            const result = await runTarget({ name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
+            const result = await runTarget({ name: 'imapkit', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
                 timeout: 2000,
                 settle: 20,
                 baseDir: compareDir

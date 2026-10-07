@@ -4,7 +4,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 
 const LOGIN = 'A1 LOGIN testuser testpass';
@@ -238,7 +238,7 @@ describe('Without APPENDLIMIT', () => {
 describe('APPENDLIMIT options', () => {
     it('refuses an invalid appendLimit option', () => {
         for (const appendLimit of [-1, 1.5, '100', NaN]) {
-            assert.throws(() => hoodiecrow({ plugins: ['APPENDLIMIT'], appendLimit }), /appendLimit/);
+            assert.throws(() => imapkit({ plugins: ['APPENDLIMIT'], appendLimit }), /appendLimit/);
         }
     });
 });

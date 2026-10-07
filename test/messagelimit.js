@@ -4,7 +4,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer, assertTagged } = require('./helpers');
 
 const message = n => 'From: sender@example.com\r\nSubject: message ' + n + '\r\nDate: 1 Jan 2024 10:0' + n + ':00 +0000\r\n\r\nBody ' + n + '\r\n';
@@ -316,10 +316,10 @@ describe('MESSAGELIMIT defaults', () => {
     });
 
     it('validates the option and refuses SAVELIMIT together with MESSAGELIMIT', () => {
-        assert.throws(() => hoodiecrow({ plugins: ['MESSAGELIMIT'], messageLimit: 0 }), /messageLimit/);
-        assert.throws(() => hoodiecrow({ plugins: ['MESSAGELIMIT'], messageLimit: '10' }), /messageLimit/);
-        assert.throws(() => hoodiecrow({ plugins: ['MESSAGELIMIT', 'SAVELIMIT'] }), /SAVELIMIT can not be enabled together with MESSAGELIMIT/);
-        assert.throws(() => hoodiecrow({ plugins: ['SAVELIMIT', 'MESSAGELIMIT'] }), /MESSAGELIMIT can not be enabled together with SAVELIMIT/);
+        assert.throws(() => imapkit({ plugins: ['MESSAGELIMIT'], messageLimit: 0 }), /messageLimit/);
+        assert.throws(() => imapkit({ plugins: ['MESSAGELIMIT'], messageLimit: '10' }), /messageLimit/);
+        assert.throws(() => imapkit({ plugins: ['MESSAGELIMIT', 'SAVELIMIT'] }), /SAVELIMIT can not be enabled together with MESSAGELIMIT/);
+        assert.throws(() => imapkit({ plugins: ['SAVELIMIT', 'MESSAGELIMIT'] }), /MESSAGELIMIT can not be enabled together with SAVELIMIT/);
     });
 });
 

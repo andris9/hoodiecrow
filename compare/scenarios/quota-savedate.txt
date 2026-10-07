@@ -1,7 +1,7 @@
 # QUOTA (RFC 9208) and SAVEDATE (RFC 8514)
 # npm run compare -- compare/scenarios/quota-savedate.txt --plugin QUOTA,SAVEDATE,UIDPLUS,MOVE
 # Dovecot uses the count quota driver (STORAGE 10240, MESSAGE 1000) and refuses SETQUOTA,
-# hoodiecrow has no limits unless the quota option sets them
+# ImapKit has no limits unless the quota option sets them
 GETQUOTAROOT INBOX
 GETQUOTAROOT "Not yet"
 GETQUOTA "User quota"

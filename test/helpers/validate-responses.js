@@ -15,7 +15,7 @@ const { TAG_REGEX } = require('../../lib/server');
 
 const CR = 0x0d;
 
-// Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
+// Untagged response names ImapKit may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
 // NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162 and RFC 9586), METADATA (RFC 5464), SORT and THREAD (RFC 5256), QUOTA and QUOTAROOT (RFC 9208),
 // ACL, LISTRIGHTS and MYRIGHTS (RFC 4314). "X" prefixed names are

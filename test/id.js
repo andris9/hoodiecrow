@@ -18,7 +18,7 @@ describe('ID', () => {
             }
         ],
         id: {
-            name: 'hoodiecrow'
+            name: 'imapkit'
         }
     }));
 
@@ -27,7 +27,7 @@ describe('ID', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* ID ("name" "hoodiecrow")\r\nA1 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\r\n* ID ("name" "imapkit")\r\nA1 OK') >= 0, resp);
             done();
         });
     });

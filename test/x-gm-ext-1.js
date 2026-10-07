@@ -2,10 +2,10 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 
-describe('Hoodiecrow tests', () => {
+describe('ImapKit tests', () => {
     const ctx = setupServer(() => ({
         plugins: ['X-GM-EXT-1'],
         storage: {
@@ -180,9 +180,9 @@ describe('Hoodiecrow tests', () => {
     describe('X-GM-MSGID with shared storage', () => {
         it('does not reuse values already in storage', () => {
             const storage = { INBOX: { messages: [{ raw: 'Subject: a\r\n\r\na' }] } };
-            hoodiecrow({ plugins: ['X-GM-EXT-1'], storage });
+            imapkit({ plugins: ['X-GM-EXT-1'], storage });
             storage.INBOX.messages.push({ raw: 'Subject: b\r\n\r\nb' });
-            const second = hoodiecrow({ plugins: ['X-GM-EXT-1'], storage });
+            const second = imapkit({ plugins: ['X-GM-EXT-1'], storage });
             const message = second.appendMessage('INBOX', [], false, 'Subject: c\r\n\r\nc').message;
             const ids = second.getMailbox('INBOX').messages.map(message => message['X-GM-MSGID']);
             assert.strictEqual(new Set(ids).size, 3);

@@ -4,7 +4,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 
 const LOGIN = 'L1 LOGIN testuser testpass';
@@ -165,7 +165,7 @@ describe('SAVEDATE', () => {
     });
 
     it('refuses invalid save dates in storage', () => {
-        assert.throws(() => hoodiecrow({ plugins: ['SAVEDATE'], storage: { INBOX: { messages: [{ raw: 'x', SAVEDATE: 'yesterday' }] } } }), /Invalid SAVEDATE/);
+        assert.throws(() => imapkit({ plugins: ['SAVEDATE'], storage: { INBOX: { messages: [{ raw: 'x', SAVEDATE: 'yesterday' }] } } }), /Invalid SAVEDATE/);
     });
 });
 

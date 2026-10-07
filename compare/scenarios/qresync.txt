@@ -1,4 +1,4 @@
-# QRESYNC (RFC 7162 section 3.2), needs --plugin QRESYNC,UIDPLUS,MOVE,IDLE on hoodiecrow
+# QRESYNC (RFC 7162 section 3.2), needs --plugin QRESYNC,UIDPLUS,MOVE,IDLE on ImapKit
 # $UIDVALIDITY is the last UIDVALIDITY value the server sent
 1: ENABLE QRESYNC
 1: SELECT INBOX

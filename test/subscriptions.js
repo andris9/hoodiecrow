@@ -63,7 +63,7 @@ describe('SUBSCRIBE, UNSUBSCRIBE and LSUB', () => {
             assert.strictEqual(tagged(resp, 'A3'), 'NO');
             // a name on the subscription list can always be removed, even if it is not a mailbox (RFC 3501 section 6.3.6)
             assert.strictEqual(tagged(resp, 'A4'), 'OK');
-            // hoodiecrow treats removing a name that is not on the subscription list as done
+            // ImapKit treats removing a name that is not on the subscription list as done
             assert.strictEqual(tagged(resp, 'A5'), 'OK');
             done();
         });

@@ -1,7 +1,7 @@
 'use strict';
 
-const hoodiecrow = require('../lib/server');
-const server = hoodiecrow({
+const imapkit = require('../lib/server');
+const server = imapkit({
     plugins: [
         'ID',
         'STARTTLS' /*, "LOGINDISABLED"*/,
@@ -18,7 +18,7 @@ const server = hoodiecrow({
         'CREATE-SPECIAL-USE'
     ],
     id: {
-        name: 'hoodiecrow',
+        name: 'imapkit',
         version: '0.1'
     },
 
@@ -92,5 +92,5 @@ const server = hoodiecrow({
 const PORT = 1143;
 
 server.listen(PORT, () => {
-    console.log('Hoodiecrow listening on port %s', PORT);
+    console.log('ImapKit listening on port %s', PORT);
 });

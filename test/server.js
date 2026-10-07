@@ -4,7 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const net = require('node:net');
 const tls = require('node:tls');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 
 describe('Command processing', () => {
@@ -136,7 +136,7 @@ describe('Command processing', () => {
         socket.once('data', () => {
             const server = ctx.server;
             // the afterEach hook closes the server again, so use a fresh one for it
-            ctx.server = hoodiecrow();
+            ctx.server = imapkit();
             ctx.server.listen(0, () => {
                 server.close(() => done());
             });
@@ -228,7 +228,7 @@ describe('Storage', () => {
             }
         };
         const users = { testuser: { password: 'testpass' } };
-        const server = hoodiecrow({ storage, users });
+        const server = imapkit({ storage, users });
 
         server.appendMessage('INBOX', [], false, 'Subject: second\r\n\r\nWorld');
         server.users.other = { password: 'other' };
@@ -236,12 +236,12 @@ describe('Storage', () => {
         assert.strictEqual(storage.INBOX.messages.length, 1);
         assert.strictEqual(typeof storage.INBOX.messages[0].uid, 'undefined');
         assert.deepStrictEqual(Object.keys(users), ['testuser']);
-        assert.strictEqual(hoodiecrow({ storage }).getMailbox('INBOX').messages.length, 1);
+        assert.strictEqual(imapkit({ storage }).getMailbox('INBOX').messages.length, 1);
         done();
     });
 
     it('Indexes INBOX subfolders from storage', (t, done) => {
-        const server = hoodiecrow({
+        const server = imapkit({
             storage: {
                 INBOX: {
                     folders: {
@@ -261,7 +261,7 @@ describe('Storage', () => {
     });
 
     it('Keeps messages ordered by UID', (t, done) => {
-        const server = hoodiecrow({
+        const server = imapkit({
             storage: {
                 INBOX: {
                     messages: [{ raw: 'a', uid: 5 }, { raw: 'b', uid: 2 }, { raw: 'c' }]
@@ -275,7 +275,7 @@ describe('Storage', () => {
         );
         assert.throws(
             () =>
-                hoodiecrow({
+                imapkit({
                     storage: {
                         INBOX: {
                             messages: [
@@ -291,7 +291,7 @@ describe('Storage', () => {
     });
 
     it('Stores message sources as binary strings', (t, done) => {
-        const server = hoodiecrow({
+        const server = imapkit({
             storage: {
                 INBOX: {
                     messages: [{ raw: 'Subject: €\r\n\r\n€' }, { raw: Buffer.from('Subject: ä\r\n\r\nä') }, {}]
@@ -307,7 +307,7 @@ describe('Storage', () => {
     });
 
     it('Resolves the namespace, separator and parent of mailbox names', () => {
-        const server = hoodiecrow({
+        const server = imapkit({
             storage: {
                 INBOX: {},
                 'INBOX.': { folders: { Sent: {}, Work: { folders: { Done: {} } } } },
@@ -360,7 +360,7 @@ describe('Storage', () => {
     });
 
     it('Uses a sensible default namespace separator', (t, done) => {
-        const server = hoodiecrow({
+        const server = imapkit({
             storage: {
                 INBOX: {},
                 '': {},
@@ -375,7 +375,7 @@ describe('Storage', () => {
     });
 
     it('Formats INTERNALDATE in half hour timezones', (t, done) => {
-        const server = hoodiecrow();
+        const server = imapkit();
         const date = new Date(2020, 0, 2, 3, 4, 5);
         // India, UTC+05:30
         date.getTimezoneOffset = () => -330;
