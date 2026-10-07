@@ -81,7 +81,7 @@ describe('IMAP4rev2', () => {
             const lists = resp.match(/^\* CAPABILITY .*$/gm);
             assert.strictEqual(lists.length, 2);
             assert.strictEqual(lists[0], lists[1]);
-            assert.match(resp, /^\* ENABLED IMAP4REV2\r\nE1 OK /m);
+            assert.match(resp, /^\* ENABLED IMAP4rev2\r\nE1 OK /m);
         });
 
         it('can be enabled only before SELECT (RFC 5161 section 3.1)', async () => {
@@ -191,8 +191,28 @@ describe('IMAP4rev2', () => {
         });
     });
 
+    // RFC 9208 section 4.1.4: QUOTA adds DELETED for every session
+    for (const plugins of [
+        ['IMAP4rev2', 'QUOTA'],
+        ['QUOTA', 'IMAP4rev2']
+    ]) {
+        describe('with ' + plugins.join(' and '), () => {
+            const ctx3 = setupServer(() => ({ plugins, storage: storage() }));
+
+            it('STATUS DELETED works in IMAP4rev1 sessions too', async () => {
+                const resp = await new Promise(resolve => ctx3.run([LOGIN, 'A1 STATUS INBOX (DELETED)', 'ZZ LOGOUT'], resolve));
+                assert.match(resp.toString('binary'), /^\* STATUS INBOX \(DELETED 1\)\r\nA1 OK /m);
+            });
+        });
+    }
+
     describe('with CONDSTORE', () => {
         const ctx2 = setupServer(() => ({ plugins: ['IMAP4rev2', 'CONDSTORE'], storage: storage() }));
+
+        it('ENABLE matches case-insensitively and lists the canonical names (RFC 5161 section 3.2)', async () => {
+            const resp = await new Promise(resolve => ctx2.run([LOGIN, 'A1 ENABLE condstore Imap4Rev2 X-UNKNOWN', 'ZZ LOGOUT'], resolve));
+            assert.match(resp.toString('binary'), /^\* ENABLED CONDSTORE IMAP4rev2\r\nA1 OK /m);
+        });
 
         it('sends CLOSED once', async () => {
             const resp = await new Promise(resolve => ctx2.run([LOGIN, ENABLE, 'A1 SELECT INBOX', 'A2 SELECT INBOX', 'ZZ LOGOUT'], resolve));
@@ -254,9 +274,15 @@ describe('IMAP4rev2', () => {
             assertTagged(resp, { A1: 'OK', A2: 'BAD', A3: 'BAD' });
         });
 
-        it('DELETED is available to IMAP4rev1 sessions too', async () => {
-            const resp = await run([LOGIN, 'A1 STATUS INBOX (DELETED RECENT)']);
-            assert.match(resp, /^\* STATUS INBOX \(DELETED 1 RECENT 1\)\r$/m);
+        it('DELETED is not available to IMAP4rev1 sessions (RFC 3501 section 6.3.10)', async () => {
+            const resp = await run([LOGIN, 'A1 STATUS INBOX (DELETED)', 'A2 LIST "" INBOX RETURN (STATUS (DELETED))', 'A3 STATUS INBOX (RECENT)']);
+            assertTagged(resp, { A1: 'BAD', A2: 'BAD', A3: 'OK' });
+        });
+
+        it('ENABLE lists IMAP4rev2 in its canonical spelling (RFC 5161 section 3.2)', async () => {
+            const resp = await run([LOGIN, 'A1 ENABLE imap4REV2', 'A2 STATUS INBOX (DELETED)']);
+            assert.match(resp, /^\* ENABLED IMAP4rev2\r\nA1 OK /m);
+            assert.match(resp, /^\* STATUS INBOX \(DELETED 1\)\r$/m);
         });
     });
 
