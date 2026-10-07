@@ -572,6 +572,104 @@ describe('ACL', () => {
 });
 
 describe('ACL options', () => {
+    describe('with LIST-STATUS (LIST-EXTENDED)', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'LIST-STATUS'], users: users(), storage: storage() }));
+
+        const run = (commands, callback) => ctx.run(commands.concat('ZZ LOGOUT'), resp => callback(resp.toString('binary')));
+
+        // RFC 8440 section 3
+        it('advertises LIST-MYRIGHTS and returns MYRIGHTS after each listed mailbox', (t, done) => {
+            run([OWNER, 'A0 CAPABILITY', 'A1 LIST "" "Shared*" RETURN (MYRIGHTS)', 'A2 LIST "" "Nope" RETURN (MYRIGHTS)'], resp => {
+                assert.match(resp, /^\* CAPABILITY .*\bLIST-MYRIGHTS\b/m);
+                assert.match(resp, /^\* LIST \([^)]*\) "\/" "?Shared"?\r\n\* MYRIGHTS Shared lrswipkxteacd\r\n/m);
+                assert.match(resp, /^\* LIST \([^)]*\) "\/" "?Shared\/Sub"?\r\n\* MYRIGHTS Shared\/Sub lrswipkxteacd\r\n/m);
+                assert.match(resp, /^A2 OK /m);
+                assert.doesNotMatch(resp, /MYRIGHTS Nope/);
+                done();
+            });
+        });
+
+        it('returns the rights of the user, and nothing for hidden mailboxes', (t, done) => {
+            run([BOB, 'A1 LIST "" "*" RETURN (MYRIGHTS)'], resp => {
+                assert.match(resp, /^\* MYRIGHTS INBOX lrs\r$/m);
+                assert.match(resp, /^\* MYRIGHTS Lookup l\r$/m);
+                assert.doesNotMatch(resp, /Secret|Hidden/);
+                done();
+            });
+        });
+
+        it('sends no MYRIGHTS for a mailbox listed only for CHILDINFO (RFC 8440 section 4)', (t, done) => {
+            run([OWNER, 'A1 UNSUBSCRIBE Shared', 'A2 LIST (SUBSCRIBED RECURSIVEMATCH) "" "%" RETURN (MYRIGHTS)'], resp => {
+                assert.match(resp, /^\* LIST \([^)]*\) "\/" "?Shared"? \("CHILDINFO" \("SUBSCRIBED"\)\)\r\n(?!\* MYRIGHTS Shared)/m);
+                done();
+            });
+        });
+
+        // RFC 5819 section 2: no STATUS without "r", and the mailbox is listed with \Noselect
+        it('skips STATUS for mailboxes without "r"', (t, done) => {
+            run([BOB, 'A1 LIST "" "*" RETURN (STATUS (MESSAGES))'], resp => {
+                assert.match(resp, /^\* LIST \(\\HasNoChildren \\Noselect\) "\/" "?Lookup"?\r\n\* LIST/m);
+                assert.match(resp, /^\* LIST \(\\HasNoChildren\) "\/" "?ReadOnly"?\r\n\* STATUS "?ReadOnly"? \(MESSAGES 1\)\r$/m);
+                assert.doesNotMatch(resp, /STATUS "?(Lookup|Admin|Secret|Hidden)"? /);
+                done();
+            });
+        });
+
+        it('does not add \\Noselect without the STATUS return option', (t, done) => {
+            run([BOB, 'A1 LIST "" "Lookup" RETURN (CHILDREN)'], resp => {
+                assert.match(resp, /^\* LIST \(\\HasNoChildren\) "\/" "?Lookup"?\r$/m);
+                done();
+            });
+        });
+    });
+
+    describe('without LIST-EXTENDED', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL'], users: users(), storage: storage() }));
+
+        it('does not advertise LIST-MYRIGHTS', (t, done) => {
+            ctx.run([OWNER, 'A0 CAPABILITY', 'A1 LIST "" "*" RETURN (MYRIGHTS)', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.doesNotMatch(resp, /LIST-MYRIGHTS/);
+                assert.strictEqual(tagged(resp, 'A1'), 'BAD');
+                done();
+            });
+        });
+    });
+
+    describe('with METADATA', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'METADATA'], users: users(), storage: storage() }));
+
+        // RFC 5464 section 3.3: "l" and any of "r", "s", "w", "i" or "p"
+        it('needs "l" and a read or write right for mailbox annotations', (t, done) => {
+            ctx.run(
+                [
+                    BOB,
+                    'A1 SETMETADATA ReadOnly (/private/comment "mine")',
+                    'A2 GETMETADATA (DEPTH 1) ReadOnly /private',
+                    'A3 GETMETADATA Lookup /shared/comment',
+                    'A4 SETMETADATA Lookup (/shared/comment "x")',
+                    'A5 GETMETADATA Secret /shared/comment',
+                    'A6 SETMETADATA Hidden (/shared/comment "x")',
+                    'A7 GETMETADATA "" /shared/comment',
+                    'ZZ LOGOUT'
+                ],
+                resp => {
+                    resp = resp.toString('binary');
+                    assert.match(resp, /^A1 OK /m);
+                    assert.match(resp, /^\* METADATA "?ReadOnly"? \(\/private\/comment "mine"\)\r$/m);
+                    assert.strictEqual(tagged(resp, 'A3'), 'NO [NOPERM]');
+                    assert.strictEqual(tagged(resp, 'A4'), 'NO [NOPERM]');
+                    assert.strictEqual(tagged(resp, 'A5'), 'NO [NONEXISTENT]');
+                    // "r" without "l" is not enough, and the mailbox stays hidden
+                    assert.strictEqual(tagged(resp, 'A6'), 'NO [NONEXISTENT]');
+                    // server annotations are not covered by mailbox ACLs
+                    assert.match(resp, /^A7 OK /m);
+                    done();
+                }
+            );
+        });
+    });
+
     describe('with X-GM-EXT-1', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL', 'X-GM-EXT-1'], users: users(), storage: storage() }));
 

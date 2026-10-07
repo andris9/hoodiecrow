@@ -129,6 +129,7 @@ const CORPUS = [
     { state: 'auth', input: 'C1 UNAUTHENTICATE\r\nC2 LOGIN testuser testpass\r\n' },
     { state: 'auth', input: 'C1 SETACL Archive bob +lrd\r\nC2 GETACL Archive\r\nC3 DELETEACL Archive bob\r\n' },
     { state: 'auth', input: 'C1 MYRIGHTS INBOX\r\nC2 LISTRIGHTS "INBOX" {5}\r\nother\r\n' },
+    { state: 'auth', input: 'C1 LIST "" "*" RETURN (MYRIGHTS STATUS (MESSAGES))\r\n' },
     { state: 'selected', input: 'C1 FETCH 1:* (FLAGS UID INTERNALDATE RFC822.SIZE)\r\n' },
     { state: 'selected', input: 'C1 FETCH 1 (BODY.PEEK[HEADER.FIELDS (Subject From)] BODY[TEXT]<0.5>)\r\n' },
     { state: 'selected', input: 'C1 FETCH 3 (BODYSTRUCTURE ENVELOPE BODY[1.MIME] BODY[2]<2.3>)\r\n' },
