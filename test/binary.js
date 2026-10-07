@@ -440,6 +440,30 @@ describe('BINARY', () => {
         });
     });
 
+    describe('APPEND with LITERAL-', () => {
+        const ctx = setupServer(() => ({ plugins: ['BINARY', 'LITERAL-'], storage: storage() }));
+
+        it('accepts a small non-synchronizing literal8 (RFC 7888 section 6)', (t, done) => {
+            ctx.run([LOGIN, append8('A1', BINARY_MESSAGE, true), SELECT, 'A2 FETCH 4 BINARY.SIZE[2]', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.doesNotMatch(resp, /^\+ /m);
+                assert.match(resp, /^A1 OK /m);
+                assert.strictEqual(fetchValue(resp, 'BINARY.SIZE[2]'), BINARY_PART.length);
+                done();
+            });
+        });
+
+        it('refuses a non-synchronizing literal8 above 4096 octets with TOOBIG (RFC 7888 section 5)', (t, done) => {
+            const large = 'Subject: large\r\nContent-Transfer-Encoding: binary\r\n\r\n' + '\x00'.repeat(5000);
+            ctx.run([LOGIN, append8('A1', large, true), 'A2 STATUS INBOX (MESSAGES)', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.match(resp, /^A1 BAD \[TOOBIG\] /m);
+                assert.match(resp, /^\* STATUS INBOX \(MESSAGES 3\)/m);
+                done();
+            });
+        });
+    });
+
     describe('with CONDSTORE', () => {
         const ctx = setupServer(() => ({ plugins: ['BINARY', 'CONDSTORE'], storage: storage() }));
 
