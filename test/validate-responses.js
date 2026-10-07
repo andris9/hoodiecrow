@@ -40,7 +40,11 @@ describe('Response grammar guardrail', () => {
         '* LISTRIGHTS INBOX bob "" l r s w i p k x t e a c d\r\n',
         '* MYRIGHTS INBOX lr\r\n',
         // RFC 9755 section 3: UTF-8 in quoted strings once UTF8=ACCEPT is enabled
-        '* ENABLED UTF8=ACCEPT\r\n* LIST () "/" "\xd0\x96\\"\\\\"\r\n'
+        '* ENABLED UTF8=ACCEPT\r\n* LIST () "/" "\xd0\x96\\"\\\\"\r\n',
+        // RFC 5465 section 8
+        'A1 NO [BADEVENT (MessageNew MessageExpunge FlagChange)] unsupported\r\n* OK [NOTIFICATIONOVERFLOW] too many\r\n',
+        '* LIST (\\HasNoChildren) "/" New ("OLDNAME" ("Old"))\r\n',
+        '* LIST (\\NoAccess) "/" Lookup\r\n'
     ];
 
     valid.forEach(transcript => {
@@ -118,7 +122,12 @@ describe('Response grammar guardrail', () => {
         ['* ENABLED UTF8=ACCEPT\r\nA1 OK "caf\xc3\xa9"\r\n', /text contains an 8-bit/],
         ['* 1 FETCH (BODY[] ~{3}\r\na\x00c)\r\n', /Literal8 outside/],
         ['* 1 FETCH (BINARY[1] {1}\r\na BODY[1] ~{1}\r\n\x00)\r\n', /Literal8 outside/],
-        ['* LIST () "/" ~{1}\r\na\r\n', /Literal8 outside/]
+        ['* LIST () "/" ~{1}\r\na\r\n', /Literal8 outside/],
+        ['A1 NO [BADEVENT] unsupported\r\n', /BADEVENT/],
+        ['A1 NO [BADEVENT MessageNew] unsupported\r\n', /BADEVENT/],
+        ['* OK [NOTIFICATIONOVERFLOW 1] too many\r\n', /NOTIFICATIONOVERFLOW/],
+        ['* LIST () "/" New ("OLDNAME" "Old")\r\n', /OLDNAME/],
+        ['* LIST () "/" New ("OLDNAME" ("Old" "Older"))\r\n', /OLDNAME/]
     ];
 
     invalid.forEach(([transcript, error]) => {

@@ -9,7 +9,8 @@ const DeflateLayer = require('../../lib/deflate-layer');
  * Opens an interactive IMAP session, for tests that interleave commands from several connections.
  *
  * `session.run(command, callback)` sends one tagged command line and calls back with everything the
- * server sent until the tagged response for it arrived. `session.close()` ends the connection.
+ * server sent until the tagged response for it arrived. `session.expect(pattern, callback)` waits for an
+ * unsolicited response instead. `session.close()` ends the connection.
  * After a tagged OK to `COMPRESS DEFLATE` the session compresses in both directions (RFC 4978), the
  * output it calls back with is decompressed. `session.raw` sends octets as they are.
  *
@@ -89,6 +90,16 @@ function openSession(port, callback) {
             }
             write(pending.shift());
             check();
+        },
+        // waits for an unsolicited response whose first line matches `pattern`, calls back with everything
+        // that arrived up to and including it (RFC 5465 NOTIFY sends responses between commands)
+        expect(pattern, cb) {
+            waiting = { match: line => pattern.test(line), callback: cb };
+            check();
+        },
+        // the output that arrived since the last response a test waited for
+        buffered() {
+            return buffer;
         },
         raw(data) {
             socket.write(data);
