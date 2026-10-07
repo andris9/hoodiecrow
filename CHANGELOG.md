@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.1](https://github.com/postalsys/imapkit/compare/v4.1.0...v4.1.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* parse address groups without a display name ([9cc4aa4](https://github.com/postalsys/imapkit/commit/9cc4aa427234cd436f06b3f175d9bcb917bdfa32))
+* parse address groups without a display name ([bc7a42b](https://github.com/postalsys/imapkit/commit/bc7a42b0ea0479c29facba7363a2d05c13250e68))
+
 ## [4.1.0](https://github.com/postalsys/imapkit/compare/v4.0.3...v4.1.0) (2026-10-07)
 
 
