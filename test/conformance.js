@@ -24,7 +24,9 @@ const STATES = {
     'utf8 selected': [LOGIN, 'L3 ENABLE UTF8=ACCEPT', SELECT],
     // QRESYNC enabled (RFC 7162 section 3.2.3)
     qresync: [LOGIN, 'L3 ENABLE QRESYNC'],
-    qresyncSelected: [LOGIN, 'L3 ENABLE QRESYNC', SELECT]
+    qresyncSelected: [LOGIN, 'L3 ENABLE QRESYNC', SELECT],
+    // UIDONLY enabled (RFC 9586 section 3.1)
+    uidonly: [LOGIN, 'L3 ENABLE UIDONLY QRESYNC', SELECT]
 };
 
 // [description, state, commands, expected tagged results, strings that must not appear]
@@ -268,6 +270,21 @@ const QRESYNC_CASES = [
 ];
 
 // Defines a test for every case: runs the commands in the wanted state and checks the tagged results
+// RFC 9586 section 3: once UIDONLY is enabled, message numbers in any argument are refused with BAD [UIDREQUIRED].
+// RFC 9738 section 3.2: UIDAFTER and UIDBEFORE take a uniqueid
+const UIDONLY_CASES = [
+    ['FETCH after ENABLE UIDONLY', 'uidonly', ['A1 FETCH 1 FLAGS'], { A1: 'BAD' }, ['* 1 FETCH']],
+    ['STORE after ENABLE UIDONLY', 'uidonly', ['A1 STORE 1 +FLAGS (\\Seen)'], { A1: 'BAD' }],
+    ['SEARCH after ENABLE UIDONLY', 'uidonly', ['A1 SEARCH ALL'], { A1: 'BAD' }, ['* SEARCH']],
+    ['COPY after ENABLE UIDONLY', 'uidonly', ['A1 COPY 1 INBOX'], { A1: 'BAD' }],
+    ['MOVE after ENABLE UIDONLY', 'uidonly', ['A1 MOVE 1 INBOX'], { A1: 'BAD' }],
+    ['UID SEARCH with a sequence set after ENABLE UIDONLY', 'uidonly', ['A1 UID SEARCH 1'], { A1: 'BAD' }, ['* SEARCH']],
+    ['UID SEARCH with a UID set after ENABLE UIDONLY', 'uidonly', ['A1 UID SEARCH UID 1'], { A1: 'OK' }],
+    ['QRESYNC sequence match data after ENABLE UIDONLY', 'auth', ['A0 ENABLE UIDONLY QRESYNC', 'A1 SELECT INBOX (QRESYNC (1 1 1:2 (1 1)))'], { A1: 'BAD' }],
+    ['UIDAFTER without a UID', 'selected', ['A1 UID SEARCH UIDAFTER 0'], { A1: 'BAD' }],
+    ['UIDBEFORE with a UID set', 'selected', ['A1 UID SEARCH UIDBEFORE 1:2'], { A1: 'BAD' }]
+];
+
 function defineCases(ctx, cases) {
     for (const [description, state, commands, expected, absent] of cases) {
         it(description, (t, done) => {
@@ -503,6 +520,20 @@ describe('Strict QRESYNC handling', () => {
     }));
 
     defineCases(ctx, QRESYNC_CASES);
+});
+
+describe('Strict UIDONLY and MESSAGELIMIT handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['UIDONLY', 'QRESYNC', 'MOVE', 'MESSAGELIMIT'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, UIDONLY_CASES);
 });
 
 describe('Literal synchronization', () => {

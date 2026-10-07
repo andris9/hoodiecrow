@@ -44,7 +44,13 @@ describe('Response grammar guardrail', () => {
         // RFC 5465 section 8
         'A1 NO [BADEVENT (MessageNew MessageExpunge FlagChange)] unsupported\r\n* OK [NOTIFICATIONOVERFLOW] too many\r\n',
         '* LIST (\\HasNoChildren) "/" New ("OLDNAME" ("Old"))\r\n',
-        '* LIST (\\NoAccess) "/" Lookup\r\n'
+        '* LIST (\\NoAccess) "/" Lookup\r\n',
+        // RFC 9586 section 4: uidfetch-resp once UIDONLY is enabled, and the UIDREQUIRED response code
+        '* ENABLED UIDONLY\r\n* 25996 UIDFETCH (FLAGS (\\Seen))\r\n* 25900 UIDFETCH (FLAGS () UID 25900)\r\n* VANISHED 405,407\r\n',
+        '* ENABLED UIDONLY\r\n* 7 UIDFETCH (BODY[] {3}\r\nabc)\r\n* 3 EXISTS\r\n* ESEARCH (TAG "A1") UID ALL 1:3\r\n',
+        'A1 BAD [UIDREQUIRED] Message numbers are not allowed\r\n',
+        // RFC 9738 section 5
+        'A1 OK [MESSAGELIMIT 1000 23221] FETCH completed\r\nA2 NO [MESSAGELIMIT 1000] too many\r\n* NO [MESSAGELIMIT 1000 23221] partial\r\n'
     ];
 
     valid.forEach(transcript => {
@@ -127,13 +133,34 @@ describe('Response grammar guardrail', () => {
         ['A1 NO [BADEVENT MessageNew] unsupported\r\n', /BADEVENT/],
         ['* OK [NOTIFICATIONOVERFLOW 1] too many\r\n', /NOTIFICATIONOVERFLOW/],
         ['* LIST () "/" New ("OLDNAME" "Old")\r\n', /OLDNAME/],
-        ['* LIST () "/" New ("OLDNAME" ("Old" "Older"))\r\n', /OLDNAME/]
+        ['* LIST () "/" New ("OLDNAME" ("Old" "Older"))\r\n', /OLDNAME/],
+        // RFC 9586: no message numbers once UIDONLY is enabled, no UIDFETCH before
+        ['* 1 UIDFETCH (FLAGS ())\r\n', /UIDFETCH response before ENABLE UIDONLY/],
+        ['* ENABLED UIDONLY\r\n* 1 FETCH (FLAGS ())\r\n', /FETCH response holds a message number/],
+        ['* ENABLED UIDONLY\r\n* 1 EXPUNGE\r\n', /EXPUNGE response holds a message number/],
+        ['* ENABLED UIDONLY\r\n* OK [UNSEEN 1] First unseen\r\n', /UNSEEN response code/],
+        ['* ENABLED UIDONLY\r\n* ESEARCH (TAG "A1") ALL 1:3\r\n', /ESEARCH response without UID/],
+        ['* ENABLED UIDONLY\r\n* 0 UIDFETCH (FLAGS ())\r\n', /requires a nz-number/],
+        ['* ENABLED UIDONLY\r\n* 1 UIDFETCH (FLAGS)\r\n', /attribute and value pairs/],
+        ['* ENABLED UIDONLY\r\n* 1 UIDFETCH FLAGS ()\r\n', /exactly one parenthesized list/],
+        ['A1 BAD [UIDREQUIRED 1] no\r\n', /UIDREQUIRED response code/],
+        // RFC 9738 section 5
+        ['A1 OK [MESSAGELIMIT] done\r\n', /MESSAGELIMIT response code/],
+        ['A1 OK [MESSAGELIMIT 0 5] done\r\n', /MESSAGELIMIT response code/],
+        ['A1 OK [MESSAGELIMIT 10 5 6] done\r\n', /MESSAGELIMIT response code/]
     ];
 
     invalid.forEach(([transcript, error]) => {
         it('rejects ' + JSON.stringify(transcript), async () => {
             await assert.rejects(validateResponses(transcript), error);
         });
+    });
+
+    it('carries the UIDONLY state between chunks', async () => {
+        const responses = await validateResponses('* ENABLED UIDONLY\r\nA1 OK done\r\n');
+        assert.strictEqual(responses.uidonly, true);
+        await validateResponses('* 4 UIDFETCH (FLAGS ())\r\n', { uidonly: true });
+        await assert.rejects(validateResponses('* 4 FETCH (FLAGS ())\r\n', { uidonly: true }), /message number/);
     });
 
     it('keeps literals with their response', () => {

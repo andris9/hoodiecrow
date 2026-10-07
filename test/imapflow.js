@@ -53,7 +53,9 @@ const ALL_PLUGINS = [
     'ESORT',
     'CONTEXT=SEARCH',
     'CONTEXT=SORT',
-    'MULTISEARCH'
+    'MULTISEARCH',
+    'UIDONLY',
+    'MESSAGELIMIT'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -243,7 +245,9 @@ describe('ImapFlow', () => {
                 'ID',
                 'LITERAL+',
                 'UTF8=ACCEPT',
-                'BINARY'
+                'BINARY',
+                'UIDONLY',
+                'MESSAGELIMIT=1000'
             ]) {
                 assert.ok(client.capabilities.has(capability), capability);
             }
