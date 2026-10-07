@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.3](https://github.com/postalsys/imapkit/compare/v4.0.2...v4.0.3) (2026-10-07)
+
+
+### Bug Fixes
+
+* drop the doubled space in the 'Invalid FETCH argument' error text ([3c896b5](https://github.com/postalsys/imapkit/commit/3c896b5b62e7aa684b0b4679d08b500616583de6))
+* drop the doubled space in the 'Invalid FETCH argument' error text ([9ef4539](https://github.com/postalsys/imapkit/commit/9ef45398790e3d7ece800e809375fcad156e3476)), closes [#67](https://github.com/postalsys/imapkit/issues/67)
+
 ## [4.0.2](https://github.com/postalsys/imapkit/compare/v4.0.1...v4.0.2) (2026-10-07)
 
 
