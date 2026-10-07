@@ -317,7 +317,9 @@ describe('NOTIFY', () => {
             // FETCH must not cause EXPUNGE responses (RFC 3501 section 7.4.1)
             resp = await run(a, 'A2 FETCH 3 (UID)');
             assert.match(resp, /^\* 3 FETCH \(UID 3\)$/m);
-            assert.doesNotMatch(resp, /EXPUNGE/);
+            // the pending expunge is only announced with the EXPUNGEISSUED response code (RFC 5530 section 3)
+            assert.doesNotMatch(resp, /^\* \d+ EXPUNGE/m);
+            assert.match(resp, /^A2 OK \[EXPUNGEISSUED\] /m);
             await assertQuiet(a);
             resp = await run(a, 'A3 NOOP');
             assert.match(resp, /^\* 3 EXPUNGE\r\n\* 2 EXISTS\r\n\* 3 EXISTS\r\n\* 3 FETCH \(UID 4\)\r\nA3 OK/m);
