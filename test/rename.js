@@ -57,3 +57,38 @@ describe('Rename', () => {
         });
     });
 });
+
+describe('Rename message processing', () => {
+    let processed = 0;
+    const ctx = setupServer(() => ({
+        plugins: [
+            server => {
+                server.messageHandlers.push(() => processed++);
+            }
+        ],
+        storage: {
+            INBOX: {},
+            '': {
+                folders: {
+                    source: {
+                        messages: ['Subject: hello\r\n\r\nWorld']
+                    }
+                }
+            }
+        }
+    }));
+
+    it('RENAME does not run message handlers again', (t, done) => {
+        const before = processed;
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 RENAME source target', 'A3 SELECT target', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\nA2 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\r\n* 1 EXISTS\r\n') >= 0, resp);
+            assert.strictEqual(ctx.server.getMailbox('target').path, 'target');
+            assert.strictEqual(processed, before);
+            done();
+        });
+    });
+});

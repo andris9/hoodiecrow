@@ -35,4 +35,26 @@ describe('Create', () => {
             done();
         });
     });
+
+    it('Create matches special-use attributes case-insensitively', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 CREATE MySpecial (USE (\\sent))', 'A3 LIST "" "*"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren \\Sent) "/" "MySpecial"\r\n') >= 0, resp);
+            done();
+        });
+    });
+
+    it('Plain create stores no special-use', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 CREATE Plain', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            assert.ok(!('special-use' in ctx.server.getMailbox('Plain')));
+            done();
+        });
+    });
 });

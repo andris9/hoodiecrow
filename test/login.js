@@ -42,7 +42,7 @@ describe('LOGINDISABLED', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.ok(resp.indexOf(' LOGINDISABLED') >= 0);
-            assert.ok(resp.indexOf('\nA2 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA2 NO [PRIVACYREQUIRED]') >= 0, resp);
             done();
         });
     });
@@ -64,6 +64,36 @@ describe('LOGINDISABLED', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.ok(resp.indexOf(' LOGINDISABLED') < 0);
+            done();
+        });
+    });
+});
+
+describe('Login with a null-prototype users map', () => {
+    const ctx = setupServer(() => {
+        const users = Object.create(null);
+        users.testuser = { password: 'testpass' };
+        return { users };
+    });
+
+    it('Successful login', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LOGIN toString pass', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 ') >= 0, resp);
+            done();
+        });
+    });
+
+    it('Unknown user', (t, done) => {
+        const cmds = ['A1 LOGIN toString pass', 'A2 LOGIN __proto__ pass', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 NO') >= 0, resp);
             done();
         });
     });

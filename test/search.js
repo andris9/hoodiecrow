@@ -15,19 +15,23 @@ describe('Search tests', () => {
             INBOX: {
                 messages: [
                     {
+                        uid: 61,
                         raw: 'Subject: hello 1\r\n\r\nWorld 1!',
                         internaldate: '14-Sep-2013 18:22:28 +0300',
                         flags: ['\\Flagged']
                     },
                     {
+                        uid: 62,
                         raw: 'Subject: hello 2\r\nCC: test\r\n\r\nWorld 2!',
                         flags: ['\\Recent', '\\Seen', 'MyFlag']
                     },
                     {
+                        uid: 63,
                         raw: 'Subject: hello 3\r\nDate: Fri, 13 Sep 2013 15:01:00 +0300\r\nBCC: test\r\n\r\nWorld 3!',
                         flags: ['\\Draft']
                     },
                     {
+                        uid: 64,
                         raw:
                             'From: sender name <sender@example.com>\r\n' +
                             'To: Receiver name <receiver@example.com>\r\n' +
@@ -39,6 +43,7 @@ describe('Search tests', () => {
                         internaldate: '13-Sep-2013 18:22:28 +0300'
                     },
                     {
+                        uid: 65,
                         raw: 'Subject: hello 5\r\nfrom: test\r\n\r\nWorld 5!',
                         flags: ['\\Deleted', '\\Recent']
                     },
@@ -306,12 +311,21 @@ describe('Search tests', () => {
     });
 
     it('SEARCH SENTON', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SENTBEFORE "13-Sep-2013"', 'ZZ LOGOUT'];
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 SEARCH SENTON "13-Sep-2013"',
+            'A4 SEARCH SENTBEFORE "13-Sep-2013"',
+            'A5 SEARCH SENTON "13-Sep-2014"',
+            'ZZ LOGOUT'
+        ];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\n* SEARCH 3 4\r\n') >= 0);
-            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            assert.ok(resp.indexOf('\n* SEARCH 3 4\r\nA3 OK') >= 0);
+            // the year of the Date header counts too
+            assert.ok(resp.indexOf('\n* SEARCH\r\nA4 OK') >= 0);
+            assert.ok(resp.indexOf('\n* SEARCH\r\nA5 OK') >= 0);
             done();
         });
     });
@@ -464,11 +478,129 @@ describe('Search tests', () => {
     });
 
     it('SEARCH INVALID', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH ABCDE', 'ZZ LOGOUT'];
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 SEARCH ABCDE',
+            'A4 SEARCH HEADER X-Foo',
+            'A5 SEARCH ON 32-Jan-2020',
+            'A6 SEARCH LARGER abc',
+            'A7 SEARCH NOT',
+            'ZZ LOGOUT'
+        ];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\nA3 NO') >= 0);
+            assert.ok(resp.indexOf('\nA3 BAD Invalid search key ABCDE\r\n') >= 0, resp);
+            assert.ok(resp.indexOf('\nA4 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA5 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA6 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA7 BAD') >= 0);
+            assert.ok(resp.indexOf('    at ') < 0);
+            done();
+        });
+    });
+
+    it('SEARCH with no matches', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 SEARCH SUBJECT "no such subject"',
+            'A4 UID SEARCH SUBJECT "no such subject"',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* SEARCH\r\nA4 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH with parenthesized keys', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 SEARCH (OR SUBJECT "hello 1" SUBJECT "hello 2") UNSEEN',
+            'A4 SEARCH NOT (SEEN DELETED)',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* SEARCH 1 2 3 4 5 6\r\nA4 OK') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH CHARSET', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 SEARCH CHARSET UTF-8 SUBJECT "hello 2"',
+            'A4 SEARCH CHARSET X-UNKNOWN SUBJECT "hello 2"',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\nA4 NO [BADCHARSET (US-ASCII UTF-8)]') >= 0);
+            done();
+        });
+    });
+
+    it('SEARCH LARGER and SMALLER are strict', (t, done) => {
+        // message 1 is 28 bytes
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH LARGER 28 SMALLER 30', 'A4 SEARCH LARGER 27 SMALLER 29', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* SEARCH 1 6\r\nA4 OK') >= 0);
+            done();
+        });
+    });
+});
+
+describe('Search with unusual data', () => {
+    const ctx = setupServer(() => ({
+        storage: {
+            INBOX: {
+                messages: [
+                    {
+                        raw: 'Subject: folded\r\n subject line\r\nX-Foo: bar\r\n\r\nbody',
+                        internaldate: 'not a date'
+                    },
+                    {
+                        raw: 'Subject: second\r\nDate: Mon, 5 Oct 26 10:00:00 +0300\r\n\r\nbody',
+                        internaldate: '06-Oct-2026 10:00:00 +0300'
+                    }
+                ]
+            }
+        }
+    }));
+
+    it('a bad internal date does not break date searches', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SINCE 1-Oct-2026', 'A4 SEARCH SENTON 5-Oct-2026', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* SEARCH 2\r\nA4 OK') >= 0);
+            done();
+        });
+    });
+
+    it('header values are unfolded', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SUBJECT "folded subject"', 'A4 SEARCH HEADER X-Foo ""', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\n* SEARCH 1\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* SEARCH 1\r\nA4 OK') >= 0);
             done();
         });
     });
