@@ -168,6 +168,54 @@ function checkRespText(rest, response) {
     }
 }
 
+const isString = value => !!value && !Array.isArray(value) && ['ATOM', 'STRING', 'LITERAL'].includes(value.type);
+
+// RFC 3501 section 9 mbx-list-sflag, extended with \NonExistent by RFC 5258 section 6. At most one per response
+const SFLAGS = ['\\NOSELECT', '\\MARKED', '\\UNMARKED', '\\NONEXISTENT'];
+
+/**
+ * Checks a LIST or LSUB response. RFC 3501 section 9 mailbox-list, as updated by RFC 5258 section 6:
+ * "(" [mbx-list-flags] ")" SP (DQUOTE QUOTED-CHAR DQUOTE / nil) SP mailbox [SP mbox-list-extended]
+ *
+ * @param {String} name LIST or LSUB
+ * @param {Array} attrs Parsed response attributes
+ * @param {Object} response Response from splitResponses
+ */
+function checkMailboxList(name, attrs, response) {
+    if (attrs.length < 3 || attrs.length > (name === 'LIST' ? 4 : 3) || !Array.isArray(attrs[0])) {
+        fail(name + ' response must be a flag list, a delimiter and a mailbox name', response.text);
+    }
+
+    const flags = attrs[0].map(flag => {
+        // flag-extension = "\" atom
+        if (!flag || flag.type !== 'ATOM' || !/^\\/.test(flag.value) || !ATOM_RE.test(flag.value.substr(1))) {
+            fail(name + ' response has an invalid mailbox attribute', response.text);
+        }
+        return flag.value.toUpperCase();
+    });
+    if (flags.filter(flag => SFLAGS.includes(flag)).length > 1) {
+        fail(name + ' response has more than one of ' + SFLAGS.join(', '), response.text);
+    }
+    // RFC 5258 section 4 and RFC 3348 section 3
+    if (flags.includes('\\HASCHILDREN') && (flags.includes('\\HASNOCHILDREN') || flags.includes('\\NOINFERIORS'))) {
+        fail(name + ' response has \\HasChildren together with \\HasNoChildren or \\Noinferiors', response.text);
+    }
+
+    if (attrs[1] !== null && (!attrs[1] || attrs[1].type !== 'STRING' || attrs[1].value.length !== 1)) {
+        fail(name + ' response delimiter must be a quoted character or NIL', response.text);
+    }
+
+    if (!isString(attrs[2])) {
+        fail(name + ' response must have a mailbox name', response.text);
+    }
+
+    // mbox-list-extended = "(" [mbox-list-extended-item *(SP mbox-list-extended-item)] ")",
+    // mbox-list-extended-item = mbox-list-extended-item-tag SP tagged-ext-val
+    if (attrs.length === 4 && (!Array.isArray(attrs[3]) || attrs[3].length % 2 || attrs[3].some((item, i) => !(i % 2) && !isString(item)))) {
+        fail('LIST response has invalid extended data', response.text);
+    }
+}
+
 function checkResponse(response, parsed) {
     const first = response.lines[0].toString('binary');
 
@@ -239,6 +287,26 @@ function checkResponse(response, parsed) {
         // RFC 3501 section 9: resp-cond-state, resp-cond-auth, resp-cond-bye are all keyword SP resp-text
         checkRespText(first.substr(2 + name.length), response);
         return;
+    }
+
+    if (name === 'LIST' || name === 'LSUB') {
+        checkMailboxList(name, parsed.attributes || [], response);
+    }
+
+    if (name === 'STATUS') {
+        // RFC 3501 section 9: "STATUS" SP mailbox SP "(" [status-att-list] ")", every status-att-val is
+        // an item name and a number (RFC 8438 section 4: SIZE is a number64)
+        const attrs = parsed.attributes || [];
+        if (attrs.length !== 2 || !isString(attrs[0]) || !Array.isArray(attrs[1]) || attrs[1].length % 2) {
+            fail('STATUS response must be a mailbox and a list of item and value pairs', response.text);
+        }
+        for (let i = 0; i < attrs[1].length; i += 2) {
+            const item = attrs[1][i];
+            const value = attrs[1][i + 1];
+            if (!item || item.type !== 'ATOM' || !ATOM_RE.test(item.value) || !value || value.type !== 'ATOM' || !NUMBER_RE.test(value.value)) {
+                fail('STATUS response items must be atoms with numeric values', response.text);
+            }
+        }
     }
 
     if (name === 'SEARCH') {

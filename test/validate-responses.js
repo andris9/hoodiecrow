@@ -20,7 +20,10 @@ describe('Response grammar guardrail', () => {
         '* ESEARCH COUNT 0\r\n* ESEARCH (TAG "A1") X-FOO (1 2)\r\n',
         '+ idling\r\n',
         '+ \r\n',
-        '* XTOYBIRD ok\r\n'
+        '* XTOYBIRD ok\r\n',
+        '* LIST (\\HasNoChildren) "/" "INBOX"\r\n* LIST () NIL INBOX\r\n* LSUB (\\Noselect) "." foo\r\n',
+        '* LIST (\\NonExistent \\Subscribed) "/" "a b" ("CHILDINFO" ("SUBSCRIBED"))\r\n',
+        '* STATUS INBOX (MESSAGES 3 SIZE 1338)\r\n* STATUS "a b" ()\r\n'
     ];
 
     valid.forEach(transcript => {
@@ -54,7 +57,16 @@ describe('Response grammar guardrail', () => {
         ['* ESEARCH 1 2\r\n', /tagged-ext-label/],
         ['* FROBNICATE 1\r\n', /Unknown untagged/],
         ['* OK caf\xe9\r\n', /8-bit/],
-        ['* 1 FETCH (BODY[] {3}\r\na\x00c)\r\n', /NUL/]
+        ['* 1 FETCH (BODY[] {3}\r\na\x00c)\r\n', /NUL/],
+        ['* LIST () "/"\r\n', /flag list, a delimiter/],
+        ['* LIST (Foo) "/" INBOX\r\n', /invalid mailbox attribute/],
+        ['* LIST (\\Noselect \\NonExistent) "/" a\r\n', /more than one/],
+        ['* LIST (\\HasChildren \\HasNoChildren) "/" a\r\n', /HasChildren together/],
+        ['* LIST () "//" a\r\n', /delimiter/],
+        ['* LIST () "/" a ("CHILDINFO")\r\n', /extended data/],
+        ['* LSUB () "/" a ("CHILDINFO" ("SUBSCRIBED"))\r\n', /flag list, a delimiter/],
+        ['* STATUS INBOX (MESSAGES)\r\n', /pairs/],
+        ['* STATUS INBOX (MESSAGES x)\r\n', /numeric/]
     ];
 
     invalid.forEach(([transcript, error]) => {

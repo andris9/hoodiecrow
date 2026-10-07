@@ -46,7 +46,10 @@ const PLUGINS = [
     'X-GM-EXT-1',
     'SASL-IR',
     'AUTH-PLAIN',
-    'XOAUTH2'
+    'XOAUTH2',
+    'LIST-EXTENDED',
+    'LIST-STATUS',
+    'STATUS=SIZE'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
@@ -91,6 +94,8 @@ const CORPUS = [
     { state: 'auth', input: 'C1 LIST "" "*"\r\n' },
     { state: 'auth', input: 'C1 LIST "" "%"\r\nC2 LSUB "" "*"\r\n' },
     { state: 'auth', input: 'C1 LIST (SPECIAL-USE) "" "*"\r\n' },
+    { state: 'auth', input: 'C1 LIST (SUBSCRIBED RECURSIVEMATCH) "" ("%" "INBOX") RETURN (CHILDREN STATUS (MESSAGES SIZE))\r\n' },
+    { state: 'selected', input: 'C1 LIST (REMOTE) "" "*" RETURN (SUBSCRIBED SPECIAL-USE STATUS (UNSEEN HIGHESTMODSEQ))\r\n' },
     { state: 'auth', input: 'C1 NAMESPACE\r\n' },
     { state: 'auth', input: 'C1 STATUS INBOX (MESSAGES RECENT UIDNEXT UIDVALIDITY UNSEEN HIGHESTMODSEQ)\r\n' },
     { state: 'auth', input: 'C1 CREATE "New folder"\r\nC2 RENAME "New folder" Other\r\nC3 DELETE Other\r\n' },

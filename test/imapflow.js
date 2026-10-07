@@ -25,7 +25,10 @@ const ALL_PLUGINS = [
     'UNSELECT',
     'LITERALPLUS',
     'SASL-IR',
-    'X-GM-EXT-1'
+    'X-GM-EXT-1',
+    'LIST-EXTENDED',
+    'LIST-STATUS',
+    'STATUS=SIZE'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -234,6 +237,18 @@ describe('ImapFlow', () => {
             assert.ok(!client.capabilities.has('STARTTLS'));
             const mailbox = await client.mailboxOpen('INBOX');
             assert.strictEqual(mailbox.exists, 3);
+        });
+
+        it('lists mailboxes with STATUS data through LIST-STATUS', async () => {
+            const client = await connect(ctx);
+            const list = await client.list({ statusQuery: { messages: true, unseen: true, size: true } });
+            const inbox = list.find(entry => entry.path === 'INBOX');
+            const mailbox = await client.status('INBOX', { messages: true, unseen: true, size: true });
+            assert.strictEqual(inbox.status.messages, 3);
+            assert.strictEqual(inbox.status.messages, mailbox.messages);
+            assert.strictEqual(inbox.status.unseen, mailbox.unseen);
+            assert.ok(inbox.status.size > 0);
+            assert.strictEqual(inbox.status.size, mailbox.size);
         });
 
         it('lists mailboxes with special-use attributes and builds a tree', async () => {
