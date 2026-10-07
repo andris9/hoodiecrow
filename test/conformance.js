@@ -79,7 +79,8 @@ const CASES = [
         'APPEND with a lowercase month',
         'auth',
         ['A1 APPEND INBOX "02-jan-2020 03:04:05 +0000" {3}\r\nabc', 'A2 SELECT INBOX', 'A3 FETCH 2 INTERNALDATE'],
-        { A1: 'OK', A3: 'OK' }
+        { A1: 'OK', A3: 'OK' },
+        ['02-jan-2020']
     ],
     ['APPEND with a quoted flag', 'auth', ['A1 APPEND INBOX ("Seen") {3}\r\nabc'], { A1: 'BAD' }],
     ['FETCH without items', 'selected', ['A1 FETCH 1'], { A1: 'BAD' }],
