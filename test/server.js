@@ -14,6 +14,11 @@ describe('Command processing', () => {
                 server.setCommandHandler('XCRASH', () => {
                     throw new Error('boom');
                 });
+                // RFC 3501 section 9: x-command = "X" atom
+                server.setCommandHandler('X-PING.V2', (connection, parsed, data, callback) => {
+                    connection.sendStatus(parsed, data, 'OK', 'Pong ' + ((parsed.attributes || [])[0] || {}).value);
+                    callback();
+                });
             }
         ],
         storage: {
@@ -30,6 +35,38 @@ describe('Command processing', () => {
             resp = resp.toString();
             assert.ok(resp.indexOf('\r\nA1 NO [SERVERBUG]') >= 0);
             assert.ok(resp.indexOf('\r\nA2 OK') >= 0);
+            done();
+        });
+    });
+
+    // RFC 3501 section 9: command names are atoms, x-command = "X" atom, auth-type = atom
+    it('Accepts atom chars in command names', (t, done) => {
+        const cmds = ['A1 X-PING.V2 hello', 'A2 X-PING.V2 {3}\r\nabc', 'A3 X-NOPE', 'A4 AUTHENTICATE PLAIN-CLIENTTOKEN', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^A1 OK Pong hello\r$/m);
+            assert.match(resp, /^A2 OK Pong abc\r$/m);
+            assert.match(resp, /^A3 BAD Invalid command X-NOPE\r$/m);
+            assert.match(resp, /^A4 NO Unsupported authentication mechanism\r$/m);
+            done();
+        });
+    });
+
+    // command names never select files outside lib/commands
+    it('Only loads the built-in command handlers', (t, done) => {
+        assert.strictEqual(ctx.server.getCommandHandler('../commands/fetch'), false);
+        assert.strictEqual(ctx.server.getCommandHandler('../server'), false);
+        assert.strictEqual(ctx.server.getCommandHandler('TOSTRING'), false);
+        assert.strictEqual(typeof ctx.server.getCommandHandler('uid fetch'), 'function');
+
+        const cmds = ['A1 ../server', 'A2 ../../package {3}\r\nabc', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^A1 BAD Invalid command \.\.\/server\r$/m);
+            // the literal of an unknown command is refused without a continuation request
+            assert.match(resp, /^A2 BAD /m);
+            assert.doesNotMatch(resp, /^\+ /m);
             done();
         });
     });
