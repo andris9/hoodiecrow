@@ -155,6 +155,18 @@ describe('ImapKit tests', () => {
         });
     });
 
+    it('FETCH names an invalid argument in the error text', (t, done) => {
+        // RFC 3501 9: the ALL, FAST and FULL macros can not be in a parenthesized list
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 1:* (ALL UID)', 'A4 FETCH 1 (UID (FLAGS))', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^A3 BAD Invalid FETCH argument ALL\r$/m);
+            assert.match(resp, /^A4 BAD Invalid FETCH argument #2\r$/m);
+            done();
+        });
+    });
+
     it('FETCH BODYSTRUCTURE', (t, done) => {
         const cmds = [
             'A1 LOGIN testuser testpass',
