@@ -47,6 +47,19 @@ describe('Command processing', () => {
         });
     });
 
+    it('Accepts * in sequence sets and wildcards in LIST patterns', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 FETCH * FLAGS', 'A4 FETCH 1,* UID', 'A5 LIST "" IN*', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\n* 2 FETCH (FLAGS ())\r\nA3 OK') >= 0);
+            assert.ok(resp.indexOf('\r\n* 1 FETCH (UID 1)\r\n* 2 FETCH (UID 2)\r\nA4 OK') >= 0);
+            assert.ok(resp.indexOf('\r\nA5 OK') >= 0);
+            assert.ok(resp.indexOf('"INBOX"') >= 0);
+            done();
+        });
+    });
+
     it('Large literals are refused before login', (t, done) => {
         const cmds = ['A1 LOGIN {100000}', 'A2 NOOP', 'ZZ LOGOUT'];
 
