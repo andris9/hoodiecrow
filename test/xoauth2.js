@@ -53,3 +53,37 @@ describe('XOAUTH2', () => {
         });
     });
 });
+
+describe('XOAUTH2 edge cases', () => {
+    const ctx = setupServer(() => {
+        const users = Object.create(null);
+        users.testuser = { password: 'testpass', xoauth2: { accessToken: 'testtoken' } };
+        return { plugins: ['SASL-IR', 'XOAUTH2'], users };
+    });
+
+    it('missing initial response', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE XOAUTH2', 'A2 CAPABILITY', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            done();
+        });
+    });
+
+    it('works with a null-prototype users map', (t, done) => {
+        const cmds = [
+            'A1 AUTHENTICATE XOAUTH2 ' + Buffer.from(['user=toString', 'auth=Bearer zzz', '', ''].join('\x01')).toString('base64'),
+            'A2 AUTHENTICATE XOAUTH2 ' + Buffer.from(['user=testuser', 'auth=Bearer testtoken', '', ''].join('\x01')).toString('base64'),
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            done();
+        });
+    });
+});

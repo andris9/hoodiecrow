@@ -98,3 +98,80 @@ describe('Auth Plain with SASL-IR', () => {
         });
     });
 });
+
+describe('Auth Plain exchange', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['SASL-IR', 'AUTH-PLAIN']
+    }));
+
+    it('sends a continuation request with a space', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE PLAIN', Buffer.from('\x00testuser\x00testpass', 'utf-8').toString('base64'), 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\n+ \r\n') >= 0, resp);
+            assert.ok(resp.indexOf('\nA1 OK') >= 0, resp);
+            done();
+        });
+    });
+
+    it('cancelling returns BAD', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE PLAIN', '*', 'A2 CAPABILITY', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 BAD') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            done();
+        });
+    });
+
+    it('rejects a different authorization identity', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE PLAIN ' + Buffer.from('other\x00testuser\x00testpass', 'utf-8').toString('base64'), 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
+            done();
+        });
+    });
+
+    it('accepts the same authorization identity', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE PLAIN ' + Buffer.from('testuser\x00testuser\x00testpass', 'utf-8').toString('base64'), 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 OK') >= 0, resp);
+            done();
+        });
+    });
+
+    it('failed login keeps the connection usable', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE PLAIN', Buffer.from('\x00testuser\x00wrong', 'utf-8').toString('base64'), 'A2 LOGIN testuser testpass', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            done();
+        });
+    });
+});
+
+describe('Auth Plain with a null-prototype users map', () => {
+    const ctx = setupServer(() => {
+        const users = Object.create(null);
+        users.testuser = { password: 'testpass' };
+        return { plugins: ['SASL-IR', 'AUTH-PLAIN'], users };
+    });
+
+    it('Login Success', (t, done) => {
+        const cmds = ['A1 AUTHENTICATE PLAIN ' + Buffer.from('\x00testuser\x00testpass', 'utf-8').toString('base64'), 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA1 OK') >= 0, resp);
+            done();
+        });
+    });
+});

@@ -39,18 +39,50 @@ describe('Hoodiecrow tests', () => {
     }));
 
     it('UID EXPUNGE', (t, done) => {
-        const cmds = ['A1 CAPABILITY', 'A2 LOGIN testuser testpass', 'A3 SELECT INBOX', 'A4 UID EXPUNGE 2', 'ZZ LOGOUT'];
+        const cmds = ['A1 CAPABILITY', 'A2 LOGIN testuser testpass', 'A3 SELECT INBOX', 'A4 UID EXPUNGE 1:2', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            // only the message we requested to expunge should be expunge
-            assert.ok(resp.indexOf('\r\n* 2 EXPUNGE\r\n') >= 0);
-            // no exists message should be deleted (Note that there will be a
-            // 2 EXISTS in there from the SELECT.  But ctx is the testing idiom
-            // used by the existing expunge test.)
-            assert.ok(resp.indexOf('\r\n* 1 EXISTS\r\n') < 0);
-            // let's make sure the server still has one message in there.
-            assert.equal(ctx.server.getMailbox('INBOX').messages.length, 1);
+            // only the message with the \\Deleted flag is expunged
+            assert.ok(resp.indexOf('\r\n* 1 EXPUNGE\r\nA4 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\r\n* 2 EXPUNGE\r\n') < 0, resp);
+            const messages = ctx.server.getMailbox('INBOX').messages;
+            assert.equal(messages.length, 1);
+            assert.equal(messages[0].uid, 2);
+            done();
+        });
+    });
+
+    it('UID EXPUNGE ignores messages without \\Deleted', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 UID EXPUNGE 2', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('EXPUNGE\r\n') < 0, resp);
+            assert.ok(resp.indexOf('\r\nA3 OK') >= 0, resp);
+            assert.equal(ctx.server.getMailbox('INBOX').messages.length, 2);
+            done();
+        });
+    });
+
+    it('UID EXPUNGE fails in a read-only mailbox', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 UID EXPUNGE 1', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\nA3 NO') >= 0, resp);
+            assert.equal(ctx.server.getMailbox('INBOX').messages.length, 2);
+            done();
+        });
+    });
+
+    it('UID COPY with no matching messages has no COPYUID', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 UID COPY 100 target', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('COPYUID') < 0, resp);
             done();
         });
     });

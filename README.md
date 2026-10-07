@@ -77,11 +77,13 @@ All commands are supported but might be a bit buggy
 Plugins can be enabled when starting the server but can not be unloaded or loaded when the server is already running.
 All plugins are self contained and not tied to core. If you do not enable a plugin, no trace of it is left
 to the system. For example, if you do not enable CONDSTORE, messages do not have a MODSEQ value set.
+Plugin names are case insensitive and capability spellings like `LITERAL+` or `AUTH=PLAIN` are accepted too.
+An unknown plugin name throws an error, and a plugin listed more than once is loaded only once.
 
 - **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
-- **CONDSTORE** Partially implemented CONDSTORE [RFC4551] support
+- **CONDSTORE** Adds CONDSTORE [RFC7162] support (`SEARCH MODSEQ` is not supported)
 - **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
-- **ENABLE** Adds ENABLE capability [RFC5161]. Must be loaded before any plugin that requires ENABLE support (eg. CONDSTORE)
+- **ENABLE** Adds ENABLE capability [RFC5161]. Can be loaded in any order with the plugins it enables (eg. CONDSTORE)
 - **ID** Adds ID [RFC2971] capability
 - **IDLE** Adds IDLE [RFC2177] capability
 - **LITERALPLUS** Enables LITERAL+ [RFC2088] capability
@@ -95,7 +97,7 @@ to the system. For example, if you do not enable CONDSTORE, messages do not have
 - **UNSELECT** Adds UNSELECT [RFC3691] capability
 - **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/gmail/imap_extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is not supported as I haven't figured threading out yet.
 - **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
-- **XTOYBIRD** Custom plugin to allow programmatic control of the server. Login not required to use XTOYBIRD commands
+- **XTOYBIRD** Custom plugin to allow programmatic control of the server. XTOYBIRD commands are only allowed after login
 
 Planned but not yet implemented
 
@@ -107,7 +109,7 @@ An user can always login with username `"testuser"` and password `"testpass"`. A
 
 ## Existing XTOYBIRD commands
 
-To use these functions, XTOYBIRD plugin needs to be enabled
+To use these functions, XTOYBIRD plugin needs to be enabled and the client needs to be logged in
 
 Available commands:
 
@@ -122,6 +124,8 @@ Example usage for XTOYBIRD STORAGE:
 
 ```
 S: * Hoodiecrow ready for rumble
+C: A0 LOGIN testuser testpass
+S: A0 OK User logged in
 C: A1 XTOYBIRD STORAGE
 S: * XTOYBIRD [XJSONDUMP] {3224}
 S: {
