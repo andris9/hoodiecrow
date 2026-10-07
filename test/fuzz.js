@@ -51,7 +51,11 @@ const PLUGINS = [
     'XOAUTH2',
     'LIST-EXTENDED',
     'LIST-STATUS',
-    'STATUS=SIZE'
+    'STATUS=SIZE',
+    'SORT',
+    'SORT=DISPLAY',
+    'THREAD=ORDEREDSUBJECT',
+    'THREAD=REFERENCES'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
@@ -131,6 +135,10 @@ const CORPUS = [
     { state: 'selected', input: 'C1 SEARCH RETURN (MIN MAX ALL COUNT) MODSEQ "/flags/\\\\seen" all 1\r\n' },
     { state: 'selected', input: 'C1 UID SEARCH RETURN (SAVE MIN) UNSEEN\r\nC2 FETCH $ (FLAGS)\r\nC3 STORE $ +FLAGS (\\Seen)\r\n' },
     { state: 'selected', input: 'C1 SEARCH RETURN () OR $ 1:2 NOT DELETED\r\n' },
+    { state: 'selected', input: 'C1 SORT (REVERSE DATE SUBJECT DISPLAYFROM) UTF-8 OR FROM sender 1:2\r\n' },
+    { state: 'selected', input: 'C1 UID SORT (ARRIVAL CC TO SIZE REVERSE DISPLAYTO) "US-ASCII" ALL\r\n' },
+    { state: 'selected', input: 'C1 THREAD REFERENCES UTF-8 NOT DELETED\r\n' },
+    { state: 'selected', input: 'C1 UID THREAD ORDEREDSUBJECT US-ASCII SUBJECT {5}\r\nhello\r\n' },
     { state: 'selected', input: 'C1 COPY 1:2 Archive\r\n' },
     { state: 'selected', input: 'C1 UID COPY 1 "Archive"\r\n' },
     { state: 'selected', input: 'C1 MOVE 2 Archive\r\n' },

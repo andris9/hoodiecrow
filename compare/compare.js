@@ -418,6 +418,7 @@ async function seedDovecot(session, seed, timeout) {
         for (const message of folder.messages) {
             const tagged = await run(
                 `APPEND ${quote(folder.path)} (${message.flags.join(' ')}) ${quote(message.internaldate)}`,
+                // hoodiecrow keeps message sources as binary strings, one char per octet
                 Buffer.from(message.raw, 'binary')
             );
             const appendUid = tagged.match(/\[APPENDUID \d+ (\d+)\]/i);

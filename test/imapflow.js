@@ -30,7 +30,10 @@ const ALL_PLUGINS = [
     'LIST-EXTENDED',
     'LIST-STATUS',
     'STATUS=SIZE',
-    'METADATA'
+    'METADATA',
+    'SORT=DISPLAY',
+    'THREAD=ORDEREDSUBJECT',
+    'THREAD=REFERENCES'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));

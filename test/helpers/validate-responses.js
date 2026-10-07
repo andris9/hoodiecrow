@@ -16,7 +16,7 @@ const CR = 0x0d;
 
 // Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
-// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464). "X" prefixed names are
+// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464), SORT and THREAD (RFC 5256). "X" prefixed names are
 // experimental extensions (RFC 3501 section 6.5.1 allows X commands, and their responses).
 const UNTAGGED = new Set([
     'OK',
@@ -35,7 +35,9 @@ const UNTAGGED = new Set([
     'NAMESPACE',
     'ESEARCH',
     'VANISHED',
-    'METADATA'
+    'METADATA',
+    'SORT',
+    'THREAD'
 ]);
 
 // RFC 3501 section 9: message-data uses nz-number, EXISTS and RECENT use number
@@ -318,6 +320,15 @@ function checkResponse(response, parsed) {
         checkMetadata(parsed.attributes || [], response);
     }
 
+    if (name === 'SORT' && !/^\* SORT(?:(?: [1-9][0-9]*)+(?: \(MODSEQ [1-9][0-9]*\))?)?$/i.test(first)) {
+        // RFC 5256 section 5: sort-data = "SORT" *(SP nz-number), RFC 7162 section 7 appends SP search-sort-mod-seq
+        fail('SORT response must only list nz-numbers', response.text);
+    }
+
+    if (name === 'THREAD' && (response.lines.length > 1 || !isThreadData(first.replace(/^\* THREAD/i, '')))) {
+        fail('THREAD response does not match the thread-data grammar', response.text);
+    }
+
     if (name === 'SEARCH') {
         // RFC 3501 section 9: "SEARCH" *(SP nz-number), RFC 7162 section 7 appends SP "(" "MODSEQ" SP mod-sequence-value ")"
         const attrs = parsed.attributes || [];
@@ -422,6 +433,79 @@ function checkMetadata(attrs, response) {
     if (!attrs.slice(1).every(isEntry)) {
         fail('METADATA response has an invalid entry list', response.text);
     }
+}
+
+/**
+ * Checks thread-data after the "THREAD" keyword (RFC 5256 section 5):
+ * thread-data = "THREAD" [SP 1*thread-list], thread-list = "(" (thread-members / thread-nested) ")",
+ * thread-members = nz-number *(SP nz-number) [SP thread-nested], thread-nested = 2*thread-list
+ *
+ * @param {String} rest Everything after "* THREAD"
+ * @return {Boolean} true if valid
+ */
+function isThreadData(rest) {
+    if (!rest) {
+        return true;
+    }
+    let pos = 1;
+    const peek = () => rest.charAt(pos);
+    const number = () => {
+        const match = rest.substr(pos).match(/^[1-9][0-9]*/);
+        if (!match) {
+            return false;
+        }
+        pos += match[0].length;
+        return true;
+    };
+    // thread-nested: at least two adjacent thread-lists
+    const nested = () => {
+        let count = 0;
+        while (peek() === '(') {
+            if (!list()) {
+                return false;
+            }
+            count++;
+        }
+        return count >= 2;
+    };
+    const list = () => {
+        pos++;
+        if (peek() === '(') {
+            if (!nested()) {
+                return false;
+            }
+        } else {
+            if (!number()) {
+                return false;
+            }
+            while (peek() === ' ') {
+                pos++;
+                if (peek() === '(') {
+                    if (!nested()) {
+                        return false;
+                    }
+                    break;
+                }
+                if (!number()) {
+                    return false;
+                }
+            }
+        }
+        if (peek() !== ')') {
+            return false;
+        }
+        pos++;
+        return true;
+    };
+    if (rest.charAt(0) !== ' ' || peek() !== '(') {
+        return false;
+    }
+    while (pos < rest.length) {
+        if (peek() !== '(' || !list()) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
