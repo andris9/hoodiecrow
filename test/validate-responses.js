@@ -20,6 +20,8 @@ describe('Response grammar guardrail', () => {
         '* ESEARCH COUNT 0\r\n* ESEARCH (TAG "A1") X-FOO (1 2)\r\n',
         '* SORT\r\n* SORT 2 3 6\r\n* SORT 2 (MODSEQ 7)\r\n',
         '* THREAD\r\n* THREAD (2)(3 6 (4 23)(44 7 96))\r\n* THREAD ((3)(5))\r\n',
+        // RFC 7162 section 7
+        '* VANISHED 1:3,5\r\n* VANISHED (EARLIER) 7\r\n',
         '+ idling\r\n',
         '+ \r\n',
         '* XTOYBIRD ok\r\n',
@@ -78,6 +80,9 @@ describe('Response grammar guardrail', () => {
         ['* THREAD (1 2 )\r\n', /thread-data/],
         ['* THREAD (0)\r\n', /thread-data/],
         ['* THREAD ()\r\n', /thread-data|ImapFlow/],
+        ['* VANISHED 1:*\r\n', /VANISHED response/],
+        ['* VANISHED (EARLIER)\r\n', /VANISHED response/],
+        ['* VANISHED 0\r\n', /VANISHED response/],
         ['* FROBNICATE 1\r\n', /Unknown untagged/],
         ['* OK caf\xe9\r\n', /8-bit/],
         ['* 1 FETCH (BODY[] {3}\r\na\x00c)\r\n', /NUL/],

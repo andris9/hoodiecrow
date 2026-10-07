@@ -35,7 +35,8 @@ const DOVECOT_PASS = 'pass';
  * In commands and verbatim lines, the four characters \r\n become CRLF and
  * {file:path} or {file+:path} become a synchronizing or non-synchronizing
  * literal with the file contents (line endings converted to CRLF, path relative
- * to the scenario file). $USER and $PASS expand to the target's credentials.
+ * to the scenario file). $USER and $PASS expand to the target's credentials,
+ * $UIDVALIDITY to the last UIDVALIDITY value the target sent (for QRESYNC).
  *
  * @param {String} text Scenario source
  * @return {Array} steps
@@ -83,7 +84,7 @@ function parseScenario(text) {
  * Turns a step's text into the bytes to send, expanding escapes, placeholders and file literals
  *
  * @param {String} text Step text
- * @param {Object} vars Values for $USER and $PASS
+ * @param {Object} vars Values for $USER, $PASS and $UIDVALIDITY
  * @param {String} baseDir Directory that {file:path} placeholders are resolved against
  * @return {Buffer} payload, including the final CRLF
  */
@@ -97,6 +98,7 @@ function buildPayload(text, vars, baseDir) {
         str = str
             .replace(/\$USER\b/g, vars.user)
             .replace(/\$PASS\b/g, vars.pass)
+            .replace(/\$UIDVALIDITY\b/g, vars.uidvalidity || '1')
             .replace(/\\r\\n/g, '\r\n');
         parts.push(Buffer.from(str, 'utf8'));
     };
@@ -508,6 +510,12 @@ async function runTarget(target, steps, options) {
         for (const [id, session] of sessions) {
             const fresh = session.responses.slice(session.mark);
             session.mark = session.responses.length;
+            for (const response of fresh) {
+                const match = response.toString('latin1').match(/\[UIDVALIDITY (\d+)\]/i);
+                if (match) {
+                    target.uidvalidity = match[1];
+                }
+            }
             if (fresh.length) {
                 result[id] = fresh;
             }

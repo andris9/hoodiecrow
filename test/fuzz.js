@@ -33,6 +33,7 @@ const CONTINUATION_TIMEOUT = 100;
 const PLUGINS = [
     'ENABLE',
     'CONDSTORE',
+    'QRESYNC',
     'ESEARCH',
     'SEARCHRES',
     'IDLE',
@@ -112,6 +113,8 @@ const CORPUS = [
     { state: 'auth', input: 'C1 EXAMINE "INBOX"\r\n' },
     { state: 'auth', input: 'C1 SELECT INBOX (CONDSTORE)\r\n' },
     { state: 'auth', input: 'C1 ENABLE CONDSTORE\r\n' },
+    { state: 'auth', input: 'C1 ENABLE QRESYNC\r\nC2 SELECT INBOX (QRESYNC (1 1 1:3 (1:2 1:2)))\r\n' },
+    { state: 'auth', input: 'C1 ENABLE QRESYNC\r\nC2 SELECT INBOX\r\nC3 UID FETCH 1:* (FLAGS) (CHANGEDSINCE 1 VANISHED)\r\n' },
     { state: 'auth', input: 'C1 LIST "" "*"\r\n' },
     { state: 'auth', input: 'C1 LIST "" "%"\r\nC2 LSUB "" "*"\r\n' },
     { state: 'auth', input: 'C1 LIST (SPECIAL-USE) "" "*"\r\n' },

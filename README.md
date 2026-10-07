@@ -80,6 +80,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - commands pipelined after `COMPRESS` (RFC 4978 section 3), and `COMPRESS` while compression is active (`BAD [COMPRESSIONACTIVE]`)
 - pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
 - `ENABLE` after `SELECT` or `EXAMINE` (RFC 5161 section 3.1), and `ID` lists that break the RFC 2971 limits
+- the QRESYNC `SELECT` parameter or the `VANISHED` modifier without `ENABLE QRESYNC`, `VANISHED` with `FETCH` or without `CHANGEDSINCE`, and QRESYNC values that break the RFC 7162 grammar (UIDVALIDITY or mod-sequence `0`, `*` in the UID sets, sequence match sets that are not ascending or not of the same size)
 - unknown `SEARCH RETURN` options or `RETURN` after `CHARSET` (RFC 4466 section 2.6.1), `$` combined with numbers, and `SEARCH MODSEQ` values or entry names that break the RFC 7162 grammar
 - extended LIST commands (RFC 5258) with unknown options, `RECURSIVEMATCH` without a base option like `SUBSCRIBED` (also `(SPECIAL-USE RECURSIVEMATCH)`, RFC 6154 section 6), an empty pattern list, options with values they do not take, a repeated `STATUS` return option with different items, and invalid `STATUS` items (RFC 5819)
 - METADATA entry names that break RFC 5464 section 3.2 (`//`, a trailing `/`, `*`, `%`, 8-bit or control characters, a scope other than `/private` or `/shared`), values that are atoms or use bare CR or LF as line ends, empty entry or option lists, and GETMETADATA options after the mailbox name (errata 2785)
@@ -113,7 +114,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
 - **COMPRESS** Adds COMPRESS=DEFLATE [RFC4978] capability. Raw DEFLATE in both directions after the tagged OK, every burst of responses ends with a sync flush
 - **CATENATE** Adds CATENATE [RFC4469] and URL-PARTIAL [RFC5550] capabilities. APPEND (and REPLACE) can build a message from literals and IMAP URLs of messages or message parts on the server. Only absolute-path URLs are accepted, for example `/INBOX;UIDVALIDITY=1/;UID=2/;SECTION=1.MIME/;PARTIAL=0.100`, other URLs and URLs that do not resolve fail with `NO [BADURL ...]`. A message over the literal size limit fails with `NO [TOOBIG]`. Plugins can refuse URLs of a mailbox through `server.urlAccessChecks`
-- **CONDSTORE** Adds CONDSTORE [RFC7162] support, including the `SEARCH MODSEQ` search key
+- **CONDSTORE** Adds CONDSTORE [RFC7162] support, including the `SEARCH MODSEQ` search key and the `CLOSED` response code
 - **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
 - **ESEARCH** Adds ESEARCH [RFC4731] capability: `SEARCH RETURN (MIN MAX ALL COUNT)` and `UID SEARCH RETURN (...)` answer with an ESEARCH response. With CONDSTORE the response includes `MODSEQ` for a `MODSEQ` search
 - **ENABLE** Adds ENABLE capability [RFC5161]. Can be loaded in any order with the plugins it enables (eg. CONDSTORE)
@@ -135,6 +136,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **QUOTA** Adds QUOTA [RFC9208] capability with `GETQUOTA`, `GETQUOTAROOT`, `SETQUOTA` (`QUOTASET`), the `STORAGE`, `MESSAGE` and `MAILBOX` resources and the `DELETED` and `DELETED-STORAGE` STATUS items. INBOX and the personal namespaces share one quota root, other namespaces have none. Configure it with the `quota` server option, eg. `{ "root": "User quota", "STORAGE": 10240, "MESSAGE": 1000, "MAILBOX": 100, "soft": false }` (STORAGE is in units of 1024 octets, a missing resource is not limited). APPEND, COPY and MOVE (from outside the quota root) fail with `NO [OVERQUOTA]` when they would go over a limit, and CREATE or RENAME INBOX when they would go over the MAILBOX limit. With `"soft": true` they succeed with an untagged `NO [OVERQUOTA]` warning instead. `SETQUOTA` changes the limits at runtime
 - **REPLACE** Adds REPLACE [RFC8508] capability (REPLACE and UID REPLACE commands). With UIDPLUS, APPENDUID is sent in an untagged OK before the EXPUNGE. With QUOTA only the net usage counts (RFC 8508 section 3.4)
 - **SASL-IR** Enables SASL-IR [RFC4959] capability
+- **QRESYNC** Adds QRESYNC [RFC7162] capability, also loads CONDSTORE and ENABLE. After `ENABLE QRESYNC`: `SELECT`/`EXAMINE` with `(QRESYNC (uidvalidity modseq [known-uids] [seq-match-data]))` reports `VANISHED (EARLIER)` and the changed flags, `UID FETCH ... (CHANGEDSINCE n VANISHED)` works, and expunges (EXPUNGE, UID EXPUNGE, MOVE, other sessions, IDLE) are reported with `VANISHED` instead of `EXPUNGE`. Expunged UIDs are remembered with their mod-sequence; UIDs missing from the initial storage count as expunged before the server started
 - **SAVEDATE** Adds SAVEDATE [RFC8514] capability: the `SAVEDATE` FETCH item and the `SAVEDBEFORE`, `SAVEDON`, `SAVEDSINCE` and `SAVEDATESUPPORTED` SEARCH keys. APPEND, COPY and MOVE set the save date to the current time, messages in storage can set it with a `SAVEDATE` value (a date-time string or a Date) and get the time the server was started otherwise. A mailbox with `"SAVEDATE": false` in storage does not support save dates: FETCH returns NIL and the SEARCH keys use the internal date
 - **SEARCHRES** Adds SEARCHRES [RFC5182] capability, also loads ESEARCH: `SEARCH RETURN (SAVE)` stores the result and `$` refers to it in FETCH, STORE, COPY, MOVE, UID EXPUNGE, SEARCH and their UID variants. `$` must be used alone, not combined with numbers like `1,$`
 - **SORT** Adds SORT [RFC5256] capability (SORT and UID SORT with all RFC 5256 sort keys). Strings are compared with the i;unicode-casemap collation (RFC 5051), base subjects follow RFC 5256 section 2.1 and sent dates section 2.2. With CONDSTORE, a MODSEQ search key appends the highest mod-sequence (RFC 7162 section 3.1.9). I18NLEVEL=1 is not advertised, as SEARCH matches strings with ASCII case folding only
@@ -226,6 +228,8 @@ S: A1 OK XTOYBIRD Completed
 - FETCH (CHANGEDSINCE modseq) works
 - STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)
 - SEARCH MODSEQ works, the entry name and type are checked but ignored since MODSEQ is not stored per flag
+- Flag changes made by other sessions include MODSEQ once CONDSTORE is enabled
+- SELECT/EXAMINE send `* OK [CLOSED]` when they close the selected mailbox
 
 # Known issues
 

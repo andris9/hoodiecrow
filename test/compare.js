@@ -39,6 +39,10 @@ describe('Dovecot comparison tool', () => {
 
         assert.strictEqual(buildPayload('A1 LOGIN $USER $PASS', vars, compareDir).toString(), 'A1 LOGIN u p\r\n');
         assert.strictEqual(buildPayload('A1 SELECT {5}\\r\\nINBOX', vars, compareDir).toString(), 'A1 SELECT {5}\r\nINBOX\r\n');
+        assert.strictEqual(
+            buildPayload('A1 SELECT INBOX (QRESYNC ($UIDVALIDITY 1))', Object.assign({ uidvalidity: '42' }, vars), compareDir).toString(),
+            'A1 SELECT INBOX (QRESYNC (42 1))\r\n'
+        );
 
         const payload = buildPayload('A1 APPEND INBOX {file+:messages/simple.eml}', vars, compareDir).toString();
         const match = payload.match(/^A1 APPEND INBOX \{(\d+)\+\}\r\n([\s\S]*)\r\n$/);
@@ -100,6 +104,23 @@ describe('Dovecot comparison tool', () => {
         assert.deepStrictEqual(seed.folders[0].messages[0].flags, ['\\Seen']);
         assert.strictEqual(seed.folders[0].messages[0].uid, 1);
         assert.strictEqual(seed.warnings.length, 1);
+    });
+
+    it('expands $UIDVALIDITY to the last value the target sent', async () => {
+        const server = await startHoodiecrow({ INBOX: { uidvalidity: 77, messages: ['Subject: a\r\n\r\nA'] } }, ['QRESYNC']);
+        try {
+            const steps = parseScenario(['ENABLE QRESYNC', 'SELECT INBOX', 'SELECT INBOX (QRESYNC ($UIDVALIDITY 1))'].join('\n'));
+            const result = await runTarget({ name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
+                timeout: 2000,
+                settle: 20,
+                baseDir: compareDir
+            });
+            const text = sessionLines(result.steps[2].responses, false).join('\n');
+            // the UIDVALIDITY matched, so the changes since mod-sequence 1 are reported
+            assert.match(text, /\* 1 FETCH \(UID 1 FLAGS \(\) MODSEQ \(2\)\)/);
+        } finally {
+            server.close();
+        }
     });
 
     it('runs a scenario against hoodiecrow', async () => {

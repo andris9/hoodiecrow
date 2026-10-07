@@ -209,6 +209,30 @@ describe('CONDSTORE', () => {
             });
         });
 
+        // RFC 7162 section 3.1: UID and MODSEQ in every untagged FETCH once enabled, also for changes by an external agent
+        it('includes MODSEQ in flag changes made by another session', (t, done) => {
+            openSession(ctx.server.address().port, watcher => {
+                watcher.run('W1 LOGIN testuser testpass', () => {
+                    watcher.run('W2 SELECT INBOX (CONDSTORE)', () => {
+                        openSession(ctx.server.address().port, other => {
+                            other.run('O1 LOGIN testuser testpass', () => {
+                                other.run('O2 SELECT INBOX', () => {
+                                    other.run('O3 STORE 3 +FLAGS (\\Flagged)', () => {
+                                        watcher.run('W3 NOOP', resp => {
+                                            watcher.close();
+                                            other.close();
+                                            assert.match(resp, /^\* 3 FETCH \(UID 3 FLAGS \(\\Flagged\) MODSEQ \(102\)\)\r\nW3 OK/m);
+                                            done();
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+
         it('appended messages get a new MODSEQ', (t, done) => {
             const message = 'Subject: new\r\n\r\nnew';
             const cmds = [
