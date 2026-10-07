@@ -468,8 +468,31 @@ Where
     - **states** lists the connection states the command is valid in (`'Not Authenticated'`, `'Authenticated'`, `'Selected'`), any state if not set. A plain list is read as the states
     - **noArguments** if true, the command is refused when it has arguments
     - **mailboxArguments** lists the positions of arguments that are mailbox names, these must be valid modified UTF-7 (RFC 3501 section 5.1.3)
+    - **astringArguments** lists the positions of other astring arguments (user names, identifiers). In these, in mailbox names and in search criteria an atom `NIL` reaches the handler as an atom, not as `null`
+    - **searchCriteria** is the position where SEARCH style criteria start, **sequenceSet** the position of an argument with message sequence numbers. Both are used for the RFC 3501 section 5.5 pipelining check
+    - **noExpunge** if true, EXPUNGE responses are held back while the command runs (like FETCH, STORE and SEARCH, RFC 3501 section 7.4.1)
+    - **literal8** if true (or the name of the capability that allows it), the command accepts `~{n}` literals (RFC 3516)
+    - **noPipelining** if true, the command is refused with BAD when the client sent more input after it (STARTTLS, COMPRESS)
 
     Without options, a command that already exists (such as a built-in one that the handler wraps) keeps its settings.
+
+#### Inspect command options
+
+    server.getCommandOptions(name) -> Object
+    server.getCommandStates(name) -> Array|false
+
+`getCommandOptions` returns the options of a command (see above) with every key set, `getCommandStates` only the connection states it is valid in, or `false` if any state is fine.
+
+#### Run after every plugin is loaded
+
+A plugin that wraps commands or handlers of other plugins, whatever the load order, does it once all plugins are loaded:
+
+```javascript
+server.once('pluginsLoaded', function () {
+    var move = server.getCommandHandler('MOVE');
+    // ...
+});
+```
 
 Handler arguments
 
