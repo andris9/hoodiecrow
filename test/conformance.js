@@ -92,6 +92,12 @@ const CASES = [
     ['STORE of \\Recent', 'selected', ['A1 STORE 1 +FLAGS (\\Recent)'], { A1: 'BAD' }],
     ['COPY without a mailbox', 'selected', ['A1 COPY 1'], { A1: 'BAD' }],
     ['SEARCH with an unknown key', 'selected', ['A1 SEARCH FOO'], { A1: 'BAD' }],
+    // RFC 3501 6.4.4: without CHARSET the search strings are US-ASCII
+    ['SEARCH with 8-bit text and no CHARSET', 'selected', ['A1 SEARCH SUBJECT {5}\r\ncaf\xc3\xa9'], { A1: 'BAD' }],
+    ['SEARCH with 8-bit text as US-ASCII', 'selected', ['A1 SEARCH CHARSET US-ASCII SUBJECT {5}\r\ncaf\xc3\xa9'], { A1: 'BAD' }],
+    ['SEARCH with invalid UTF-8', 'selected', ['A1 SEARCH CHARSET UTF-8 SUBJECT {4}\r\ncaf\xe9'], { A1: 'BAD' }],
+    ['SEARCH with UTF-8 text', 'selected', ['A1 SEARCH CHARSET UTF-8 SUBJECT {5}\r\ncaf\xc3\xa9'], { A1: 'OK' }],
+    ['SEARCH with an unsupported CHARSET', 'selected', ['A1 SEARCH CHARSET KOI8-R SUBJECT x'], { A1: 'NO' }],
     ['SEARCH with an invalid date', 'selected', ['A1 SEARCH SINCE 32-Jan-2020'], { A1: 'BAD' }],
 
     // Mailbox names use modified UTF-7, RFC 3501 section 5.1.3

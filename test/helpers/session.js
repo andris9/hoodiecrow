@@ -24,7 +24,7 @@ function openSession(port, callback) {
         }
         if (pending.length && /(^|\r\n)\+[^\r\n]*\r\n$/.test(buffer)) {
             buffer = buffer.replace(/\+[^\r\n]*\r\n$/, '');
-            socket.write(pending.shift());
+            socket.write(pending.shift(), 'binary');
             return;
         }
         const match = buffer.match(waiting.pattern);
@@ -44,7 +44,7 @@ function openSession(port, callback) {
             // literal data waits for the continuation request (RFC 3501 section 4.3)
             pending = (command + '\r\n').split(/(?<=\{\d+\}\r\n)/);
             waiting = { pattern: new RegExp('(^|\\r\\n)' + tag + ' [^\\r\\n]*\\r\\n'), callback: cb };
-            socket.write(pending.shift());
+            socket.write(pending.shift(), 'binary');
             check();
         },
         close() {
