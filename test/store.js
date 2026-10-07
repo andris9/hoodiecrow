@@ -204,4 +204,14 @@ describe('Custom flags not allowed', () => {
             done();
         });
     });
+
+    it('STORE echoes \\Recent with the other flags', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 APPEND INBOX {3}\r\nabc', 'A4 STORE 2 +FLAGS (\\Flagged)', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\n* 2 FETCH (FLAGS (\\Flagged \\Recent))\r\n') >= 0, resp);
+            done();
+        });
+    });
 });

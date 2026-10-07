@@ -184,6 +184,17 @@ describe('Mailbox targets', () => {
         });
     });
 
+    it('APPEND normalizes the case of system flags', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 APPEND Target (\\seen \\FLAGGED) {3}\r\nabc', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\r\nA2 OK') >= 0, resp);
+            assert.deepStrictEqual(ctx.server.getMailbox('Target').messages[0].flags, ['\\Seen', '\\Flagged']);
+            done();
+        });
+    });
+
     it('APPEND to a missing mailbox returns TRYCREATE', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 APPEND missing {3}\r\nabc', 'ZZ LOGOUT'];
 

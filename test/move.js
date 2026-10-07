@@ -68,7 +68,7 @@ describe('Hoodiecrow tests', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* OK [COPYUID 1 1 4]\r\n* 1 EXPUNGE\r\n* 3 EXISTS\r\nA3 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\r\n* OK [COPYUID 1 1 4]\r\n* 4 EXISTS\r\n* 1 EXPUNGE\r\nA3 OK') >= 0, resp);
             assert.equal(ctx.server.getMailbox('INBOX').messages.length, 3);
             done();
         });

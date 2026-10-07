@@ -70,7 +70,7 @@ describe('XTOYBIRD', () => {
             assert.strictEqual({}.password, undefined);
             assert.strictEqual(Object.prototype.toString.password, undefined);
             assert.strictEqual(Object.password, undefined);
-            assert.strictEqual(Object.getPrototypeOf(ctx.server.users), Object.prototype);
+            assert.strictEqual(Object.getPrototypeOf(ctx.server.users), null);
             assert.ok(Object.hasOwn(ctx.server.users, '__proto__'));
             done();
         });
