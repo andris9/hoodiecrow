@@ -1,6 +1,7 @@
 'use strict';
 
 const { beforeEach, afterEach, after } = require('node:test');
+const assert = require('node:assert');
 const hoodiecrow = require('../../lib/server');
 const mockClient = require('../../lib/mock-client');
 const { validateThen } = require('./validate-responses');
@@ -54,4 +55,18 @@ function setupServer(getOptions) {
     return ctx;
 }
 
-module.exports = { setupServer };
+/**
+ * Checks the tagged result of every listed command in a transcript
+ *
+ * @param {String} resp Transcript as a binary string
+ * @param {Object} expected Tag to the expected result, e.g. `{ A1: 'OK', A2: 'BAD' }`
+ */
+function assertTagged(resp, expected) {
+    for (const tag of Object.keys(expected)) {
+        const match = resp.match(new RegExp('^' + tag + ' (OK|NO|BAD)\\b', 'm'));
+        assert.ok(match, 'no tagged response for ' + tag + '\n' + resp);
+        assert.strictEqual(match[1], expected[tag], tag + ' answered ' + match[1] + '\n' + resp);
+    }
+}
+
+module.exports = { setupServer, assertTagged };

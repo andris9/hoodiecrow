@@ -8,7 +8,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const net = require('node:net');
-const { setupServer } = require('./helpers');
+const { setupServer, assertTagged } = require('./helpers');
 const { openSession } = require('./helpers/session');
 
 const LOGIN = 'L1 LOGIN testuser testpass';
@@ -133,17 +133,63 @@ const SEARCH_CASES = [
     ['MODSEQ over 63 bits', 'selected', ['A1 SEARCH MODSEQ 9223372036854775808'], { A1: 'BAD' }]
 ];
 
+// RFC 5464 (METADATA), with the verified errata 2785 and 2786, with METADATA loaded
+const METADATA_CASES = [
+    // RFC 5464 section 5, getmetadata = "GETMETADATA" [SP getmetadata-options] SP mailbox SP entries
+    ['GETMETADATA without entries', 'auth', ['A1 GETMETADATA INBOX'], { A1: 'BAD' }],
+    ['GETMETADATA with an empty entry list', 'auth', ['A1 GETMETADATA INBOX ()'], { A1: 'BAD' }],
+    ['GETMETADATA with an empty option list', 'auth', ['A1 GETMETADATA () INBOX /shared/comment'], { A1: 'BAD' }],
+    // errata 2785: options come before the mailbox name
+    ['GETMETADATA with options after the mailbox', 'auth', ['A1 GETMETADATA INBOX (MAXSIZE 10) /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with an unknown option', 'auth', ['A1 GETMETADATA (FOO 1) INBOX /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with MAXSIZE without a value', 'auth', ['A1 GETMETADATA (MAXSIZE) INBOX /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with a negative MAXSIZE', 'auth', ['A1 GETMETADATA (MAXSIZE -1) INBOX /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with a quoted MAXSIZE', 'auth', ['A1 GETMETADATA (MAXSIZE "10") INBOX /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with a MAXSIZE over 32 bits', 'auth', ['A1 GETMETADATA (MAXSIZE 4294967296) INBOX /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with DEPTH 2', 'auth', ['A1 GETMETADATA (DEPTH 2) INBOX /shared'], { A1: 'BAD' }],
+    ['GETMETADATA with a list as mailbox name', 'auth', ['A1 GETMETADATA (INBOX) /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with an invalid mailbox name', 'auth', ['A1 GETMETADATA "&Jjo!" /shared/comment'], { A1: 'BAD' }],
+    ['GETMETADATA with a nested entry list', 'auth', ['A1 GETMETADATA INBOX ((/shared/comment))'], { A1: 'BAD' }],
+    // RFC 5464 section 3.2: invalid entry names result in a BAD response
+    ['entry name without leading "/"', 'auth', ['A1 GETMETADATA INBOX shared/comment'], { A1: 'BAD' }],
+    ['entry name with "//"', 'auth', ['A1 GETMETADATA INBOX /shared//comment'], { A1: 'BAD' }],
+    ['entry name ending with "/"', 'auth', ['A1 GETMETADATA INBOX /shared/comment/'], { A1: 'BAD' }],
+    ['entry name "/"', 'auth', ['A1 GETMETADATA (DEPTH infinity) INBOX /'], { A1: 'BAD' }],
+    ['entry name with "*"', 'auth', ['A1 GETMETADATA INBOX "/shared/*"'], { A1: 'BAD' }],
+    ['entry name with "%"', 'auth', ['A1 GETMETADATA INBOX "/shared/%"'], { A1: 'BAD' }],
+    ['entry name with a control character', 'auth', ['A1 GETMETADATA INBOX {9}\r\n/shared/\x01'], { A1: 'BAD' }],
+    ['entry name with 8-bit characters', 'auth', ['A1 GETMETADATA INBOX {10}\r\n/shared/\xc3\xa9'], { A1: 'BAD' }],
+    ['entry name outside /private and /shared', 'auth', ['A1 GETMETADATA INBOX /comment'], { A1: 'BAD' }],
+    ['GETMETADATA of a scope', 'auth', ['A1 GETMETADATA INBOX (/shared /PRIVATE)'], { A1: 'OK' }],
+    ['SETMETADATA of a scope', 'auth', ['A1 SETMETADATA INBOX (/shared "x")'], { A1: 'BAD' }],
+    ['SETMETADATA of a short vendor entry', 'auth', ['A1 SETMETADATA INBOX (/shared/vendor/vendor.example "x")'], { A1: 'BAD' }],
+    ['SETMETADATA of a vendor entry', 'auth', ['A1 SETMETADATA INBOX (/shared/vendor/vendor.example/x "x")'], { A1: 'OK' }],
+    // setmetadata = "SETMETADATA" SP mailbox SP entry-values
+    ['SETMETADATA without a list', 'auth', ['A1 SETMETADATA INBOX /shared/comment "x"'], { A1: 'BAD' }],
+    ['SETMETADATA with an empty list', 'auth', ['A1 SETMETADATA INBOX ()'], { A1: 'BAD' }],
+    ['SETMETADATA without a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment)'], { A1: 'BAD' }],
+    ['SETMETADATA with an atom value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment value)'], { A1: 'BAD' }],
+    ['SETMETADATA with a list value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment (x))'], { A1: 'BAD' }],
+    ['SETMETADATA with a list as entry name', 'auth', ['A1 SETMETADATA INBOX ((/shared/comment) "x")'], { A1: 'BAD' }],
+    ['SETMETADATA with an invalid mailbox name', 'auth', ['A1 SETMETADATA "&Jjo!" (/shared/comment "x")'], { A1: 'BAD' }],
+    // RFC 5464 section 3.2: clients MUST use CRLF for line ends in a value
+    ['SETMETADATA with a bare LF in a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment {3}\r\na\nb)'], { A1: 'BAD' }],
+    ['SETMETADATA with a bare CR in a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment {3}\r\na\rb)'], { A1: 'BAD' }],
+    ['SETMETADATA with CRLF in a value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment {4}\r\na\r\nb)'], { A1: 'OK' }],
+    // literal8 (RFC 3516) values are not supported by the parser yet
+    ['SETMETADATA with a literal8 value', 'auth', ['A1 SETMETADATA INBOX (/shared/comment ~{1}\r\na)'], { A1: 'BAD' }],
+    // RFC 5464 section 4.2 and 4.3: authenticated or selected state only
+    ['GETMETADATA before login', 'none', ['A1 GETMETADATA "" /shared/comment'], { A1: 'BAD' }],
+    ['SETMETADATA before login', 'none', ['A1 SETMETADATA "" (/shared/comment "x")'], { A1: 'BAD' }]
+];
+
 // Defines a test for every case: runs the commands in the wanted state and checks the tagged results
 function defineCases(ctx, cases) {
     for (const [description, state, commands, expected, absent] of cases) {
         it(description, (t, done) => {
             ctx.run([...STATES[state], ...commands, 'ZZ LOGOUT'], resp => {
                 resp = resp.toString('binary');
-                for (const tag of Object.keys(expected)) {
-                    const match = resp.match(new RegExp('^' + tag + ' (OK|NO|BAD)\\b', 'm'));
-                    assert.ok(match, 'no tagged response for ' + tag + '\n' + resp);
-                    assert.strictEqual(match[1], expected[tag], tag + ' answered ' + match[1] + '\n' + resp);
-                }
+                assertTagged(resp, expected);
                 for (const str of absent || []) {
                     assert.ok(resp.indexOf(str) < 0, 'unexpected ' + JSON.stringify(str) + '\n' + resp);
                 }
@@ -218,6 +264,21 @@ describe('Strict extended LIST', () => {
     }));
 
     defineCases(ctx, LIST_EXTENDED_CASES);
+});
+
+describe('Strict METADATA handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['METADATA'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }],
+                metadata: { '/shared/comment': 'Shared comment' }
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, METADATA_CASES);
 });
 
 describe('Literal synchronization', () => {
@@ -323,11 +384,7 @@ describe('Strict SASL handling', () => {
     const run = (commands, expected) => (t, done) => {
         ctx.run([...commands, 'ZZ LOGOUT'], resp => {
             resp = resp.toString('binary');
-            for (const tag of Object.keys(expected)) {
-                const match = resp.match(new RegExp('^' + tag + ' (OK|NO|BAD)\\b', 'm'));
-                assert.ok(match, 'no tagged response for ' + tag + '\n' + resp);
-                assert.strictEqual(match[1], expected[tag], tag + ' answered ' + match[1] + '\n' + resp);
-            }
+            assertTagged(resp, expected);
             done();
         });
     };

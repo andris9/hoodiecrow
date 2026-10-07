@@ -23,7 +23,12 @@ describe('Response grammar guardrail', () => {
         '* XTOYBIRD ok\r\n',
         '* LIST (\\HasNoChildren) "/" "INBOX"\r\n* LIST () NIL INBOX\r\n* LSUB (\\Noselect) "." foo\r\n',
         '* LIST (\\NonExistent \\Subscribed) "/" "a b" ("CHILDINFO" ("SUBSCRIBED"))\r\n',
-        '* STATUS INBOX (MESSAGES 3 SIZE 1338)\r\n* STATUS "a b" ()\r\n'
+        '* STATUS INBOX (MESSAGES 3 SIZE 1338)\r\n* STATUS "a b" ()\r\n',
+        '* METADATA "" (/shared/comment NIL /shared/admin "mailto:a@example.com")\r\n',
+        '* METADATA INBOX (/private/comment {4}\r\na\r\nb)\r\n',
+        '* METADATA INBOX /shared/comment /private/comment\r\n',
+        'A1 OK [METADATA LONGENTRIES 2199] done\r\n',
+        'A1 NO [METADATA MAXSIZE 1024] too big\r\nA2 NO [METADATA TOOMANY] too many\r\nA3 NO [METADATA NOPRIVATE] no private\r\n'
     ];
 
     valid.forEach(transcript => {
@@ -66,7 +71,15 @@ describe('Response grammar guardrail', () => {
         ['* LIST () "/" a ("CHILDINFO")\r\n', /extended data/],
         ['* LSUB () "/" a ("CHILDINFO" ("SUBSCRIBED"))\r\n', /flag list, a delimiter/],
         ['* STATUS INBOX (MESSAGES)\r\n', /pairs/],
-        ['* STATUS INBOX (MESSAGES x)\r\n', /numeric/]
+        ['* STATUS INBOX (MESSAGES x)\r\n', /numeric/],
+        ['* METADATA INBOX\r\n', /mailbox name and entries/],
+        ['* METADATA INBOX ()\r\n', /pairs/],
+        ['* METADATA INBOX (/shared/comment)\r\n', /pairs/],
+        ['* METADATA INBOX (/shared/comment value)\r\n', /invalid entry or value/],
+        ['* METADATA INBOX (/shared/comment NIL) /x\r\n', /pairs/],
+        ['* METADATA INBOX comment\r\n', /invalid entry list/],
+        ['A1 OK [METADATA LONGENTRIES] done\r\n', /METADATA response code/],
+        ['A1 NO [METADATA TOOBIG] done\r\n', /METADATA response code/]
     ];
 
     invalid.forEach(([transcript, error]) => {

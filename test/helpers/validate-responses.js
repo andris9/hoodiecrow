@@ -16,7 +16,7 @@ const CR = 0x0d;
 
 // Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
-// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162). "X" prefixed names are
+// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464). "X" prefixed names are
 // experimental extensions (RFC 3501 section 6.5.1 allows X commands, and their responses).
 const UNTAGGED = new Set([
     'OK',
@@ -34,7 +34,8 @@ const UNTAGGED = new Set([
     'ID',
     'NAMESPACE',
     'ESEARCH',
-    'VANISHED'
+    'VANISHED',
+    'METADATA'
 ]);
 
 // RFC 3501 section 9: message-data uses nz-number, EXISTS and RECENT use number
@@ -155,6 +156,10 @@ function checkRespText(rest, response) {
         }
         if (space >= 0 && space === code.length - 1) {
             fail('Response code has SP without arguments', response.text);
+        }
+        if (name.toUpperCase() === 'METADATA' && !/^METADATA (LONGENTRIES [0-9]+|MAXSIZE [0-9]+|TOOMANY|NOPRIVATE)$/i.test(code)) {
+            // RFC 5464 section 5: "METADATA" SP ("LONGENTRIES" SP number / "MAXSIZE" SP number / "TOOMANY" / "NOPRIVATE")
+            fail('Invalid METADATA response code', response.text);
         }
         text = text.substr(end + 1);
         if (text.charAt(0) !== ' ') {
@@ -309,6 +314,10 @@ function checkResponse(response, parsed) {
         }
     }
 
+    if (name === 'METADATA') {
+        checkMetadata(parsed.attributes || [], response);
+    }
+
     if (name === 'SEARCH') {
         // RFC 3501 section 9: "SEARCH" *(SP nz-number), RFC 7162 section 7 appends SP "(" "MODSEQ" SP mod-sequence-value ")"
         const attrs = parsed.attributes || [];
@@ -380,6 +389,38 @@ function checkEsearch(parsed, response) {
         if (VALUES[key] && (!value || Array.isArray(value) || !VALUES[key].test(value.value))) {
             fail('ESEARCH ' + key + ' has an invalid value', response.text);
         }
+    }
+}
+
+const isAstring = attr => !!attr && !Array.isArray(attr) && ['ATOM', 'STRING', 'LITERAL'].includes(attr.type);
+
+/**
+ * Checks a METADATA response, RFC 5464 section 5:
+ * metadata-resp = "METADATA" SP mailbox SP (entry-values / entry-list),
+ * entry-values = "(" entry-value *(SP entry-value) ")", entry-value = entry SP value,
+ * entry-list = entry *(SP entry), entry = astring, value = nstring / literal8
+ */
+function checkMetadata(attrs, response) {
+    if (attrs.length < 2 || !isAstring(attrs[0])) {
+        fail('METADATA response needs a mailbox name and entries', response.text);
+    }
+    const isEntry = attr => isAstring(attr) && attr.value.charAt(0) === '/';
+    if (Array.isArray(attrs[1])) {
+        const list = attrs[1];
+        if (attrs.length !== 2 || !list.length || list.length % 2) {
+            fail('METADATA response list must hold entry and value pairs', response.text);
+        }
+        for (let i = 0; i < list.length; i += 2) {
+            const value = list[i + 1];
+            if (!isEntry(list[i]) || (value !== null && (!value || !['STRING', 'LITERAL'].includes(value.type)))) {
+                fail('METADATA response has an invalid entry or value', response.text);
+            }
+        }
+        return;
+    }
+    // an unsolicited response lists only entry names (RFC 5464 section 4.4)
+    if (!attrs.slice(1).every(isEntry)) {
+        fail('METADATA response has an invalid entry list', response.text);
     }
 }
 
