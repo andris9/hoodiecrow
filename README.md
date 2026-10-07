@@ -69,13 +69,15 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` after login
 - arguments to commands that take none (`NOOP x`, `CLOSE x`), missing or extra arguments, and values that break the RFC 3501 grammar
 - command lines that end with a bare LF instead of CRLF
-- literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ is enabled
+- literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ or LITERAL- is enabled, and with LITERAL- only up to 4096 octets, a larger one is answered with `BAD [TOOBIG]` (RFC 7888 section 5)
 - literals for unknown commands, or for commands that can not run in the current state, are refused without a continuation request
 - mailbox names that are not valid modified UTF-7 (RFC 3501 section 5.1.3), including 8-bit names
 - invalid sequence sets (`0`, `abc`), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
 - 8-bit SEARCH strings without `CHARSET UTF-8`, invalid UTF-8, unsupported charsets (`NO [BADCHARSET]`)
 - SORT and THREAD (RFC 5256 section 5) with a charset that is not an atom or a quoted string, an empty sort criteria list, `REVERSE` that is not followed by a sort key (`REVERSE REVERSE DATE`), or a threading algorithm that is not an atom
 - invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE
+- OAUTHBEARER client responses that break the RFC 7628 or GS2 (RFC 5801) grammar, and anything other than a single `%x01` after an OAUTHBEARER error result
+- commands pipelined after `COMPRESS` (RFC 4978 section 3), and `COMPRESS` while compression is active (`BAD [COMPRESSIONACTIVE]`)
 - pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
 - `ENABLE` after `SELECT` or `EXAMINE` (RFC 5161 section 3.1), and `ID` lists that break the RFC 2971 limits
 - unknown `SEARCH RETURN` options or `RETURN` after `CHARSET` (RFC 4466 section 2.6.1), `$` combined with numbers, and `SEARCH MODSEQ` values or entry names that break the RFC 7162 grammar
@@ -103,6 +105,7 @@ Plugin names are case insensitive and capability spellings like `LITERAL+` or `A
 An unknown plugin name throws an error, and a plugin listed more than once is loaded only once.
 
 - **AUTH-PLAIN** Adds AUTH=PLAIN capability. Supports SASL-IR [RFC4959] as well
+- **COMPRESS** Adds COMPRESS=DEFLATE [RFC4978] capability. Raw DEFLATE in both directions after the tagged OK, every burst of responses ends with a sync flush
 - **CONDSTORE** Adds CONDSTORE [RFC7162] support, including the `SEARCH MODSEQ` search key
 - **CREATE-SPECIAL-USE** Enables CREATE-SPECIAL-USE [RFC6154] capability. Allowed special flags can be set with server option `"special-use"`
 - **ESEARCH** Adds ESEARCH [RFC4731] capability: `SEARCH RETURN (MIN MAX ALL COUNT)` and `UID SEARCH RETURN (...)` answer with an ESEARCH response. With CONDSTORE the response includes `MODSEQ` for a `MODSEQ` search
@@ -111,12 +114,14 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **IDLE** Adds IDLE [RFC2177] capability
 - **LIST-EXTENDED** Adds LIST-EXTENDED [RFC5258]: selection options `SUBSCRIBED`, `REMOTE` (there are no remote mailboxes) and `RECURSIVEMATCH`, return options `SUBSCRIBED` and `CHILDREN`, multiple mailbox patterns and the `CHILDINFO` extended data item. `\Noselect` mailboxes are listed as `\NonExistent` in extended LIST responses. With SPECIAL-USE loaded, the `SPECIAL-USE` selection and return options [RFC6154] combine with the other options. The plain RFC 3501 LIST is not changed
 - **LIST-STATUS** Adds LIST-STATUS [RFC5819], the `STATUS` return option of LIST. Loads LIST-EXTENDED as well
-- **LITERALPLUS** Enables LITERAL+ [RFC2088] capability
+- **LITERALMINUS** Enables LITERAL- [RFC7888] capability: non-synchronizing literals up to 4096 octets. A larger one is read and dropped, and the command is answered with `BAD [TOOBIG]`. Can not be loaded together with LITERALPLUS
+- **LITERALPLUS** Enables LITERAL+ [RFC7888] capability. Can not be loaded together with LITERALMINUS
 - **LOGINDISABLED** Disables LOGIN support for unencrypted connections
 - **METADATA** Adds METADATA [RFC5464] capability (GETMETADATA and SETMETADATA) for server and mailbox annotations. Initial mailbox entries come from a `metadata` object on the mailbox in storage (`"INBOX": { "metadata": { "/private/comment": "My comment" } }`), server entries from the `metadata` option. Server options `metadataMaxSize` (largest value in octets, default 65536), `metadataMaxEntries` (entries per mailbox and for the server, default 100) and `metadataPrivate: false` (refuse `/private` entries with `[METADATA NOPRIVATE]`) let you test the client's error handling. `/shared/admin` on the server is read-only. Annotations move with RENAME (renaming INBOX copies them), DELETE removes them. After `ENABLE METADATA` (needs the ENABLE plugin), changes made by other sessions are announced with unsolicited `METADATA` responses. With SPECIAL-USE loaded, the read-only `/private/specialuse` entry shows the special-use attributes of a mailbox (RFC 6154 section 4). Values are text, binary values (`literal8`) are not supported
 - **METADATA-SERVER** Same as METADATA, but only for server annotations (mailbox name `""`)
 - **MOVE** Adds MOVE [RFC6851] capability (MOVE and UID MOVE commands)
 - **NAMESPACE** Adds NAMESPACE [RFC2342] capability
+- **OAUTHBEARER** Adds AUTH=OAUTHBEARER [RFC7628] capability, with or without SASL-IR. Uses the same credentials as XOAUTH2: access token `"testtoken"`, the authzid in the GS2 header (`n,a=testuser,`) is optional. A failed login gets the JSON error result as a continuation request (`invalid_token` or `invalid_request`), the client must answer it with `AQ==` (a single `%x01`)
 - **OBJECTID** Adds OBJECTID [RFC8474] capability: `MAILBOXID` for CREATE, SELECT, EXAMINE and STATUS, `EMAILID` and `THREADID` for FETCH and SEARCH. Ids are generated (`F1`, `M1`, `T1`, ...) unless the storage sets a `MAILBOXID` for a mailbox or an `EMAILID` / `THREADID` for a message. COPY, MOVE and RENAME INBOX keep the EMAILID and THREADID of a message. Messages are threaded by their `Message-ID`, `In-Reply-To` and `References` headers across all mailboxes, a message joins the thread of the nearest known parent when it is added
 - **PREVIEW** Adds PREVIEW [RFC8970] capability (the PREVIEW FETCH data item with the LAZY modifier). Previews are generated from the first text/plain or text/html part (text/plain preferred in multipart/alternative, attachments, attached messages and encrypted content are skipped): transfer encoding and charset are decoded, HTML markup and quoted text are removed, whitespace is collapsed and the result is cut to 200 characters. A message in storage can set its own `"preview"` string instead. `PREVIEW (LAZY)` returns NIL until the preview of the message has been generated by a FETCH without LAZY, or comes from storage
 - **QUOTA** Adds QUOTA [RFC9208] capability with `GETQUOTA`, `GETQUOTAROOT`, `SETQUOTA` (`QUOTASET`), the `STORAGE`, `MESSAGE` and `MAILBOX` resources and the `DELETED` and `DELETED-STORAGE` STATUS items. INBOX and the personal namespaces share one quota root, other namespaces have none. Configure it with the `quota` server option, eg. `{ "root": "User quota", "STORAGE": 10240, "MESSAGE": 1000, "MAILBOX": 100, "soft": false }` (STORAGE is in units of 1024 octets, a missing resource is not limited). APPEND, COPY and MOVE (from outside the quota root) fail with `NO [OVERQUOTA]` when they would go over a limit, and CREATE or RENAME INBOX when they would go over the MAILBOX limit. With `"soft": true` they succeed with an untagged `NO [OVERQUOTA]` warning instead. `SETQUOTA` changes the limits at runtime
@@ -131,6 +136,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **THREAD=ORDEREDSUBJECT** Adds THREAD=ORDEREDSUBJECT [RFC5256] capability (THREAD and UID THREAD)
 - **THREAD=REFERENCES** Adds THREAD=REFERENCES [RFC5256] capability (THREAD and UID THREAD), the full REFERENCES algorithm of RFC 5256 section 3. Load both THREAD plugins to support both algorithms
 - **UIDPLUS** Adds UIDPLUS [RFC4315] capability (APPENDUID, COPYUID and UID EXPUNGE)
+- **UNAUTHENTICATE** Adds UNAUTHENTICATE [RFC8437] capability. Returns to the Not Authenticated state and resets the session: the selected mailbox is closed without expunging, ENABLEd extensions and CONDSTORE are turned off, and COMPRESS ends after the tagged OK. TLS stays
 - **UNSELECT** Adds UNSELECT [RFC3691] capability
 - **X-GM-EXT-1** Adds partial support for [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) options. `X-GM-MSGID` is fully supported, `X-GM-LABELS` is partially supported (labels can be STOREd and FETCHed but setting a label does not change message behavior, for example the message does not get copied to another mailbox). `X-GM-THRID` is supported: every message is its own thread unless the storage sets an `X-GM-THRID` value for it. `X-GM-RAW` is not supported.
 - **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
@@ -453,6 +459,18 @@ connection.inputHandler = function(line){
 ```
 
 See [idle.js](https://github.com/postalsys/hoodiecrow-imap/blob/master/lib/plugins/idle.js) for an example
+
+Raw output, such as a `+` continuation request, goes through `connection.write(data)`, and `connection.end()` closes the connection once all output is written. Do not use `connection.socket` for this, a COMPRESS layer (`connection.transport`) sits between the protocol and the socket.
+
+#### Reset session state
+
+UNAUTHENTICATE (RFC 8437) returns a connection to the Not Authenticated state. A plugin that keeps per-session state on the connection object adds a handler that clears it:
+
+```javascript
+server.resetHandlers.push(function (connection) {
+    connection.mySessionState = false;
+});
+```
 
 #### Override output
 

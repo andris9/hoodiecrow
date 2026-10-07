@@ -1,0 +1,19 @@
+# COMPRESS=DEFLATE (RFC 4978). Run: node compare/compare.js --plugin COMPRESS,IDLE compare/scenarios/compress.txt
+# Everything after the tagged OK of COMPRESS is compressed, the compare tool
+# decompresses it, so the responses are compared as usual.
+COMPRESS FOO
+COMPRESS
+COMPRESS DEFLATE
+SELECT INBOX
+FETCH 1:* (FLAGS RFC822.SIZE)
+FETCH 1 BODY.PEEK[]
+# a synchronizing literal waits for a compressed continuation request
+APPEND INBOX {file:../messages/simple.eml}
+# already active
+COMPRESS DEFLATE
+2: SELECT INBOX
+IDLE
+2: STORE 1 +FLAGS (\Flagged)
+!wait 1000
+> DONE
+NOOP

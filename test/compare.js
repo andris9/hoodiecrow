@@ -131,4 +131,26 @@ describe('Dovecot comparison tool', () => {
             server.close();
         }
     });
+
+    it('decompresses a session after COMPRESS DEFLATE', async () => {
+        const server = await startHoodiecrow({ INBOX: { messages: ['Subject: a\r\n\r\nA'] } }, ['COMPRESS']);
+        try {
+            const steps = parseScenario(['COMPRESS DEFLATE', 'SELECT INBOX', 'APPEND INBOX {file:messages/simple.eml}', 'FETCH 2 BODY.PEEK[]'].join('\n'));
+            const result = await runTarget({ name: 'hoodiecrow', host: '127.0.0.1', port: server.address().port, user: 'testuser', pass: 'testpass' }, steps, {
+                timeout: 2000,
+                settle: 20,
+                baseDir: compareDir
+            });
+            const text = result.steps.map(step => sessionLines(step.responses, true).join('\n'));
+
+            assert.match(text[0], /^\[1\] A1 OK DEFLATE active$/);
+            assert.match(text[1], /\[1\] A2 OK \[READ-WRITE\]/);
+            assert.match(text[2], /\[1\] \+ Go ahead/);
+            assert.match(text[2], /\[1\] A3 OK APPEND/);
+            assert.match(text[3], /\[1\] Subject: Appended message/);
+            assert.match(text[3], /\[1\] A4 OK FETCH/);
+        } finally {
+            server.close();
+        }
+    });
 });
