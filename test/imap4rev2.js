@@ -371,6 +371,39 @@ describe('IMAP4rev2', () => {
         });
     });
 
+    describe('63-bit numbers (section 9 number64, Appendix E item 1)', () => {
+        it('partial ranges, LARGER and SMALLER take number64 values after ENABLE IMAP4rev2', async () => {
+            const resp = await rev2([
+                'A1 EXAMINE INBOX',
+                'A2 FETCH 1 (BODY.PEEK[]<4294967296.10> BINARY.PEEK[1]<4294967296.5> BODY.PEEK[1]<0.9007199254740991>)',
+                'A3 SEARCH LARGER 4294967296',
+                'A4 SEARCH SMALLER 9223372036854775807',
+                'A5 SEARCH SMALLER 9223372036854775808',
+                'A6 UID SEARCH NOT LARGER 4294967295'
+            ]);
+            assertTagged(resp, { A1: 'OK', A2: 'OK', A3: 'OK', A4: 'OK', A5: 'BAD', A6: 'OK' });
+            // a range that starts after the end is an empty string (section 6.4.5)
+            assert.match(resp, /^\* 1 FETCH \(BODY\[\]<4294967296> \{0\}\r\n BINARY\[1\]<4294967296> \{0\}\r\n BODY\[1\]<0> \{5\}\r\nWorld\)\r$/m);
+            assert.match(resp, /^\* ESEARCH \(TAG "A3"\)\r$/m);
+            assert.match(resp, /^\* ESEARCH \(TAG "A4"\) ALL 1:3\r$/m);
+            assert.match(resp, /^\* ESEARCH \(TAG "A6"\) UID ALL 1:3\r$/m);
+        });
+
+        it('stay 32-bit numbers in IMAP4rev1 sessions (RFC 3501 section 9)', async () => {
+            const resp = await run([
+                LOGIN,
+                'A1 EXAMINE INBOX',
+                'A2 FETCH 1 BODY.PEEK[]<4294967296.10>',
+                'A3 FETCH 1 BODY.PEEK[]<0.4294967296>',
+                'A4 FETCH 1 BODY.PEEK[]<4294967295.10>',
+                'A5 SEARCH LARGER 4294967296',
+                'A6 SEARCH SMALLER 4294967295'
+            ]);
+            assertTagged(resp, { A2: 'BAD', A3: 'BAD', A4: 'OK', A5: 'BAD', A6: 'OK' });
+            assert.match(resp, /^\* SEARCH 1 2 3\r$/m);
+        });
+    });
+
     describe('keywords (section 2.3.2, Appendix E item 15)', () => {
         it('are kept in a mailbox that does not allow new keywords', async () => {
             const message = 'Subject: x\r\n\r\ny';
