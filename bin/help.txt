@@ -26,7 +26,7 @@ IMAPKIT_SECURE, IMAPKIT_DEBUG, IMAPKIT_STORAGE, IMAPKIT_CONFIG,
 IMAPKIT_PLUGINS (comma separated) and IMAPKIT_SMTPPORT.
 
 NB! If port or smtpPort values are below 1024 you most probably need to
-use sudo or run the command in Administrator rights.
+use sudo or run the command with administrator rights.
 
 Available plugins
 -----------------
