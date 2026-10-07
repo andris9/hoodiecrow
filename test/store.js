@@ -125,6 +125,27 @@ describe('Hoodiecrow tests', () => {
             done();
         });
     });
+
+    it('Read-only mailbox', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 EXAMINE INBOX',
+            'A3 STORE 1 +FLAGS (\\Flagged)',
+            'A4 UID STORE 1 +FLAGS (\\Flagged)',
+            'A5 FETCH 1 FLAGS',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+
+            assert.ok(resp.indexOf('\nA3 NO') >= 0);
+            assert.ok(resp.indexOf('\nA4 NO') >= 0);
+            assert.ok(resp.indexOf('* 1 FETCH (FLAGS (\\Seen))') >= 0);
+
+            done();
+        });
+    });
 });
 
 describe('Custom flags not allowed', () => {
