@@ -7,16 +7,7 @@ import assert from 'node:assert';
 import { ImapFlow } from 'imapflow';
 import { setupServer } from './helpers/index.js';
 import type { Readable } from 'node:stream';
-import type {
-    DownloadOptions,
-    FetchMessageObject,
-    FetchOptions,
-    FetchQueryObject,
-    ImapFlowOptions,
-    MailboxOpenOptions,
-    MessageRange,
-    SearchObject
-} from 'imapflow';
+import type { FetchMessageObject, FetchOptions, FetchQueryObject, ImapFlowOptions, MessageRange, SearchObject } from 'imapflow';
 import type { TestContext } from './helpers/index.js';
 import type { IMAPServer } from '../src/server.js';
 import type { Plugin } from '../src/types.js';
@@ -532,8 +523,7 @@ describe('ImapFlow', () => {
             const result = ok(await client.append('Sent', raw));
             await client.mailboxOpen('Sent');
 
-            // ImapFlow's types do not list the `binary` download option
-            const binaryDownload = { uid: true, binary: true } as DownloadOptions;
+            const binaryDownload = { uid: true, binary: true };
             const attachment = await client.download(String(result.uid), '2', binaryDownload);
             assert.ok((await readStream(attachment.content!)).equals(binary));
             // the binary part is stored base64 encoded, so BODY[] stays valid IMAP4rev1
@@ -836,8 +826,7 @@ describe('ImapFlow', () => {
             client.on('expunge', event => events.push(['expunge', event.uid, event.vanished, event.earlier]));
             client.on('flags', event => events.push(['flags', event.uid, [...event.flags]]));
 
-            // ImapFlow's types do not list its QRESYNC options
-            const mailbox = await client.mailboxOpen('INBOX', { uidValidity, changedSince: highestModseq } as MailboxOpenOptions);
+            const mailbox = await client.mailboxOpen('INBOX', { uidValidity, changedSince: highestModseq });
             assert.strictEqual(mailbox.exists, 2);
             assert.ok(mailbox.highestModseq! > highestModseq!);
             assert.deepStrictEqual(events.splice(0), [
@@ -863,8 +852,7 @@ describe('ImapFlow', () => {
             const client = await connect(ctx);
             const mailbox = await client.mailboxOpen('INBOX');
             assert.match(mailbox.mailboxId!, /^F\d+$/);
-            // ImapFlow's types do not list emailId as a query key
-            const messages = await fetchAll(client, '1:*', { uid: true, emailId: true, threadId: true } as FetchQueryObject);
+            const messages = await fetchAll(client, '1:*', { uid: true, emailId: true, threadId: true });
             const ids = messages.map(message => message.emailId!);
             assert.strictEqual(new Set(ids).size, 3);
             ids.forEach(id => assert.match(id, /^M\d+$/));
@@ -883,7 +871,7 @@ describe('ImapFlow', () => {
             // the copy keeps its EMAILID (RFC 8474 section 5.1)
             await client.messageCopy('1', 'Ids', { uid: true });
             await client.mailboxOpen('Ids');
-            const [copy] = await fetchAll(client, '1:*', { uid: true, emailId: true } as FetchQueryObject);
+            const [copy] = await fetchAll(client, '1:*', { uid: true, emailId: true });
             assert.strictEqual(copy.emailId, ids[0]);
         });
 
