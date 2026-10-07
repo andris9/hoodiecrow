@@ -572,6 +572,30 @@ describe('ACL', () => {
 });
 
 describe('ACL options', () => {
+    describe('with UNAUTHENTICATE', () => {
+        let seen = null;
+        // records the session state when the command after UNAUTHENTICATE is answered
+        const recorder = server =>
+            server.outputHandlers.push((connection, response) => {
+                if (response.tag === 'A3') {
+                    seen = { state: connection.state, username: connection.username, aclRights: connection.aclRights };
+                }
+            });
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'UNAUTHENTICATE', recorder], users: users(), storage: storage() }));
+
+        // RFC 8437 section 3: the session goes back to the state right after the greeting
+        it('forgets the user and the rights of the selected mailbox', (t, done) => {
+            seen = null;
+            ctx.run([BOB, 'A1 SELECT Shared', 'A2 UNAUTHENTICATE', 'A3 NOOP', 'ZZ LOGOUT'], resp => {
+                resp = resp.toString('binary');
+                assert.match(resp, /^A1 OK /m);
+                assert.match(resp, /^A2 OK /m);
+                assert.deepStrictEqual(seen, { state: 'Not Authenticated', username: false, aclRights: null });
+                done();
+            });
+        });
+    });
+
     describe('with LIST-STATUS (LIST-EXTENDED)', () => {
         const ctx = setupServer(() => ({ plugins: ['ACL', 'LIST-STATUS'], users: users(), storage: storage() }));
 
