@@ -5,7 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { parseArgs } = require('node:util');
 const hoodiecrow = require('../lib/server');
-const smtpServer = require('../lib/hoodiecrowSMTPServer');
 const packageData = require('../package.json');
 
 // Non-strict so that boolean flags also accept an explicit value (`--secure=true`)
@@ -92,11 +91,16 @@ if (argv.help) {
 } else {
     const server = hoodiecrow(config);
     console.log('Starting Hoodiecrow ...');
+    server.server.on('error', err => {
+        console.error('Failed to start Hoodiecrow on port %s: %s', port, err.message);
+        process.exit(1);
+    });
     server.listen(port, () => {
         console.log('Hoodiecrow successfully%s listening on port %s', secure ? ' and securely' : '', port);
     });
 
     if (smtpPort) {
-        smtpServer.startSMTPServer(smtpPort, server);
+        // loaded on demand, smtp-server is only needed when SMTP is enabled
+        require('../lib/hoodiecrowSMTPServer').startSMTPServer(smtpPort, server);
     }
 }

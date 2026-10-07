@@ -35,11 +35,14 @@ describe('Auth Plain enabled', () => {
     });
 
     it('CHECK', (t, done) => {
-        const cmds = ['A1 CHECK', 'ZZ LOGOUT'];
+        const cmds = ['A1 CHECK', 'A2 LOGIN testuser testpass', 'A3 CHECK', 'A4 SELECT INBOX', 'A5 CHECK', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\nA1 OK') >= 0);
+            // CHECK is only valid in the Selected state
+            assert.ok(resp.indexOf('\nA1 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA3 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA5 OK') >= 0);
             done();
         });
     });
