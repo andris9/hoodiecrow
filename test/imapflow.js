@@ -17,6 +17,7 @@ const ALL_PLUGINS = [
     'IDLE',
     'ENABLE',
     'CONDSTORE',
+    'QRESYNC',
     'ESEARCH',
     'SEARCHRES',
     'UIDPLUS',
@@ -226,6 +227,7 @@ describe('ImapFlow', () => {
                 'IDLE',
                 'ENABLE',
                 'CONDSTORE',
+                'QRESYNC',
                 'UIDPLUS',
                 'MOVE',
                 'SPECIAL-USE',
@@ -752,6 +754,36 @@ describe('ImapFlow', () => {
                 all.map(message => message.modseq).reduce((a, b) => (a > b ? a : b)),
                 status.highestModseq
             );
+        });
+
+        // RFC 7162 section 3.2: VANISHED replaces EXPUNGE, and SELECT (QRESYNC) reports what changed while away
+        it('resynchronizes a mailbox with QRESYNC', async () => {
+            const client = await connect(ctx, { qresync: true });
+            assert.ok(client.enabled.has('QRESYNC'));
+            const { uidValidity, highestModseq } = await client.mailboxOpen('INBOX');
+            await client.mailboxClose();
+
+            const actor = await connect(ctx);
+            await actor.mailboxOpen('INBOX');
+            assert.strictEqual(await actor.messageDelete('1', { uid: true }), true);
+            await actor.messageFlagsAdd('5', ['\\Answered'], { uid: true });
+
+            const events = [];
+            client.on('expunge', event => events.push(['expunge', event.uid, event.vanished, event.earlier]));
+            client.on('flags', event => events.push(['flags', event.uid, [...event.flags]]));
+
+            const mailbox = await client.mailboxOpen('INBOX', { uidValidity, changedSince: highestModseq });
+            assert.strictEqual(mailbox.exists, 2);
+            assert.ok(mailbox.highestModseq > highestModseq);
+            assert.deepStrictEqual(events.splice(0), [
+                ['expunge', 1, true, true],
+                ['flags', 5, ['\\Answered']]
+            ]);
+
+            await actor.messageDelete('2', { uid: true });
+            await client.noop();
+            assert.deepStrictEqual(events.splice(0), [['expunge', 2, true, false]]);
+            assert.strictEqual(client.mailbox.exists, 1);
         });
 
         it('reads Gmail labels with X-GM-EXT-1', async () => {

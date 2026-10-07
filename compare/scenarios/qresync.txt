@@ -1,0 +1,32 @@
+# QRESYNC (RFC 7162 section 3.2), needs --plugin QRESYNC,UIDPLUS,MOVE,IDLE on hoodiecrow
+# $UIDVALIDITY is the last UIDVALIDITY value the server sent
+1: ENABLE QRESYNC
+1: SELECT INBOX
+# another session changes flags and expunges, session 1 gets VANISHED instead of EXPUNGE
+2: SELECT INBOX
+2: STORE 1 +FLAGS (\Deleted)
+2: STORE 3 +FLAGS (\Flagged)
+2: EXPUNGE
+1: NOOP
+# own expunges, with HIGHESTMODSEQ in the tagged OK
+1: APPEND INBOX {file:../messages/simple.eml}
+1: UID STORE 4 +FLAGS.SILENT (\Deleted)
+1: UID EXPUNGE 4
+1: MOVE 1 Drafts
+# CLOSED when the selected mailbox is closed by SELECT, then resynchronize
+1: SELECT INBOX (QRESYNC ($UIDVALIDITY 1))
+1: EXAMINE INBOX (QRESYNC ($UIDVALIDITY 1 1:10))
+1: UID FETCH 1:* (FLAGS) (CHANGEDSINCE 1 VANISHED)
+# UIDVALIDITY mismatch, the other parameters are ignored
+1: SELECT INBOX (QRESYNC (12345 1))
+# strict checks
+1: FETCH 1:* (FLAGS) (CHANGEDSINCE 1 VANISHED)
+1: UID FETCH 1:* (FLAGS) (VANISHED)
+1: SELECT INBOX (QRESYNC (1 1 1:*))
+# VANISHED while idling
+2: NOOP
+1: IDLE
+2: STORE 1 +FLAGS (\Deleted)
+2: EXPUNGE
+!wait 1500
+1:> DONE

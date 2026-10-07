@@ -21,7 +21,10 @@ const STATES = {
     selected: [LOGIN, SELECT],
     // RFC 9755: UTF8=ACCEPT enabled, needs the UTF8=ACCEPT plugin
     utf8: [LOGIN, 'L3 ENABLE UTF8=ACCEPT'],
-    'utf8 selected': [LOGIN, 'L3 ENABLE UTF8=ACCEPT', SELECT]
+    'utf8 selected': [LOGIN, 'L3 ENABLE UTF8=ACCEPT', SELECT],
+    // QRESYNC enabled (RFC 7162 section 3.2.3)
+    qresync: [LOGIN, 'L3 ENABLE QRESYNC'],
+    qresyncSelected: [LOGIN, 'L3 ENABLE QRESYNC', SELECT]
 };
 
 // [description, state, commands, expected tagged results, strings that must not appear]
@@ -113,6 +116,7 @@ const CASES = [
     ['SEARCH RETURN without ESEARCH', 'selected', ['A1 SEARCH RETURN (MIN) ALL'], { A1: 'BAD' }],
     ['FETCH $ without SEARCHRES', 'selected', ['A1 FETCH $ FLAGS'], { A1: 'BAD' }],
     ['SEARCH MODSEQ without CONDSTORE', 'selected', ['A1 SEARCH MODSEQ 1'], { A1: 'BAD' }],
+    ['SELECT QRESYNC without QRESYNC', 'auth', ['A1 SELECT INBOX (QRESYNC (1 1))'], { A1: 'BAD' }],
 
     // Mailbox names use modified UTF-7, RFC 3501 section 5.1.3
     ['CREATE with 8-bit characters', 'auth', ['A1 CREATE {5}\r\ncaf\xe9'], { A1: 'BAD' }],
@@ -192,6 +196,31 @@ const METADATA_CASES = [
     // RFC 5464 section 4.2 and 4.3: authenticated or selected state only
     ['GETMETADATA before login', 'none', ['A1 GETMETADATA "" /shared/comment'], { A1: 'BAD' }],
     ['SETMETADATA before login', 'none', ['A1 SETMETADATA "" (/shared/comment "x")'], { A1: 'BAD' }]
+];
+
+// QRESYNC, RFC 7162 sections 3.2.3, 3.2.5, 3.2.6 and 7, with the QRESYNC plugin loaded
+const QRESYNC_CASES = [
+    ['QRESYNC parameter without ENABLE QRESYNC', 'auth', ['A1 SELECT INBOX (QRESYNC (1 1))'], { A1: 'BAD' }],
+    ['VANISHED without ENABLE QRESYNC', 'selected', ['A1 UID FETCH 1:* FLAGS (CHANGEDSINCE 1 VANISHED)'], { A1: 'BAD' }],
+    ['QRESYNC parameter without a value', 'qresync', ['A1 SELECT INBOX (QRESYNC)'], { A1: 'BAD' }],
+    ['QRESYNC without a mod-sequence', 'qresync', ['A1 EXAMINE INBOX (QRESYNC (1))'], { A1: 'BAD' }],
+    ['QRESYNC with UIDVALIDITY 0', 'qresync', ['A1 SELECT INBOX (QRESYNC (0 1))'], { A1: 'BAD' }],
+    ['QRESYNC with a 33-bit UIDVALIDITY', 'qresync', ['A1 SELECT INBOX (QRESYNC (4294967296 1))'], { A1: 'BAD' }],
+    ['QRESYNC with mod-sequence 0', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 0))'], { A1: 'BAD' }],
+    ['QRESYNC with a mod-sequence over 63 bits', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 9223372036854775808))'], { A1: 'BAD' }],
+    ['QRESYNC known-uids with *', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:*))'], { A1: 'BAD' }],
+    ['QRESYNC known-uids with 0', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 0:3))'], { A1: 'BAD' }],
+    ['QRESYNC sets of different sizes', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:3 (1:2 1:3)))'], { A1: 'BAD' }],
+    ['QRESYNC sets in descending order', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:3 (2,1 3,1)))'], { A1: 'BAD' }],
+    ['QRESYNC sets with a reversed range', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:3 (2:1 3:2)))'], { A1: 'BAD' }],
+    ['QRESYNC with an empty sequence match list', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:3 ()))'], { A1: 'BAD' }],
+    ['QRESYNC with extra values', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:3 (1 1) x))'], { A1: 'BAD' }],
+    ['QRESYNC twice', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1) QRESYNC (1 1))'], { A1: 'BAD' }],
+    ['QRESYNC with CONDSTORE', 'qresync', ['A1 SELECT INBOX (QRESYNC (1 1 1:3 (1 1)) CONDSTORE)'], { A1: 'OK' }],
+    ['VANISHED with FETCH', 'qresyncSelected', ['A1 FETCH 1:* FLAGS (CHANGEDSINCE 1 VANISHED)'], { A1: 'BAD' }],
+    ['VANISHED without CHANGEDSINCE', 'qresyncSelected', ['A1 UID FETCH 1:* FLAGS (VANISHED)'], { A1: 'BAD' }],
+    ['VANISHED twice', 'qresyncSelected', ['A1 UID FETCH 1:* FLAGS (CHANGEDSINCE 1 VANISHED VANISHED)'], { A1: 'BAD' }],
+    ['VANISHED with CHANGEDSINCE', 'qresyncSelected', ['A1 UID FETCH 1:* FLAGS (CHANGEDSINCE 1 VANISHED)'], { A1: 'OK' }]
 ];
 
 // Defines a test for every case: runs the commands in the wanted state and checks the tagged results
@@ -369,6 +398,20 @@ describe('Strict UTF8=ACCEPT handling', () => {
     }));
 
     defineCases(ctx, UTF8_CASES);
+});
+
+describe('Strict QRESYNC handling', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['QRESYNC'],
+        storage: {
+            INBOX: {
+                messages: [{ raw: 'Subject: hello\r\n\r\nWorld' }]
+            },
+            '': {}
+        }
+    }));
+
+    defineCases(ctx, QRESYNC_CASES);
 });
 
 describe('Literal synchronization', () => {

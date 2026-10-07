@@ -455,6 +455,11 @@ function checkResponse(response, parsed, utf8) {
     if (name === 'ESEARCH') {
         checkEsearch(parsed, response);
     }
+
+    // RFC 7162 section 7: expunged-resp = "VANISHED" [SP "(EARLIER)"] SP known-uids, known-uids is a sequence-set without "*"
+    if (name === 'VANISHED' && !/^\* VANISHED (\(EARLIER\) )?[1-9][0-9]*(:[1-9][0-9]*)?(,[1-9][0-9]*(:[1-9][0-9]*)?)*$/i.test(first)) {
+        fail('VANISHED response must be "VANISHED [(EARLIER)] uid-set"', response.text);
+    }
 }
 
 /**
