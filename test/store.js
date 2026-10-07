@@ -49,13 +49,15 @@ describe('Hoodiecrow tests', () => {
     });
 
     it('Custom flag', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 STORE 1 +FLAGS ("Custom Flag")', 'ZZ LOGOUT'];
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 STORE 1 +FLAGS ("Custom Flag")', 'A4 STORE 1 +FLAGS ("CustomFlag")', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
 
-            assert.ok(resp.indexOf('\nA3 OK') >= 0);
-            assert.ok(resp.indexOf('FLAGS (\\Seen "Custom Flag")') >= 0);
+            // RFC 3501 9: a keyword is an atom, it can not contain a space
+            assert.ok(resp.indexOf('\nA3 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA4 OK') >= 0);
+            assert.ok(resp.indexOf('FLAGS (\\Seen CustomFlag)') >= 0);
 
             done();
         });
@@ -126,6 +128,20 @@ describe('Hoodiecrow tests', () => {
         });
     });
 
+    it('Keywords that are not atoms', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 STORE 1 +FLAGS (a]b)', 'A4 STORE 1 FLAGS ("a*b")', 'A5 FETCH 1 FLAGS', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+
+            assert.ok(resp.indexOf('\nA3 BAD') >= 0);
+            assert.ok(resp.indexOf('\nA4 BAD') >= 0);
+            assert.ok(resp.indexOf('* 1 FETCH (FLAGS (\\Seen))') >= 0);
+
+            done();
+        });
+    });
+
     it('Read-only mailbox', (t, done) => {
         const cmds = [
             'A1 LOGIN testuser testpass',
@@ -177,7 +193,7 @@ describe('Custom flags not allowed', () => {
     });
 
     it('Custom flag', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 STORE 1 +FLAGS ("Custom Flag")', 'ZZ LOGOUT'];
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 STORE 1 +FLAGS (CustomFlag)', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
