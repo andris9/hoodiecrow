@@ -484,7 +484,8 @@ describe('NOTIFY', () => {
             await run(a, 'A1 NOTIFY SET (mailboxes Lists (MailboxName))');
             await run(b, 'B1 RENAME Lists Groups');
             const resp = await expect(a, /^\* LIST/);
-            assert.strictEqual(resp, '* LIST (\\Subscribed \\HasChildren) "/" Groups ("OLDNAME" ("Lists"))\r\n');
+            // the subscription stays with the old name (RFC 9051 section 6.3.6), so Groups is not \Subscribed
+            assert.strictEqual(resp, '* LIST (\\HasChildren) "/" Groups ("OLDNAME" ("Lists"))\r\n');
             await assertQuiet(a);
         });
 
