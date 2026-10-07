@@ -70,7 +70,7 @@ describe('Hoodiecrow tests', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\nA3 NO') >= 0, resp);
+            assert.match(resp, /^A3 NO \[CLIENTBUG\] /m);
             assert.equal(ctx.server.getMailbox('INBOX').messages.length, 2);
             done();
         });

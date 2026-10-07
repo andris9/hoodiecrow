@@ -92,14 +92,16 @@ describe('SELECT and EXAMINE', () => {
     });
 
     it('EXAMINE is read-only', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 EXPUNGE', 'A4 CLOSE', 'ZZ LOGOUT'];
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 EXPUNGE', 'A4 STORE 1 +FLAGS (\\Seen)', 'A5 CLOSE', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
             assert.ok(resp.indexOf('\r\n* OK [PERMANENTFLAGS ()] No permanent flags permitted\r\n') >= 0);
             assert.ok(resp.indexOf('\r\nA2 OK [READ-ONLY]') >= 0);
-            assert.ok(resp.indexOf('\r\nA3 NO') >= 0);
-            assert.ok(resp.indexOf('\r\nA4 OK') >= 0);
+            // RFC 5530 section 3: changing a mailbox that was selected read-only is a client bug
+            assert.match(resp, /^A3 NO \[CLIENTBUG\] Mailbox is read-only\r$/m);
+            assert.match(resp, /^A4 NO \[CLIENTBUG\] Mailbox is read-only\r$/m);
+            assert.ok(resp.indexOf('\r\nA5 OK') >= 0);
             assert.ok(resp.indexOf('EXPUNGE\r\n') < 0);
             assert.strictEqual(ctx.server.getMailbox('INBOX').messages.length, 3);
             done();

@@ -171,7 +171,8 @@ describe('REPLACE', () => {
     it('refuses a read-only mailbox with NO', (t, done) => {
         ctx.run([LOGIN, 'A2 EXAMINE INBOX', 'A3 REPLACE 1 INBOX ' + literal(msg(4)), 'ZZ LOGOUT'], resp => {
             resp = resp.toString();
-            assert.match(resp, /^A3 NO /m);
+            assert.match(resp, /^A3 NO \[CLIENTBUG\] /m);
+            assert.doesNotMatch(resp, /^\+ /m);
             assert.doesNotMatch(resp, /EXPUNGE/);
             done();
         });
