@@ -4,6 +4,10 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
+    {
+        // local agent worktrees and settings
+        ignores: ['.claude/**']
+    },
     js.configs.recommended,
     {
         files: ['**/*.js'],

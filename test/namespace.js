@@ -30,7 +30,7 @@ describe('NAMESPACE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
+            assert.ok(resp.indexOf('\nA1 BAD') >= 0, resp);
             assert.ok(resp.indexOf('\r\n* NAMESPACE (("" "/")) (("#users/" "/")) (("#news." "."))\r\nA3 OK') >= 0, resp);
             done();
         });

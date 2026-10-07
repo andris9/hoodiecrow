@@ -19,8 +19,8 @@ describe('XTOYBIRD', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\nA1 NO') >= 0, resp);
-            assert.ok(resp.indexOf('\nA2 NO') >= 0, resp);
+            assert.ok(resp.indexOf('\nA1 BAD') >= 0, resp);
+            assert.ok(resp.indexOf('\nA2 BAD') >= 0, resp);
             assert.ok(resp.indexOf('\nA3 NO') >= 0, resp);
             assert.ok(!Object.hasOwn(ctx.server.users, 'foo'));
             assert.ok(ctx.server.server.listening);
