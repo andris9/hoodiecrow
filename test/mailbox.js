@@ -11,7 +11,8 @@ describe('SELECT and EXAMINE', () => {
                 // simulates another session expunging the first message
                 server.setCommandHandler('XOTHEREXPUNGE', (connection, parsed, data, callback) => {
                     connection.expungeSpecificMessages(connection.selectedMailbox, [connection.selectedMailbox.messages[0]]);
-                    connection.send({ tag: '*', command: 'OK', attributes: [{ type: 'TEXT', value: 'done' }] }, 'XOTHEREXPUNGE');
+                    // marked as a notification, so the pending EXPUNGE is not flushed with it
+                    connection.send({ tag: parsed.tag, command: 'OK', notification: true, attributes: [{ type: 'TEXT', value: 'done' }] }, 'XOTHEREXPUNGE');
                     callback();
                 });
             }
