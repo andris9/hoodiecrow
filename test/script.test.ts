@@ -167,13 +167,6 @@ describe('Script rules', () => {
             assert.strictEqual(output, '* OK Im');
         });
 
-        it('resets the connection', async () => {
-            ctx.server.script.add({ on: 'greeting', drop: true, close: 'reset' });
-            const client = await connectRaw(ctx.port);
-            const { output } = await client.closed();
-            assert.strictEqual(output, '');
-        });
-
         it('matches the session number', async () => {
             ctx.server.script.add({ on: 'greeting', session: 2, send: '* PREAUTH second\r\n' });
             const first = await connectRaw(ctx.port);
@@ -581,6 +574,16 @@ describe('Script rules', () => {
             assert.strictEqual(await command(client, 'N1 NOOP'), 'N1 OK late\r\n');
             assert.ok(Date.now() - started >= 80);
             client.close();
+        });
+
+        it('resets the connection', async () => {
+            // after the greeting, so that the socket is connected before the reset
+            ctx.server.script.add({ on: 'command', command: 'NOOP', close: 'reset' });
+            const client = await loggedIn(ctx.port);
+            const before = client.output();
+            client.send('N1 NOOP\r\n');
+            const { output } = await client.closed();
+            assert.strictEqual(output, before);
         });
 
         it('closes the connection instead of answering', async () => {
