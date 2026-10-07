@@ -1,6 +1,7 @@
 'use strict';
 
 const net = require('net');
+const { validateThen } = require('./validate-responses');
 
 /**
  * Opens an interactive IMAP session, for tests that interleave commands from several connections.
@@ -27,7 +28,8 @@ function openSession(port, callback) {
             buffer = buffer.substr(end);
             const cb = waiting.callback;
             waiting = null;
-            cb(output);
+            // every chunk ends with a complete tagged response, so it can be validated on its own
+            validateThen(output, () => cb(output));
         }
     };
 
