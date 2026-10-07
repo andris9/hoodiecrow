@@ -72,7 +72,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ or LITERAL- is enabled, and with LITERAL- only up to 4096 octets, a larger one is answered with `BAD [TOOBIG]` (RFC 7888 section 5)
 - literals for unknown commands, or for commands that can not run in the current state, are refused without a continuation request
 - mailbox names that are not valid modified UTF-7 (RFC 3501 section 5.1.3), including 8-bit names
-- invalid sequence sets (`0`, `abc`), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
+- invalid sequence sets (`0`, `abc`), message sequence numbers greater than the number of messages in FETCH, STORE, COPY and MOVE, also `*` in an empty mailbox (RFC 3501 section 9, seq-number; UID sets and SEARCH keys can point past the end), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
 - 8-bit SEARCH strings without `CHARSET UTF-8`, invalid UTF-8, unsupported charsets (`NO [BADCHARSET]`)
 - SORT and THREAD (RFC 5256 section 5) with a charset that is not an atom or a quoted string, an empty sort criteria list, `REVERSE` that is not followed by a sort key (`REVERSE REVERSE DATE`), or a threading algorithm that is not an atom
 - invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE

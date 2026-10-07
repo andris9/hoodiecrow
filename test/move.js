@@ -52,6 +52,17 @@ describe('Hoodiecrow tests', () => {
         });
     });
 
+    // RFC 3501 and RFC 9051 section 9 (seq-number)
+    it('MOVE refuses sequence numbers past the last message', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 MOVE 1:99 target', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            assert.match(resp.toString(), /^A3 BAD /m);
+            assert.equal(ctx.server.getMailbox('INBOX').messages.length, 3);
+            done();
+        });
+    });
+
     it('UID MOVE', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 UID MOVE 1:2 target', 'A4 SELECT target', 'ZZ LOGOUT'];
 

@@ -105,6 +105,36 @@ const CASES = [
     ['FETCH without items', 'selected', ['A1 FETCH 1'], { A1: 'BAD' }],
     ['FETCH with an unknown item', 'selected', ['A1 FETCH 1 (FOO)'], { A1: 'BAD' }],
     ['FETCH with sequence number 0', 'selected', ['A1 FETCH 0 FLAGS'], { A1: 'BAD' }],
+    // RFC 3501 and RFC 9051 section 9 (seq-number): a sequence number greater than the number of messages
+    // is answered with BAD, "*" too when the mailbox is empty. UID sets and SEARCH keys are not affected
+    [
+        'FETCH past the last message',
+        'selected',
+        ['A1 FETCH 2 FLAGS', 'A2 FETCH 1:2 FLAGS', 'A3 FETCH 1,3 FLAGS', 'A4 FETCH 1:* FLAGS'],
+        { A1: 'BAD', A2: 'BAD', A3: 'BAD', A4: 'OK' }
+    ],
+    ['STORE past the last message', 'selected', ['A1 STORE 2 +FLAGS (\\Seen)', 'A2 STORE 2:* +FLAGS (\\Seen)'], { A1: 'BAD', A2: 'BAD' }],
+    ['COPY past the last message', 'selected', ['A1 COPY 2 INBOX'], { A1: 'BAD' }],
+    [
+        'sequence numbers in an empty mailbox',
+        'auth',
+        ['A1 CREATE Empty', 'A2 SELECT Empty', 'A3 FETCH * FLAGS', 'A4 FETCH 1 FLAGS', 'A5 STORE 1:* +FLAGS (\\Seen)', 'A6 COPY * INBOX'],
+        { A3: 'BAD', A4: 'BAD', A5: 'BAD', A6: 'BAD' }
+    ],
+    [
+        'UID sets and SEARCH keys past the last message',
+        'auth',
+        [
+            'A1 CREATE Empty',
+            'A2 SELECT Empty',
+            'A3 UID FETCH 1:* FLAGS',
+            'A4 UID STORE 5 +FLAGS (\\Seen)',
+            'A5 UID COPY * INBOX',
+            'A6 SEARCH 1:5',
+            'A7 SEARCH *'
+        ],
+        { A3: 'OK', A4: 'OK', A5: 'OK', A6: 'OK', A7: 'OK' }
+    ],
     ['STORE with an unknown item', 'selected', ['A1 STORE 1 FOO (\\Seen)'], { A1: 'BAD' }],
     ['STORE without flags', 'selected', ['A1 STORE 1 +FLAGS'], { A1: 'BAD' }],
     ['STORE of \\Recent', 'selected', ['A1 STORE 1 +FLAGS (\\Recent)'], { A1: 'BAD' }],
