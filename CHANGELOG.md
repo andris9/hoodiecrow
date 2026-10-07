@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.2](https://github.com/postalsys/imapkit/compare/v4.0.1...v4.0.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* decode RFC 2047 encoded words in SEARCH header keys ([6891920](https://github.com/postalsys/imapkit/commit/68919201057c3965fa3e6c70010cf767c356517e))
+* decode RFC 2047 encoded words in SEARCH header keys ([132707c](https://github.com/postalsys/imapkit/commit/132707c1824be88283e0ca731db938fcf5df25e1)), closes [#65](https://github.com/postalsys/imapkit/issues/65)
+
 ## [4.0.1](https://github.com/postalsys/imapkit/compare/v4.0.0...v4.0.1) (2026-10-07)
 
 
