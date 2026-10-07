@@ -40,7 +40,11 @@ const ALL_PLUGINS = [
     'COMPRESS',
     'OAUTHBEARER',
     'UNAUTHENTICATE',
-    'ACL'
+    'ACL',
+    'MULTIAPPEND',
+    'CATENATE',
+    'REPLACE',
+    'APPENDLIMIT'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));

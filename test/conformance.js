@@ -85,6 +85,12 @@ const CASES = [
         ['02-jan-2020']
     ],
     ['APPEND with a quoted flag', 'auth', ['A1 APPEND INBOX ("Seen") {3}\r\nabc'], { A1: 'BAD' }],
+    // RFC 4466 section 3: a single append-message unless MULTIAPPEND is advertised
+    ['APPEND with two messages without MULTIAPPEND', 'auth', ['A1 APPEND INBOX {3}\r\nabc {3}\r\ndef'], { A1: 'BAD' }],
+    // RFC 4469 section 5: the CATENATE form needs the CATENATE extension
+    ['APPEND with CATENATE without the extension', 'auth', ['A1 APPEND INBOX CATENATE (TEXT {3}\r\nabc)'], { A1: 'BAD' }],
+    // REPLACE (RFC 8508) is not a command without the extension
+    ['REPLACE without the extension', 'selected', ['A1 REPLACE 1 INBOX {3}\r\nabc'], { A1: 'BAD' }, ['+ Go ahead']],
     ['FETCH without items', 'selected', ['A1 FETCH 1'], { A1: 'BAD' }],
     ['FETCH with an unknown item', 'selected', ['A1 FETCH 1 (FOO)'], { A1: 'BAD' }],
     ['FETCH with sequence number 0', 'selected', ['A1 FETCH 0 FLAGS'], { A1: 'BAD' }],

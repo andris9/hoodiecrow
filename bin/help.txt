@@ -43,6 +43,7 @@ Configuration file takes the following structure
     "secureConnection": false,
     "port": 143,
     "maxLiteralSize": 67108864,
+    "appendLimit": 5242880,
     "users": {
         "testuser": {
             "password": "testpass"

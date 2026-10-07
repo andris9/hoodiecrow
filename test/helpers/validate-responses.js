@@ -318,7 +318,8 @@ function checkResponse(response, parsed) {
     if (name === 'STATUS') {
         // RFC 3501 section 9: "STATUS" SP mailbox SP "(" [status-att-list] ")", every status-att-val is
         // an item name and a number (RFC 8438 section 4: SIZE is a number64), except
-        // RFC 8474 section 7: status-att-val =/ "MAILBOXID" SP "(" objectid ")"
+        // RFC 8474 section 7: status-att-val =/ "MAILBOXID" SP "(" objectid ")", and
+        // RFC 7889 section 5: status-att-val =/ "APPENDLIMIT" SP (number / nil)
         const attrs = parsed.attributes || [];
         if (attrs.length !== 2 || !isString(attrs[0]) || !Array.isArray(attrs[1]) || attrs[1].length % 2) {
             fail('STATUS response must be a mailbox and a list of item and value pairs', response.text);
@@ -332,7 +333,8 @@ function checkResponse(response, parsed) {
                 }
                 continue;
             }
-            if (!item || item.type !== 'ATOM' || !ATOM_RE.test(item.value) || !value || value.type !== 'ATOM' || !NUMBER_RE.test(value.value)) {
+            const isNil = value === null && item && item.type === 'ATOM' && String(item.value).toUpperCase() === 'APPENDLIMIT';
+            if (!item || item.type !== 'ATOM' || !ATOM_RE.test(item.value) || (!isNil && (!value || value.type !== 'ATOM' || !NUMBER_RE.test(value.value)))) {
                 fail('STATUS response items must be atoms with numeric values', response.text);
             }
         }
