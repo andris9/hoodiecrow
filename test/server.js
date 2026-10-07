@@ -113,32 +113,49 @@ describe('STARTTLS', () => {
         plugins: ['STARTTLS']
     }));
 
-    it('Ignores commands pipelined after STARTTLS', (t, done) => {
+    // RFC 9051 section 6.2.1: once a client issues STARTTLS, it MUST NOT issue further commands until it has seen
+    // the response. TLS is not started then, so no plaintext input can be read as if it came through TLS
+    it('Refuses STARTTLS with pipelined commands and stays in plaintext', (t, done) => {
+        const socket = net.connect(ctx.server.address().port, 'localhost');
+        let resp = '';
+        socket.on('data', chunk => {
+            resp += chunk.toString();
+        });
+        socket.on('close', () => {
+            assert.match(resp, /^A1 BAD Commands must not be pipelined after STARTTLS\r$/m);
+            assert.match(resp, /^A2 OK /m);
+            assert.match(resp, /^\* BYE /m);
+            done();
+        });
+        socket.once('data', () => {
+            socket.write('A1 STARTTLS\r\nA2 CAPABILITY\r\nA3 LOGOUT\r\n');
+        });
+    });
+
+    it('Starts TLS right after the tagged OK of STARTTLS', (t, done) => {
         const socket = net.connect(ctx.server.address().port, 'localhost');
         let plain = '';
         let secure = '';
-
         socket.once('data', () => {
             socket.on('data', chunk => {
                 plain += chunk.toString();
-                if (/\r\nA1 OK|^A1 OK/.test(plain)) {
+                if (/^A1 OK/m.test(plain)) {
                     socket.removeAllListeners('data');
                     const secureSocket = tls.connect({ socket, rejectUnauthorized: false }, () => {
-                        secureSocket.write('A3 SELECT INBOX\r\nA4 LOGOUT\r\n');
+                        secureSocket.write('A2 CAPABILITY\r\nA3 LOGOUT\r\n');
                     });
                     secureSocket.on('data', chunk => {
                         secure += chunk.toString();
                     });
                     secureSocket.on('close', () => {
-                        // the plaintext LOGIN was never executed
-                        assert.ok(plain.indexOf('A2 ') < 0);
-                        assert.ok(secure.indexOf('A2 ') < 0);
-                        assert.ok(secure.indexOf('\r\nA3 BAD') >= 0 || secure.indexOf('A3 BAD') === 0);
+                        assert.match(secure, /^A2 OK /m);
+                        // STARTTLS is not offered on a secure connection
+                        assert.doesNotMatch(secure, /STARTTLS/);
                         done();
                     });
                 }
             });
-            socket.write('A1 STARTTLS\r\nA2 LOGIN testuser testpass\r\n');
+            socket.write('A1 STARTTLS\r\n');
         });
     });
 
