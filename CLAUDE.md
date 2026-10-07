@@ -9,6 +9,7 @@ Hoodiecrow (`hoodiecrow-imap` on npm) is a scriptable, in-memory IMAP4rev1 mock 
 ## Commands
 
 - `npm test`: ESLint, then all tests (`npm run test:unit`, which is `node --test test/*.js`).
+- `npm run test:coverage`: the tests with Node's built-in coverage for `lib/` (Node >= 22.8). Fails below 85% line coverage; CI runs it on Node 24.
 - Single test file: `node --test test/uid-fetch.js`. Single test case: add `--test-name-pattern="<test name>"`.
 - `npm run lint`, `npm run format` / `npm run format:check` (Prettier: single quotes, 4 spaces, 160 columns). CI fails on unformatted files. `npm install` sets `core.hooksPath` to `.githooks`, whose pre-commit hook runs Prettier on staged JS.
 - `npm run update`: refresh all dependencies to latest (`ncu -u`, config in `.ncurc.js`). Dependencies are pinned to exact versions.
@@ -43,6 +44,8 @@ Other modules: `mimeparser.js`, `bodystructure.js`, `envelope.js`, `addressparse
 ## Tests
 
 Tests use `node:test` and `node:assert`. The usual pattern (`test/*.js`): inside a `describe` block, `const ctx = setupServer(() => ({ plugins, storage }))` (from `test/helpers/`) registers hooks that start a fresh server on a random port before every test and close it afterwards. `ctx.run(cmds, resp => ...)` replays raw IMAP command strings through `lib/mock-client.js`, and the test asserts with substring checks on the full response transcript (e.g. `resp.indexOf('\r\n* OK [COPYUID 1 1,2 2,3]') >= 0`). `ctx.server` is the live server for inspecting state. Tests use callback style (`(t, done) => ...`). Because ports are random, test files run in parallel. Keep helpers out of the top level of `test/`, since every `test/*.js` file runs as a test file.
+
+Every transcript from `ctx.run` and `openSession` goes through `test/helpers/validate-responses.js` before the test sees it: CRLF framing and literals, the RFC 3501 section 9 shape of tagged, untagged and `+` responses (status text is required, no 8-bit outside literals, nz-numbers for FETCH/EXPUNGE, FETCH lists in pairs), and ImapFlow's response parser. A failure there means hoodiecrow sent something a compliant client can not parse, so fix the server rather than the check. `test/fuzz.js` replays mutated commands under the same guardrail; on failure it prints `FUZZ_SEED`, the iteration and the input, and `FUZZ_SEED=<n> FUZZ_ITERATIONS=<n> node --test test/fuzz.js` reproduces or widens a run.
 
 ## Comparing with Dovecot
 
