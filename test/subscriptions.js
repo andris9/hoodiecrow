@@ -102,11 +102,47 @@ describe('DELETE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.strictEqual(tagged(resp, 'A2'), 'NO');
-            assert.strictEqual(tagged(resp, 'A3'), 'NO');
-            assert.strictEqual(tagged(resp, 'A4'), 'NO');
+            // RFC 5530 response codes
+            assert.ok(/^A2 NO \[CANNOT\]/m.test(resp), resp);
+            assert.ok(/^A3 NO \[NONEXISTENT\]/m.test(resp), resp);
+            assert.ok(/^A4 NO \[NOPERM\]/m.test(resp), resp);
             assert.strictEqual(tagged(resp, 'A5'), 'OK');
-            assert.strictEqual(tagged(resp, 'A6'), 'NO');
+            assert.ok(/^A6 NO \[NONEXISTENT\]/m.test(resp), resp);
+            done();
+        });
+    });
+});
+
+describe('CREATE', () => {
+    const ctx = setupServer(() => ({
+        storage: {
+            INBOX: {},
+            '': {
+                folders: {
+                    Existing: {},
+                    Leaf: { flags: ['\\NoInferiors'] }
+                }
+            }
+        }
+    }));
+
+    // RFC 5530 response codes
+    it('reports why a mailbox can not be created', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 CREATE Existing',
+            'A3 CREATE INBOX',
+            'A4 CREATE Leaf/child',
+            'A5 RENAME Existing Existing/child',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(/^A2 NO \[ALREADYEXISTS\]/m.test(resp), resp);
+            assert.ok(/^A3 NO \[ALREADYEXISTS\]/m.test(resp), resp);
+            assert.ok(/^A4 NO \[CANNOT\]/m.test(resp), resp);
+            assert.ok(/^A5 NO \[CANNOT\]/m.test(resp), resp);
             done();
         });
     });

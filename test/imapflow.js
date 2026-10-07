@@ -538,8 +538,8 @@ describe('ImapFlow', () => {
             const client = await connect(ctx);
 
             assert.deepStrictEqual(await client.mailboxCreate('Projects/Alpha'), { path: 'Projects/Alpha', created: true });
-            // hoodiecrow does not send the optional ALREADYEXISTS code (RFC 5530), so ImapFlow sees a plain NO
-            await assert.rejects(client.mailboxCreate('Projects/Alpha'), err => err.responseStatus === 'NO');
+            // NO [ALREADYEXISTS] (RFC 5530) lets ImapFlow report an existing mailbox instead of an error
+            assert.strictEqual((await client.mailboxCreate('Projects/Alpha')).created, false);
             assert.deepStrictEqual(await client.mailboxRename('Projects', 'Work'), { path: 'Projects', newPath: 'Work' });
 
             let paths = (await client.list()).map(entry => entry.path);
