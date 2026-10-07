@@ -42,7 +42,7 @@ FIXTURE_DIRS.forEach(dir => {
 // FETCH output for some fixtures, written in the RFC 3501 9 wire form and checked against Dovecot 2.4
 // (npm run compare). The values agree with Dovecot. Dovecot differs only where the RFC leaves a choice: it
 // lowercases strings, adds the default charset us-ascii (RFC 2045 5.2) and sends body-fld-loc and body-fld-lang,
-// while hoodiecrow leaves out trailing extension fields (RFC 3501 7.4.2 allows omitting extension data).
+// while ImapKit leaves out trailing extension fields (RFC 3501 7.4.2 allows omitting extension data).
 //
 // The grammar puts no SP between the parts of a multipart body (body-type-mpart = 1*body SP media-subtype) or
 // between the addresses of an address list (env-from = "(" 1*address ")" / nil), Dovecot sends ")(" there.

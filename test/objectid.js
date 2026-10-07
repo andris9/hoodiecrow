@@ -4,7 +4,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 const { openSession } = require('./helpers/session');
 
@@ -238,7 +238,7 @@ describe('OBJECTID', () => {
     });
 
     it('refuses invalid or conflicting ids in storage', () => {
-        const build = (inbox, folders) => () => hoodiecrow({ plugins: ['OBJECTID'], storage: { INBOX: inbox, '': { folders: folders || {} } } });
+        const build = (inbox, folders) => () => imapkit({ plugins: ['OBJECTID'], storage: { INBOX: inbox, '': { folders: folders || {} } } });
         assert.throws(build({ MAILBOXID: 'with space' }), /Invalid MAILBOXID/);
         assert.throws(build({}, { a: { MAILBOXID: 'Fx' }, b: { MAILBOXID: 'Fx' } }), /Duplicate MAILBOXID/);
         assert.throws(build({ messages: [{ raw: 'x', EMAILID: 'M.1' }] }), /Invalid EMAILID/);
@@ -256,7 +256,7 @@ describe('OBJECTID', () => {
     });
 
     it('leaves no trace without the plugin', (t, done) => {
-        const server = hoodiecrow({ storage: storage() });
+        const server = imapkit({ storage: storage() });
         assert.strictEqual(server.getMailbox('INBOX').MAILBOXID, undefined);
         assert.strictEqual(server.getMailbox('INBOX').messages[0].EMAILID, undefined);
         done();

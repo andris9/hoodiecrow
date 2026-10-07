@@ -31,5 +31,5 @@ FETCH $ UID
 SEARCH MODSEQ 1
 SEARCH RETURN (MIN COUNT) MODSEQ "/flags/\\draft" all 1
 SEARCH MODSEQ "/flags/\\recent" all 1
-# 2^63 is above mod-sequence-value (RFC 7162 section 7), Dovecot accepts it but hoodiecrow answers BAD
+# 2^63 is above mod-sequence-value (RFC 7162 section 7), Dovecot accepts it but ImapKit answers BAD
 SEARCH MODSEQ 9223372036854775808

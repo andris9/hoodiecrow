@@ -12,7 +12,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const net = require('net');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { validateResponses, splitResponses } = require('./helpers/validate-responses');
 
 const SEED = Number(process.env.FUZZ_SEED) || 0x1ca9;
@@ -446,7 +446,7 @@ async function runInput(port, entry, input) {
 }
 
 function startServer() {
-    const server = hoodiecrow({ plugins: PLUGINS, storage: getStorage(), maxLiteralSize: MAX_LITERAL });
+    const server = imapkit({ plugins: PLUGINS, storage: getStorage(), maxLiteralSize: MAX_LITERAL });
     return new Promise(resolve => server.listen(0, () => resolve(server)));
 }
 

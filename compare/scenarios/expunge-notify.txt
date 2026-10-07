@@ -6,7 +6,7 @@
 2: EXPUNGE
 1: UID FETCH 1:* FLAGS
 1: NOOP
-# IDLE needs --plugin IDLE on hoodiecrow
+# IDLE needs --plugin IDLE on ImapKit
 1: IDLE
 2: APPEND INBOX {file:../messages/simple.eml}
 !wait 1500

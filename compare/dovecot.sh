@@ -8,16 +8,16 @@ set -euo pipefail
 # Usage: compare/dovecot.sh start|stop|restart|status|logs
 #
 # Environment overrides:
-#   HOODIECROW_DOVECOT_IMAGE     image to run (default dovecot/dovecot:2.4.4)
-#   HOODIECROW_DOVECOT_PLATFORM  e.g. linux/amd64; defaults to the host platform.
+#   IMAPKIT_DOVECOT_IMAGE     image to run (default dovecot/dovecot:2.4.4)
+#   IMAPKIT_DOVECOT_PLATFORM  e.g. linux/amd64; defaults to the host platform.
 #                                Forcing linux/amd64 on Apple Silicon does not
 #                                work, Rosetta cannot start Dovecot's login processes.
-#   HOODIECROW_DOVECOT_PORT      host port for plain IMAP (default 32143)
+#   IMAPKIT_DOVECOT_PORT      host port for plain IMAP (default 32143)
 
-CONTAINER_NAME="hoodiecrow-dovecot"
-IMAGE="${HOODIECROW_DOVECOT_IMAGE:-dovecot/dovecot:2.4.4}"
-PORT="${HOODIECROW_DOVECOT_PORT:-32143}"
-PLATFORM_ARG="${HOODIECROW_DOVECOT_PLATFORM:+--platform=$HOODIECROW_DOVECOT_PLATFORM}"
+CONTAINER_NAME="imapkit-dovecot"
+IMAGE="${IMAPKIT_DOVECOT_IMAGE:-dovecot/dovecot:2.4.4}"
+PORT="${IMAPKIT_DOVECOT_PORT:-32143}"
+PLATFORM_ARG="${IMAPKIT_DOVECOT_PLATFORM:+--platform=$IMAPKIT_DOVECOT_PLATFORM}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -55,7 +55,7 @@ start() {
 
     # `docker run` silently reuses a local image even when it was pulled for another
     # architecture, and Dovecot then fails with confusing emulation errors
-    if [ -z "${HOODIECROW_DOVECOT_PLATFORM:-}" ] && docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    if [ -z "${IMAPKIT_DOVECOT_PLATFORM:-}" ] && docker image inspect "$IMAGE" >/dev/null 2>&1; then
         image_arch="$(docker image inspect --format '{{.Architecture}}' "$IMAGE" 2>/dev/null || true)"
         host_arch="$(docker version --format '{{.Server.Arch}}' 2>/dev/null || true)"
         if [ -n "$image_arch" ] && [ -n "$host_arch" ] && [ "$image_arch" != "$host_arch" ]; then
@@ -66,7 +66,7 @@ start() {
 
     docker run ${PLATFORM_ARG:+"$PLATFORM_ARG"} -d --name "$CONTAINER_NAME" \
         -e USER_PASSWORD=pass \
-        -v "$SCRIPT_DIR/dovecot.conf:/etc/dovecot/conf.d/99-hoodiecrow-compare.conf:ro" \
+        -v "$SCRIPT_DIR/dovecot.conf:/etc/dovecot/conf.d/99-imapkit-compare.conf:ro" \
         -p "127.0.0.1:$PORT:31143" \
         "$IMAGE" >/dev/null
 

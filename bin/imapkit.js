@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { parseArgs } = require('node:util');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const packageData = require('../package.json');
 
 // Non-strict so that boolean flags also accept an explicit value (`--secure=true`)
@@ -24,11 +24,11 @@ const { values: argv } = parseArgs({
 
 const isTrue = value => (value || '').toString().trim().toLowerCase() === 'true';
 
-const configLocation = argv.config || process.env.HOODIECROW_CONFIG;
-const storageLocation = argv.storage || process.env.HOODIECROW_STORAGE;
-const smtpPort = argv.smtpPort || process.env.HOODIECROW_SMTPPORT;
+const configLocation = argv.config || process.env.IMAPKIT_CONFIG;
+const storageLocation = argv.storage || process.env.IMAPKIT_STORAGE;
+const smtpPort = argv.smtpPort || process.env.IMAPKIT_SMTPPORT;
 const pluginsList = []
-    .concat(argv.plugin || process.env.HOODIECROW_PLUGINS || [])
+    .concat(argv.plugin || process.env.IMAPKIT_PLUGINS || [])
     .flatMap(plugin =>
         String(plugin)
             .toUpperCase()
@@ -36,8 +36,8 @@ const pluginsList = []
             .split(/\s*,\s*/)
     )
     .filter(Boolean);
-const secure = isTrue(argv.secure || process.env.HOODIECROW_SECURE);
-const debug = isTrue(argv.debug || process.env.HOODIECROW_DEBUG);
+const secure = isTrue(argv.secure || process.env.IMAPKIT_SECURE);
+const debug = isTrue(argv.debug || process.env.IMAPKIT_DEBUG);
 
 let config = {};
 
@@ -61,7 +61,7 @@ if (debug) {
     config.debug = true;
 }
 
-const port = argv.port || process.env.HOODIECROW_PORT || config.port || (secure ? 993 : 143);
+const port = argv.port || process.env.IMAPKIT_PORT || config.port || (secure ? 993 : 143);
 
 if (argv.help) {
     const help = fs.readFileSync(path.join(__dirname, 'help.txt'), 'utf-8');
@@ -86,21 +86,23 @@ if (argv.help) {
             .replace(/__PLUGINS__/g, pluginText.join('\n'))
             .replace(/__VERSION__/g, packageData.version)
             .replace(/__VBAR__/g, '='.repeat(packageData.version.length))
+            .replace(/__HOMEPAGE__/g, packageData.homepage)
+            .replace(/__BUGS__/g, packageData.bugs.url)
             .trim()
     );
 } else {
-    const server = hoodiecrow(config);
-    console.log('Starting Hoodiecrow ...');
+    const server = imapkit(config);
+    console.log('Starting ImapKit ...');
     server.server.on('error', err => {
-        console.error('Failed to start Hoodiecrow on port %s: %s', port, err.message);
+        console.error('Failed to start ImapKit on port %s: %s', port, err.message);
         process.exit(1);
     });
     server.listen(port, () => {
-        console.log('Hoodiecrow successfully%s listening on port %s', secure ? ' and securely' : '', port);
+        console.log('ImapKit successfully%s listening on port %s', secure ? ' and securely' : '', port);
     });
 
     if (smtpPort) {
         // loaded on demand, smtp-server is only needed when SMTP is enabled
-        require('../lib/hoodiecrowSMTPServer').startSMTPServer(smtpPort, server);
+        require('../lib/smtp-listener').startSMTPServer(smtpPort, server);
     }
 }

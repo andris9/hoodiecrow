@@ -1,6 +1,6 @@
 'use strict';
 
-// The server side recommendations of RFC 2683 (IMAP4 Implementation Recommendations) that hoodiecrow follows.
+// The server side recommendations of RFC 2683 (IMAP4 Implementation Recommendations) that ImapKit follows.
 // Multi-accessed mailboxes (sections 3.1.1 and 3.4.6, RFC 2180) are covered in test/multi-access.js, RFC822.SIZE
 // (section 3.4.5) in test/mime-fidelity.js, CHARSET UTF-8 in SEARCH (section 3.2.3) in test/search.js.
 

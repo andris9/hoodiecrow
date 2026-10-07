@@ -8,7 +8,7 @@ describe('Special-use', () => {
     const ctx = setupServer(() => ({
         plugins: ['SPECIAL-USE'],
         id: {
-            name: 'hoodiecrow',
+            name: 'imapkit',
             version: '0.1'
         },
         storage: {

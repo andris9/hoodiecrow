@@ -1,15 +1,15 @@
-Hoodiecrow (v__VERSION__)
-=============__VBAR__=
-hoodiecrow starts an IMAP server that is suitable for running client
+ImapKit (v__VERSION__)
+==========__VBAR__=
+ImapKit starts an IMAP server that is suitable for running client
 integration tests. Nothing is written to disk, all operations are
 performed on memory and the changes are lost after restart, so the
 initial state is always guaranteed when running your tests.
 
-Additionally Hoodiecrow offers an incoming SMTP server - every mail
+Additionally ImapKit offers an incoming SMTP server - every mail
 sent to it, is appended to INBOX. To use the incoming SMTP server,
 use smtpPort option.
 
-Usage: hoodiecrow [OPTS]
+Usage: imapkit [OPTS]
 
   -p <port>, --port=<port> Port number to listen to, defaults to 143
   -s, --secure=true        Starts a secure server, defaults port to 993
@@ -21,14 +21,18 @@ Usage: hoodiecrow [OPTS]
   --smtpPort=<port>        Port number for incoming SMTP server. If not set
                            SMTP server is not started.
 
+The options can also be set with environment variables: IMAPKIT_PORT,
+IMAPKIT_SECURE, IMAPKIT_DEBUG, IMAPKIT_STORAGE, IMAPKIT_CONFIG,
+IMAPKIT_PLUGINS (comma separated) and IMAPKIT_SMTPPORT.
+
 NB! If port or smtpPort values are below 1024 you most probably need to
 use sudo or run the command in Administrator rights.
 
 Available plugins
 -----------------
 
-Usage: hoodiecrow [OPTS] --plugin=ID --plugin=IDLE
-or:    hoodiecrow [OPTS] --plugin=ID,IDLE
+Usage: imapkit [OPTS] --plugin=ID --plugin=IDLE
+or:    imapkit [OPTS] --plugin=ID,IDLE
 
 __PLUGINS__
 
@@ -86,9 +90,9 @@ If no storage file is specified, an empty "INBOX" is used. If no users
 are configured, the only account is "testuser" with password "testpass".
 The storage and users objects are copied, so the files are never changed.
 
-Project homepage: https://github.com/postalsys/hoodiecrow-imap
-Report issues at: https://github.com/postalsys/hoodiecrow-imap/issues
+Project homepage: __HOMEPAGE__
+Report issues at: __BUGS__
 
 License: MIT
 
-(c) 2013 Andris Reinman
+Copyright (c) 2013-2026 Postal Systems OÜ

@@ -1,70 +1,65 @@
-# Hoodiecrow
+# ImapKit
 
-![Hoodiecrow](https://raw.githubusercontent.com/postalsys/hoodiecrow-imap/master/hoodiecrow_actual.jpg)
+ImapKit is a scriptable, in-memory IMAP server for testing IMAP clients. It implements IMAP4rev1 ([RFC 3501](https://www.rfc-editor.org/rfc/rfc3501)) and, as an optional plugin, IMAP4rev2 ([RFC 9051](https://www.rfc-editor.org/rfc/rfc9051)), with more than 50 extensions that can be turned on and off per server instance. Nothing is ever written to disk: the mailbox tree comes from a JSON object, so every new server starts from the same known state.
 
-## About
+ImapKit is strict on purpose: it answers client input that breaks the RFCs with `BAD` or `NO`, so client bugs show up in your test suite instead of in production (see [Strict by design](#strict-by-design)).
 
-Hoodiecrow is a scriptable IMAP server for client integration testing. It offers [IMAP4ver1](http://tools.ietf.org/html/rfc3501) support and some optional plugins that can be turned on and off. Nothing is ever written to disk, so when you restart the server, the original state is restored.
+[![Run Tests](https://github.com/postalsys/imapkit/actions/workflows/test.yml/badge.svg)](https://github.com/postalsys/imapkit/actions/workflows/test.yml)
+[![npm](https://img.shields.io/npm/v/imapkit)](https://www.npmjs.com/package/imapkit)
+[![license](https://img.shields.io/npm/l/imapkit)](https://github.com/postalsys/imapkit/blob/master/LICENSE)
 
-[![Run Tests](https://github.com/postalsys/hoodiecrow-imap/actions/workflows/test.yml/badge.svg)](https://github.com/postalsys/hoodiecrow-imap/actions/workflows/test.yml)
-[![npm](https://img.shields.io/npm/v/hoodiecrow-imap)](https://www.npmjs.com/package/hoodiecrow-imap)
-[![license](https://img.shields.io/npm/l/hoodiecrow-imap)](https://github.com/postalsys/hoodiecrow-imap/blob/master/LICENSE)
+Homepage: [imapkit.com](https://imapkit.com). ImapKit requires Node.js 20 or newer.
 
-Hoodiecrow requires Node.js 20 or newer.
+> ImapKit is maintained by the team behind **[EmailEngine](https://emailengine.app/?utm_source=imapkit-readme&utm_medium=readme&utm_campaign=oss-docs&utm_content=note)**, a self-hosted email API that turns Gmail, Microsoft 365, and IMAP accounts into REST endpoints, with managed OAuth2 and webhooks for incoming mail. If you need a production email integration rather than a mock IMAP server for tests, start there.
 
-> Hoodiecrow is maintained by the team behind **[EmailEngine](https://emailengine.app/?utm_source=hoodiecrow-readme&utm_medium=readme&utm_campaign=oss-docs&utm_content=note)**, a self-hosted email API that turns Gmail, Microsoft 365, and IMAP accounts into REST endpoints, with managed OAuth2 and webhooks for incoming mail. If you need a production email integration rather than a mock IMAP server for tests, start there.
+> **Formerly Hoodiecrow.** ImapKit was published as [`hoodiecrow-imap`](https://www.npmjs.com/package/hoodiecrow-imap) up to version 3.3.1. To migrate, install `imapkit` instead and use `require('imapkit')`. The command is now `imapkit` and its environment variables start with `IMAPKIT_` instead of `HOODIECROW_`. The API, plugins, storage format and XTOYBIRD commands are unchanged.
 
 # Usage
 
 ### Run as a standalone server
 
-To run Hoodiecrow you need [Node.js](http://nodejs.org/) in your machine. Node should work on almost any platform, so Hoodiecrow should too.
-
-If you have Node.js installed, install Hoodiecrow with the `npm` command and run it:
+Install ImapKit globally with npm and run it:
 
 ```bash
-npm install -g hoodiecrow-imap
-sudo hoodiecrow
+npm install -g imapkit
+imapkit -p 1143
 ```
 
-Sudo is needed to bind to port 143. If you choose to use a higher port, say 1143 (`hoodiecrow -p 1143`), you do not need to use sudo.
+Point your IMAP client to `localhost:1143` and log in with user name `testuser` and password `testpass`. Without `-p` the server listens on port 143 (993 with `--secure`), which usually needs root privileges.
 
-`hoodiecrow` command also provides an incoming SMTP server which appends all incoming messages
-automatically to INBOX. To use it, use _smtpPort_ option (`hoodiecrow --smtpPort=1025`).
+`imapkit --smtpPort=1025` also starts an SMTP server that appends every message it receives to INBOX.
 
-> **Protip** Running `hoodiecrow --help` displays useful information about command line options for Hoodiecrow and some sample configuration data.
-
-After you have started Hoodiecrow server, you can point your IMAP client to `localhost:143`. Use `"testuser"` as user name and `"testpass"` as password to log in to the server.
+Run `imapkit --help` to see all command line options, the environment variables (`IMAPKIT_PORT`, `IMAPKIT_PLUGINS`, ...) and sample configuration data. For example, `imapkit -p 1143 --plugin=IDLE,MOVE,CONDSTORE --storage=storage.json` loads three plugins and the mailboxes of `storage.json`.
 
 ### Include as a Node.js module
 
-Add `hoodiecrow-imap` dependency
+Add `imapkit` dependency
 
 ```bash
-npm install hoodiecrow-imap
+npm install imapkit
 ```
 
 Create and start an IMAP server
 
 ```javascript
-const hoodiecrow = require('hoodiecrow-imap');
-const server = hoodiecrow(options);
-server.listen(143);
+const imapkit = require('imapkit');
+const server = imapkit(options);
+server.listen(1143);
 ```
 
-See [complete.js](https://github.com/postalsys/hoodiecrow-imap/blob/master/examples/complete.js) for an example.
+See [complete.js](https://github.com/postalsys/imapkit/blob/master/examples/complete.js) for an example.
 
 ## Scope
 
-Hoodiecrow is a single user / multiple connections IMAP server that uses a JSON object as its directory and messages structure. Nothing is read from or written to disk and the entire directory structure is instantiated every time the server is started, eg. changes made through the IMAP protocol (adding/removing messages/flags etc) are not saved permanently. This should ensure that you can write integration tests for clients in a way where a new fresh server with unmodified data is started for every test.
+ImapKit is a single user, multiple connection IMAP server. Changes made over IMAP live only in the memory of that server instance, so start a new server for every test.
 
-Several clients can connect to the server simultanously but all the clients share the same user account, even if login credentials are different. The ACL plugin can limit what users other than the owner can do (see [ACL](#acl)).
+Several clients can connect to the server simultaneously but all the clients share the same user account, even if login credentials are different. The ACL plugin can limit what users other than the owner can do (see [ACL](#acl)).
 
-Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
+ImapKit is extendable: any command can be overridden and plugins can be added (see [Creating custom plugins](#creating-custom-plugins), and `lib/commands` and `lib/plugins` for the built-in commands and plugins).
 
 ## Strict by design
 
-Hoodiecrow is meant for developing standards compliant IMAP clients, so it follows the RFCs strictly instead of accepting whatever clients send. Most production servers are lenient, which hides client bugs until the client meets a stricter server. Hoodiecrow answers these with `BAD` (or `NO` where the RFC requires it):
+ImapKit is meant for developing standards compliant IMAP clients, so it follows the RFCs strictly instead of accepting whatever clients send. Most production servers are lenient, which hides client bugs until the client meets a stricter server. ImapKit answers these with `BAD` (or `NO` where the RFC requires it):
 
 - commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` after login
 - arguments to commands that take none (`NOOP x`, `CLOSE x`), missing or extra arguments, and values that break the RFC 3501 grammar
@@ -102,7 +97,7 @@ Some client side recommendations of RFC 2683 are checked too: `STATUS` on the se
 
 ## Multiple sessions
 
-Hoodiecrow follows these of the strategies that RFC 2180 (IMAP4 Multi-Accessed Mailbox Practice) allows, so a client can be tested against one consistent behavior:
+ImapKit follows these of the strategies that RFC 2180 (IMAP4 Multi-Accessed Mailbox Practice) allows, so a client can be tested against one consistent behavior:
 
 - a session that has not been told about the EXPUNGE of another session yet keeps its message numbers. FETCH still returns the expunged messages (section 4.1.1) and SEARCH still finds them (section 4.3), both end with `OK [EXPUNGEISSUED]`
 - STORE does not change expunged messages: with `.SILENT` it ends with `OK` (section 4.2.1), otherwise the other messages are stored and get their FETCH responses, and the tagged response is `NO [EXPUNGEISSUED]` (sections 4.2.2 and 4.2.3; with CONDSTORE `NO [MODIFIED ...]` when that applies, RFC 7162 section 3.1.3)
@@ -114,13 +109,13 @@ Hoodiecrow follows these of the strategies that RFC 2180 (IMAP4 Multi-Accessed M
 
 ## Authentication
 
-An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
+By default the only account is user name `"testuser"` with password `"testpass"` (and access token `"testtoken"` for XOAUTH2 and OAUTHBEARER). The `users` option replaces the default account list, for example `{ "testuser": { "password": "testpass" }, "otheruser": { "password": "secret" } }`, and `XTOYBIRD USERADD` adds users at runtime. All users share the same mailbox tree.
 
 ## Status
 
 ### IMAP4rev1
 
-All commands are supported but might be a bit buggy. Some choices that the RFCs leave to the server:
+All RFC 3501 commands are supported. Some choices that the RFCs leave to the server:
 
 - The subscription list holds names, not mailboxes (RFC 3501 section 6.3.6). DELETE does not unsubscribe, so LSUB and `LIST (SUBSCRIBED)` keep listing the name (as `\NonExistent` in extended LIST) until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name (RFC 9051 section 6.3.6). A mailbox from the storage object is subscribed unless it has `"subscribed": false`, a new mailbox is not. SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name
 - CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3, Dovecot creates a `\Noselect` level instead). An existing `\Noselect` level stays `\Noselect`
@@ -157,7 +152,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **LITERALPLUS** Enables LITERAL+ [RFC7888] capability. Can not be loaded together with LITERALMINUS, but replaces the LITERAL- that IMAP4rev2 loads
 - **LOGINDISABLED** Disables LOGIN support for unencrypted connections
 - **MESSAGELIMIT** Adds MESSAGELIMIT [RFC9738] capability, advertised as `MESSAGELIMIT=<n>`, where the server option `messageLimit` sets n (default 1000, any positive number is accepted so that small test mailboxes can hit it). FETCH, STORE, SEARCH, MOVE, UID EXPUNGE and their UID variants only work on the n messages with the highest UIDs (UID EXPUNGE counts the `\Deleted` ones) and add `[MESSAGELIMIT n uid]` with the lowest processed UID to the tagged OK, or send it in an untagged `NO` when the tagged OK already has a response code (like `HIGHESTMODSEQ` or `MODIFIED`). SEARCH counts the searched messages, which its top level sequence set, `UID`, `UIDAFTER` and `UIDBEFORE` keys narrow down. COPY, APPEND (MULTIAPPEND), SORT and THREAD of more messages, and a FETCH `PARTIAL` range (PARTIAL plugin) of more messages, fail with `NO [MESSAGELIMIT ...]`. EXPUNGE, CLOSE and STATUS are not limited. Adds the `UIDAFTER` and `UIDBEFORE` search keys. Can not be loaded together with SAVELIMIT
-- **METADATA** Adds METADATA [RFC5464] capability (GETMETADATA and SETMETADATA) for server and mailbox annotations. Values can be binary: SETMETADATA takes a literal8 (`~{n}`), and values with NUL are sent back as a literal8. Initial mailbox entries come from a `metadata` object on the mailbox in storage (`"INBOX": { "metadata": { "/private/comment": "My comment" } }`), server entries from the `metadata` option. Server options `metadataMaxSize` (largest value in octets, default 65536), `metadataMaxEntries` (entries per mailbox and for the server, default 100) and `metadataPrivate: false` (refuse `/private` entries with `[METADATA NOPRIVATE]`) let you test the client's error handling. `/shared/admin` on the server is read-only. Annotations move with RENAME (renaming INBOX copies them), DELETE removes them. After `ENABLE METADATA` (needs the ENABLE plugin), changes made by other sessions are announced with unsolicited `METADATA` responses. With SPECIAL-USE loaded, the read-only `/private/specialuse` entry shows the special-use attributes of a mailbox (RFC 6154 section 4). Values are text, binary values (`literal8`) are not supported
+- **METADATA** Adds METADATA [RFC5464] capability (GETMETADATA and SETMETADATA) for server and mailbox annotations. Values can be binary: SETMETADATA takes a literal8 (`~{n}`), and values with NUL are sent back as a literal8. Initial mailbox entries come from a `metadata` object on the mailbox in storage (`"INBOX": { "metadata": { "/private/comment": "My comment" } }`), server entries from the `metadata` option. Server options `metadataMaxSize` (largest value in octets, default 65536), `metadataMaxEntries` (entries per mailbox and for the server, default 100) and `metadataPrivate: false` (refuse `/private` entries with `[METADATA NOPRIVATE]`) let you test the client's error handling. `/shared/admin` on the server is read-only. Annotations move with RENAME (renaming INBOX copies them), DELETE removes them. After `ENABLE METADATA` (needs the ENABLE plugin), changes made by other sessions are announced with unsolicited `METADATA` responses. With SPECIAL-USE loaded, the read-only `/private/specialuse` entry shows the special-use attributes of a mailbox (RFC 6154 section 4)
 - **MULTISEARCH** Adds MULTISEARCH [RFC7377] capability, also loads ESEARCH: the ESEARCH command, also in the authenticated state. `ESEARCH IN (mailboxes "a" subtree "b" subtree-one "c" personal subscribed inboxes selected) RETURN (...) criteria` sends one ESEARCH response with UIDs and the `TAG`, `MAILBOX` and `UIDVALIDITY` correlators for every mailbox with matches. Mailboxes that do not exist or are `\Noselect` are skipped (with ACL also those without the `r` right, and without `l` unless named under `mailboxes` or as a subtree root), a mailbox named twice is searched once, and `inboxes` is INBOX. `SAVE` is only allowed when the selected mailbox is the only one searched, `UPDATE` (with CONTEXT=SEARCH) only applies to the selected mailbox
 - **METADATA-SERVER** Same as METADATA, but only for server annotations (mailbox name `""`)
 - **MOVE** Adds MOVE [RFC6851] capability (MOVE and UID MOVE commands)
@@ -188,7 +183,7 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **UNSELECT** Adds UNSELECT [RFC3691] capability
 - **UTF8=ACCEPT** Adds UTF8=ACCEPT [RFC9755] capability and loads ENABLE. After `ENABLE UTF8=ACCEPT` mailbox names are UTF-8 in both directions (storage keeps modified UTF-7 names, so `&` is an ordinary character), strings that are valid UTF-8 are sent quoted, and SEARCH strings are UTF-8 without `CHARSET`. UTF8=ONLY, the obsolete `APPEND ... UTF8 (...)` data item of RFC 6855 and downgrading of 8-bit headers for clients that did not enable UTF-8 (RFC 9755 section 8) are not implemented
 - **X-GM-EXT-1** Adds [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) extensions. `X-GM-MSGID` and `X-GM-THRID` work with FETCH and SEARCH (every message is its own thread unless the storage sets an `X-GM-THRID` value for it; with OBJECTID loaded, the messages of a `THREADID` share the `X-GM-THRID` of the first message of that thread, so both thread ids group the same messages). `X-GM-LABELS` works with FETCH, STORE (`+`, `-`, `.SILENT`) and SEARCH: system labels are atoms that start with `\` (`\Inbox` for INBOX, the special-use attribute for special-use mailboxes), other labels are mailbox names, sent and read in the form the session uses for mailbox names (modified UTF-7, or UTF-8 after `ENABLE UTF8=ACCEPT`) and quoted when they are not atoms. In SEARCH a label that starts with `\` is a system label. Setting a label does not change message behavior, for example the message does not get copied to another mailbox. `X-GM-RAW` supports a subset of the Gmail search syntax: words and `"phrases"` (TEXT), `-term`, `OR`, `( )`, `{ }`, `from:`, `to:`, `cc:`, `bcc:`, `subject:`, `label:`, `in:` (`inbox`, `sent`, `drafts`, `trash`, `spam`, `anywhere` or a label), `is:` (`read`, `unread`, `starred`, `important`), `larger:` and `smaller:` (with `k` or `m`), `after:` and `before:` (`YYYY/MM/DD`) and `rfc822msgid:`. Other Gmail operators (`has:`, `older_than:` ...) are answered with NO
-- **XOAUTH2** GMail XOAUTH2 login. Only works with SALS-IR, if you need non SASL-IR support as well, let me know. Use `"testuser"` as the username and `"testtoken"` as Access Token to log in.
+- **XOAUTH2** Gmail XOAUTH2 login. Needs SASL-IR (load the SASL-IR plugin too), Gmail itself does not. Use `"testuser"` as the user name and `"testtoken"` as the access token to log in.
 - **XTOYBIRD** Custom plugin to allow programmatic control of the server. XTOYBIRD commands are only allowed after login
 
 ## ACL
@@ -235,7 +230,7 @@ Available commands:
 Example usage for XTOYBIRD STORAGE:
 
 ```
-S: * Hoodiecrow ready for rumble
+S: * OK ImapKit ready for rumble
 C: A0 LOGIN testuser testpass
 S: A0 OK User logged in
 C: A1 XTOYBIRD STORAGE
@@ -249,12 +244,11 @@ S:                 ...
 S: A1 OK XTOYBIRD Completed
 ```
 
-## Useful features for Hoodiecrow I'd like to see
+## Ideas for future XTOYBIRD commands
 
-- An ability to change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
-- An ability to change available disk space (eg. `A1 XTOYBIRD DISKSPACE 100 50` where 100 is total disk space in bytes and 50 is available space)
-- An ability to restart the server to return initial state (`A1 XTOYBIRD RESET`)
-- An ability to change storage runtime by sending a JSON string describing the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
+- Change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
+- Reset the server to its initial state (`A1 XTOYBIRD RESET`)
+- Replace the storage at runtime with a JSON string that describes the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
 
 ## CONDSTORE support
 
@@ -265,14 +259,13 @@ S: A1 OK XTOYBIRD Completed
 - Updating flags increments MODSEQ value
 - FETCH (MODSEQ) works
 - FETCH (CHANGEDSINCE modseq) works
-- STORE (UNCHANGEDSINCE modseq) partially works (edge cases are not covered)
+- STORE (UNCHANGEDSINCE modseq) works, messages changed since then are reported with `[MODIFIED ...]`
 - SEARCH MODSEQ works, the entry name and type are checked but ignored since MODSEQ is not stored per flag
 - Flag changes made by other sessions include MODSEQ once CONDSTORE is enabled
 - SELECT/EXAMINE send `* OK [CLOSED]` when they close the selected mailbox
 
 # Known issues
 
-- **MODSEQ** updates are not notified
 - **addr-adl** (at-domain-list) values are not supported, NIL is always used
 - **anonymous namespaces** are not supported
 - **LIST** does not insert a hierarchy delimiter between a reference without one and the mailbox name (RFC 2683 section 3.4.9 recommends it), the two are concatenated as RFC 9051 section 6.3.9 describes, like Dovecot does
@@ -283,16 +276,21 @@ S: A1 OK XTOYBIRD Completed
 Tests use the built-in Node.js test runner, linting uses ESLint and formatting uses Prettier.
 
     npm install
-    npm test            # lint + all tests
-    npm run test:unit   # tests only
+    npm test                    # lint + all tests
+    npm run test:unit           # tests only
+    npm run test:coverage       # tests with coverage (Node.js 22.8 or newer)
     node --test test/fetch.js   # a single test file
-    npm run format      # apply Prettier formatting
+    npm run format              # apply Prettier formatting
 
-## Example configs
+`compare/` holds a development tool that replays the same IMAP commands against ImapKit and a Dovecot server running in Docker and shows where the responses differ (`npm run dovecot:start`, then `npm run compare -- compare/scenarios/fetch.txt`). See [CLAUDE.md](CLAUDE.md#comparing-with-dovecot) for details.
+
+## Example storage
+
+The `storage` option (or `--storage=<path>` for the command) describes the mailbox tree. The keys are namespaces.
 
 ### Cyrus
 
-config.json:
+storage.json:
 
 ```json
 {
@@ -309,7 +307,7 @@ config.json:
 
 ### Gmail
 
-config.json:
+storage.json:
 
 ```json
 {
@@ -348,13 +346,13 @@ config.json:
 }
 ```
 
-## Use Hoodiecrow for testing your client
+## Use ImapKit for testing your client
 
-Creating your tests in Node.js is a piece of cake, you do not even need to run the `hoodiecrow` command. Here is a sample test using the built-in [Node.js test runner](https://nodejs.org/api/test.html).
+Creating your tests in Node.js is a piece of cake, you do not even need to run the `imapkit` command. Here is a sample test using the built-in [Node.js test runner](https://nodejs.org/api/test.html).
 
 ```javascript
 const { describe, it, beforeEach, afterEach } = require('node:test');
-const hoodiecrow = require('hoodiecrow-imap');
+const imapkit = require('imapkit');
 const myIMAPClient = require('../my-imap-client');
 
 describe('IMAP tests', () => {
@@ -363,7 +361,7 @@ describe('IMAP tests', () => {
     // Executed before every test, creates a new blank IMAP server
     // on a random free port
     beforeEach((t, done) => {
-        server = hoodiecrow();
+        server = imapkit();
         server.listen(0, done);
     });
 
@@ -389,9 +387,9 @@ describe('IMAP tests', () => {
 A plugin can be a string as a pointer to a built in plugin or a function. Plugin function is run when the server is created and gets server instance object as an argument.
 
 ```javascript
-hoodiecrow({
+imapkit({
     // Add two plugins, built in "IDLE" and custom function
-    plugin: ['IDLE', myAwesomePlugin]
+    plugins: ['IDLE', myAwesomePlugin]
 });
 
 // Plugin handler
@@ -449,11 +447,11 @@ function myAwesomePlugin(server) {
 }
 ```
 
-### Plugin mehtods
+### Plugin methods
 
 #### Add a capability
 
-    server.registerCapability(name[, availabilty])
+    server.registerCapability(name[, availability])
 
 Where
 
@@ -465,7 +463,7 @@ Example
 ```javascript
 // Display in CAPABILITY only in Not Authenticated state
 server.registerCapability('XAUTH', function (connection) {
-    return connection.state == 'Not Authenticated';
+    return connection.state === 'Not Authenticated';
 });
 ```
 
@@ -503,7 +501,7 @@ A plugin that wraps commands or handlers of other plugins, whatever the load ord
 
 ```javascript
 server.once('pluginsLoaded', function () {
-    var move = server.getCommandHandler('MOVE');
+    const move = server.getCommandHandler('MOVE');
     // ...
 });
 ```
@@ -521,7 +519,7 @@ The command should send data to the client with `connection.send()`
 
 Where
 
-- **response** is a [imap-handler](https://github.com/postalsys/imap-handler#parse-imap-commands) compatible object. To get the correct tag for responsing OK, NO or BAD, look into `parsed.tag`
+- **response** is a [imap-handler](https://github.com/postalsys/imap-handler#parse-imap-commands) compatible object. To get the correct tag for the OK, NO or BAD response, look into `parsed.tag`
 - **description** is a string identifying the response to be used by other plugins
 - **parsed** is the `parsed` argument passed to the handler
 - **data** is the `data` argument passed to the handler
@@ -540,7 +538,7 @@ Where
 Example
 
 ```javascript
-var list = server.getCommandHandler('LIST');
+const list = server.getCommandHandler('LIST');
 server.setCommandHandler('LIST', function (connection, parsed, data, callback) {
     // do something
     console.log('Received LIST request');
@@ -560,7 +558,7 @@ connection.inputHandler = function(line){
 }
 ```
 
-See [idle.js](https://github.com/postalsys/hoodiecrow-imap/blob/master/lib/plugins/idle.js) for an example
+See [idle.js](https://github.com/postalsys/imapkit/blob/master/lib/plugins/idle.js) for an example
 
 Raw output, such as a `+` continuation request, goes through `connection.write(data)`, and `connection.end()` closes the connection once all output is written. Do not use `connection.socket` for this, a COMPRESS layer (`connection.transport`) sits between the protocol and the socket.
 
@@ -576,7 +574,7 @@ server.resetHandlers.push(function (connection) {
 
 #### Override output
 
-Any response sent to the client can be overriden or cancelled by other handlers. You should append your handler to `server.outputHandlers` array. If something is being sent to the client, the response object is passed through all handlers in this array.
+Any response sent to the client can be overridden or cancelled by other handlers. You should append your handler to `server.outputHandlers` array. If something is being sent to the client, the response object is passed through all handlers in this array.
 
     server.outputHandlers.push(function(connection, /* arguments from connection.send */){})
 
@@ -585,7 +583,7 @@ Any response sent to the client can be overriden or cancelled by other handlers.
 ```javascript
 // All untagged responses are ignored and not passed to the client
 server.outputHandlers.push(function (connection, response, description) {
-    if (response.tag == '*') {
+    if (response.tag === '*') {
         response.skipResponse = true;
         console.log('Ignoring untagged response for %s', description);
     }
@@ -600,7 +598,7 @@ server.outputHandlers.push(function (connection, response, description) {
 - `server.closedChecks` are consulted when SELECT or EXAMINE closes the selected mailbox, `(connection)`. If any returns true, `* OK [CLOSED]` marks where the responses for the new mailbox start
 - `server.copyHandlers` run when COPY, MOVE or RENAME INBOX copies a message, `(server, source, properties, mailbox)`. Properties set on `properties` are given to the copy before the message handlers run
 
-#### Other possbile operations
+#### Other possible operations
 
 It is possible to append messages to a mailbox; create, delete and rename mailboxes; change authentication state and so on through the `server` and `connection` methods and properties. See existing command handlers and plugins for examples.
 

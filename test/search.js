@@ -8,7 +8,7 @@ describe('Search tests', () => {
     const ctx = setupServer(() => ({
         plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE', 'XTOYBIRD'],
         id: {
-            name: 'hoodiecrow',
+            name: 'imapkit',
             version: '0.1'
         },
         storage: {

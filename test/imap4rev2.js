@@ -4,7 +4,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer, assertTagged } = require('./helpers');
 const { openSession } = require('./helpers/session');
 const mailboxName = require('../lib/mailbox-name');
@@ -96,13 +96,13 @@ describe('IMAP4rev2', () => {
                 ['IMAP4rev2', 'LITERAL+'],
                 ['LITERAL+', 'IMAP4rev2']
             ]) {
-                const server = hoodiecrow({ plugins });
+                const server = imapkit({ plugins });
                 assert.ok(server.capabilities['LITERAL+'], plugins.join());
                 assert.ok(!server.capabilities['LITERAL-'], plugins.join());
                 assert.strictEqual(server.nonSyncLiteralLimit, Infinity);
             }
-            assert.throws(() => hoodiecrow({ plugins: ['LITERAL-', 'IMAP4rev2', 'LITERAL+'] }), /LITERAL\+ can not be enabled together with LITERAL-/);
-            assert.strictEqual(hoodiecrow({ plugins: ['IMAP4rev2'] }).nonSyncLiteralLimit, 4096);
+            assert.throws(() => imapkit({ plugins: ['LITERAL-', 'IMAP4rev2', 'LITERAL+'] }), /LITERAL\+ can not be enabled together with LITERAL-/);
+            assert.strictEqual(imapkit({ plugins: ['IMAP4rev2'] }).nonSyncLiteralLimit, 4096);
         });
 
         it('accepts non-synchronizing literals up to 4096 octets (section 4.3)', async () => {

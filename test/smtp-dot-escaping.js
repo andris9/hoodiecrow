@@ -3,7 +3,7 @@
 const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const net = require('node:net');
-const smtpServer = require('../lib/hoodiecrowSMTPServer');
+const smtpServer = require('../lib/smtp-listener');
 const { setupServer } = require('./helpers');
 
 describe('Email sent containing escaped dots', () => {

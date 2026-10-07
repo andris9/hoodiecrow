@@ -6,7 +6,7 @@ const { validateResponses, splitResponses } = require('./helpers/validate-respon
 
 describe('Response grammar guardrail', () => {
     const valid = [
-        '* OK Hoodiecrow ready\r\n',
+        '* OK ImapKit ready\r\n',
         'A1 OK [READ-WRITE] SELECT completed\r\n',
         '* OK [PERMANENTFLAGS (\\Seen \\*)] Flags permitted\r\n',
         '* 0 EXISTS\r\n* 0 RECENT\r\n',

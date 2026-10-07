@@ -1,8 +1,8 @@
 'use strict';
 
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 
-hoodiecrow({
+imapkit({
     plugins: ['IDLE', myAwesomePlugin]
 }).listen(1143);
 

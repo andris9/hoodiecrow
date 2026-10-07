@@ -1,6 +1,6 @@
 'use strict';
 
-// End to end tests that drive hoodiecrow with ImapFlow, a real standards compliant IMAP client.
+// End to end tests that drive ImapKit with ImapFlow, a real standards compliant IMAP client.
 // Every test works with parsed results, so a malformed response shows up as a client error or
 // as a wrong value, not as a substring mismatch.
 
@@ -220,7 +220,7 @@ describe('ImapFlow', () => {
             log.length = 0;
             return {
                 plugins: ALL_PLUGINS.concat(recorder(log)),
-                id: { name: 'hoodiecrow' },
+                id: { name: 'imapkit' },
                 quota: { STORAGE: 100, MESSAGE: 10 },
                 storage: storage()
             };
@@ -257,7 +257,7 @@ describe('ImapFlow', () => {
             // ImapFlow sends ENABLE CONDSTORE on its own (RFC 5161, RFC 7162 3.1), and IMAP4rev2 (RFC 9051 Appendix A)
             assert.ok(client.enabled.has('CONDSTORE'));
             assert.ok(client.enabled.has('IMAP4REV2'));
-            assert.strictEqual(client.serverInfo && client.serverInfo.name, 'hoodiecrow');
+            assert.strictEqual(client.serverInfo && client.serverInfo.name, 'imapkit');
             // NAMESPACE response (RFC 2342 5), ImapFlow keeps the personal namespace
             assert.deepStrictEqual(client.namespace, { prefix: '', delimiter: '/' });
             await client.logout();

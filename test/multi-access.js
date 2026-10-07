@@ -1,7 +1,7 @@
 'use strict';
 
 // RFC 2180 (IMAP4 Multi-Accessed Mailbox Practice): what a session sees when another session expunges messages,
-// deletes or renames the mailbox it has selected. RFC 2180 lists several acceptable strategies, hoodiecrow follows:
+// deletes or renames the mailbox it has selected. RFC 2180 lists several acceptable strategies, ImapKit follows:
 // - FETCH: expunged messages stay readable until the session is told about the EXPUNGE (section 4.1.1), the
 //   tagged OK carries EXPUNGEISSUED (RFC 5530 section 3)
 // - STORE: expunged messages are not changed, .SILENT ends with OK (4.2.1), otherwise the other messages are

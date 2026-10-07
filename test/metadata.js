@@ -439,7 +439,7 @@ describe('METADATA and SPECIAL-USE', () => {
                 assert.match(resp, /^\* METADATA Sent \(\/private\/specialuse "\\\\Sent"\)\r$/m);
                 assert.match(resp, /^\* METADATA Empty \(\/private\/specialuse NIL\)\r$/m);
                 assert.match(resp, /^\* METADATA Junk \(\/private\/specialuse "\\\\Junk"\)\r$/m);
-                // RFC 6154 section 4 MAY allow changes through METADATA, hoodiecrow keeps them read-only
+                // RFC 6154 section 4 MAY allow changes through METADATA, ImapKit keeps them read-only
                 assert.match(resp, /^A5 NO \[CANNOT\] /m);
                 assert.match(resp, /^A6 NO \[CANNOT\] /m);
                 assert.match(resp, /^\* METADATA Sent \(\/private\/specialuse "\\\\Sent"\)\r\nA7 OK/m);

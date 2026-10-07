@@ -4,11 +4,11 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { setupServer } = require('./helpers');
 
-describe('Hoodiecrow tests', () => {
+describe('ImapKit tests', () => {
     const ctx = setupServer(() => ({
         plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE', 'XTOYBIRD'],
         id: {
-            name: 'hoodiecrow',
+            name: 'imapkit',
             version: '0.1'
         },
         storage: {

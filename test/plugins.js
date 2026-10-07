@@ -2,21 +2,21 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const hoodiecrow = require('../lib/server');
+const imapkit = require('../lib/server');
 const { setupServer } = require('./helpers');
 
 describe('Plugin loading', () => {
     it('throws on unknown plugin names', () => {
-        assert.throws(() => hoodiecrow({ plugins: ['IDLE', 'NOSUCHPLUGIN'] }), /Unknown plugin "NOSUCHPLUGIN"/);
-        assert.throws(() => hoodiecrow({ plugins: ['../commands/login'] }), /Unknown plugin/);
+        assert.throws(() => imapkit({ plugins: ['IDLE', 'NOSUCHPLUGIN'] }), /Unknown plugin "NOSUCHPLUGIN"/);
+        assert.throws(() => imapkit({ plugins: ['../commands/login'] }), /Unknown plugin/);
     });
 
     it('throws on invalid plugin values', () => {
-        assert.throws(() => hoodiecrow({ plugins: [{}] }), /Invalid plugin/);
+        assert.throws(() => imapkit({ plugins: [{}] }), /Invalid plugin/);
     });
 
     it('accepts capability spellings', () => {
-        const server = hoodiecrow({ plugins: ['LITERAL+', 'AUTH=PLAIN', 'auth=xoauth2', ' idle '] });
+        const server = imapkit({ plugins: ['LITERAL+', 'AUTH=PLAIN', 'auth=xoauth2', ' idle '] });
         assert.ok(server.capabilities['LITERAL+']);
         assert.ok(server.capabilities['AUTH=PLAIN']);
         assert.ok(server.capabilities['AUTH=XOAUTH2']);
@@ -29,7 +29,7 @@ describe('Plugin loading', () => {
         const custom = () => {
             calls++;
         };
-        const server = hoodiecrow({ plugins: ['SPECIAL-USE', 'special-use', custom, custom, 'CONDSTORE', 'CONDSTORE'] });
+        const server = imapkit({ plugins: ['SPECIAL-USE', 'special-use', custom, custom, 'CONDSTORE', 'CONDSTORE'] });
         assert.strictEqual(calls, 1);
         assert.strictEqual(server.outputHandlers.length, 2);
         assert.strictEqual(server.allowedStatus.filter(item => item === 'HIGHESTMODSEQ').length, 1);
@@ -44,7 +44,7 @@ describe('Plugin loading', () => {
         const last = server => {
             moveHandler = server.getCommandHandler('MOVE');
         };
-        const server = hoodiecrow({ plugins: [first, 'UIDONLY', 'ACL', 'MOVE', last] });
+        const server = imapkit({ plugins: [first, 'UIDONLY', 'ACL', 'MOVE', last] });
         // the listener of the first plugin sees the commands of the plugins loaded after it
         assert.deepStrictEqual(seen, ['function']);
         // ACL wrapped MOVE and UIDONLY registered its output handler before any client connected

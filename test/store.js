@@ -4,7 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const { setupServer } = require('./helpers');
 
-describe('Hoodiecrow tests', () => {
+describe('ImapKit tests', () => {
     const ctx = setupServer(() => ({
         storage: {
             INBOX: {
