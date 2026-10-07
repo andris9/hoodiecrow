@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.2.0](https://github.com/postalsys/imapkit/compare/v4.1.1...v4.2.0) (2026-10-07)
+
+
+### Features
+
+* script rules that make the server misbehave on purpose ([ae2c167](https://github.com/postalsys/imapkit/commit/ae2c167f77a13bcc57e9ba0b01c73bb10e9dda9a))
+* script rules that make the server misbehave on purpose ([43edc38](https://github.com/postalsys/imapkit/commit/43edc384d49b13d7c1197d06e43395b81a1d928c))
+
 ## [4.1.1](https://github.com/postalsys/imapkit/compare/v4.1.0...v4.1.1) (2026-10-07)
 
 
