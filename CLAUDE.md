@@ -9,6 +9,7 @@ Hoodiecrow (`hoodiecrow-imap` on npm) is a scriptable, in-memory IMAP4rev1 mock 
 ## Commands
 
 - `npm test`: ESLint, then all tests (`npm run test:unit`, which is `node --test test/*.js`).
+- `npm run test:coverage`: the tests with Node's built-in coverage for `lib/` (Node >= 22.8). Fails below 94% line coverage; CI runs it on Node 24.
 - Single test file: `node --test test/uid-fetch.js`. Single test case: add `--test-name-pattern="<test name>"`.
 - `npm run lint`, `npm run format` / `npm run format:check` (Prettier: single quotes, 4 spaces, 160 columns). CI fails on unformatted files. `npm install` sets `core.hooksPath` to `.githooks`, whose pre-commit hook runs Prettier on staged JS.
 - `npm run update`: refresh all dependencies to latest (`ncu -u`, config in `.ncurc.js`). Dependencies are pinned to exact versions.
@@ -21,12 +22,18 @@ ESLint (`eslint.config.js`) enforces `const`/`let` (no `var`), arrow callbacks, 
 
 Releases are automated with release-please (`release-please-config.json`, `.release-please-manifest.json`): use Conventional Commit messages (`fix:`, `feat:`, `chore:` ...) on master, merge the release PR it opens, and `.github/workflows/release.yaml` waits for the `test.yml` run on that commit and then publishes to npm through trusted publishing (OIDC, no token). Do not bump `version` in package.json by hand.
 
+## Strict by design
+
+Hoodiecrow is a guardrail for developing standards compliant IMAP clients, so it follows the RFCs strictly instead of being lenient like production servers (WildDuck, Dovecot). When a client breaks a MUST or the grammar, answer BAD (or NO where the RFC says so) instead of guessing what it meant. The rules in force are listed in the README "Strict by design" section and covered by `test/conformance.js`.
+
+Always check RFC text against the real source document at `https://www.rfc-editor.org/rfc/rfcXXXX.txt` (XXXX is the RFC number), never from memory, and cite the section in code comments and tests.
+
 ## Architecture
 
 Almost everything lives in `lib/server.js`, which defines two classes:
 
 - **`IMAPServer`**: holds the shared single-user storage, registered capabilities, command handlers, and the plugin extension arrays. Builds `folderCache` (path to mailbox object) via `indexFolders()` / `processMailbox()` from the namespace-keyed `storage` object (keys like `"INBOX"`, `""`, `"INBOX."`, each with `separator`, `type`, nested `folders`, `messages`). Cross-connection updates go through `server.notify()`, which emits a `notify` event that every connection listens to.
-- **`IMAPConnection`**: one per socket. Parses lines and literals with `imap-handler`, queues commands (`scheduleCommand` / `processQueue`, strictly one at a time), tracks `state` (`"Not Authenticated"`, `"Authenticated"`, `"Selected"`) and `selectedMailbox`, and buffers notifications from other connections, flushing them before tagged responses (but not during FETCH/STORE/SEARCH). `connection.inputHandler` lets a plugin (e.g. IDLE, AUTHENTICATE) take over raw input lines.
+- **`IMAPConnection`**: one per socket. Parses lines and literals with `imap-handler`, queues commands (`scheduleCommand` / `processQueue`, strictly one at a time), refuses commands in the wrong state, with arguments when they take none, and mailbox name arguments that are not valid modified UTF-7 (options from `lib/command-states.js` or `setCommandHandler`, checked centrally in `processQueue`, not per handler), refuses ambiguous pipelining (RFC 3501 5.5), tracks `state` (`"Not Authenticated"`, `"Authenticated"`, `"Selected"`) and `selectedMailbox`, and buffers notifications from other connections, flushing them before tagged responses (but not during FETCH/STORE/SEARCH). `connection.inputHandler` lets a plugin (e.g. IDLE, AUTHENTICATE) take over raw input lines.
 
 **Commands** (`lib/commands/`): each file exports `function(connection, parsed, data, callback)`. They are lazy-loaded by `getCommandHandler()` via `require("./commands/" + command.toLowerCase())`, which is why UID variants are files with spaces in their names and must stay that way (`uid fetch.js`, `uid store.js`, ...). A handler must send a tagged response with `connection.send(response, description, parsed, data, ...extra)` and then call `callback()`, or the connection's queue stalls. Per-item FETCH/STORE/SEARCH logic is in `lib/commands/handlers/`.
 
@@ -36,13 +43,23 @@ Almost everything lives in `lib/server.js`, which defines two classes:
 - `server.fetchHandlers`, `searchHandlers`, `storeHandlers` (consulted before the built-in handlers in `commands/handlers/`), `fetchFilters`
 - `server.messageHandlers` (run on every message in `processMessage`), `connectionHandlers` (run on new connections), `outputHandlers` (can mutate or suppress any outgoing response via `response.skipResponse`; the `description` string passed to `send` is how they identify responses)
 
-Plugins must stay self-contained: if a plugin is not loaded, no trace of it should remain (e.g. messages get no MODSEQ without CONDSTORE). Load order matters: ENABLE must come before plugins that depend on it, such as CONDSTORE.
+Plugins must stay self-contained: if a plugin is not loaded, no trace of it should remain (e.g. messages get no MODSEQ without CONDSTORE). Plugin names are validated and deduplicated by `lib/load-plugins.js`, and ENABLE and CONDSTORE work in any load order. `lib/command-states.js` lists only RFC 3501 core commands; a plugin passes the options of its own commands as the third argument of `setCommandHandler(command, handler, { states, noArguments, mailboxArguments })`. Wrapping an existing command without options keeps its settings.
 
 Other modules: `mimeparser.js`, `bodystructure.js`, `envelope.js`, `addressparser.js` produce BODYSTRUCTURE/ENVELOPE data from raw messages; `hoodiecrowSMTPServer.js` is an optional SMTP listener (built on `smtp-server`) that appends incoming mail to INBOX; `cert/` holds the self-signed localhost cert used for STARTTLS and `secureConnection`.
 
 ## Tests
 
-Tests use `node:test` and `node:assert`. The usual pattern (`test/*.js`): inside a `describe` block, `const ctx = setupServer(() => ({ plugins, storage }))` (from `test/helpers/`) registers hooks that start a fresh server on a random port before every test and close it afterwards. `ctx.run(cmds, resp => ...)` replays raw IMAP command strings through `lib/mock-client.js`, and the test asserts with substring checks on the full response transcript (e.g. `resp.indexOf('\r\n* OK [COPYUID 1 1,2 2,3]') >= 0`). `ctx.server` is the live server for inspecting state. Tests use callback style (`(t, done) => ...`). Because ports are random, test files run in parallel. Keep helpers out of the top level of `test/`, since every `test/*.js` file runs as a test file.
+Tests use `node:test` and `node:assert`. The usual pattern (`test/*.js`): inside a `describe` block, `const ctx = setupServer(() => ({ plugins, storage }))` (from `test/helpers/`) registers hooks that start a fresh server on a random port before every test and close it afterwards. `ctx.run(cmds, resp => ...)` replays IMAP command strings (binary strings) through `lib/mock-client.js` (response and literal framing shared with the test helpers and `compare/` lives in `lib/framing.js`), which behaves like a compliant client: it waits for the tagged response before the next command, sends literal data only after the `+` continuation, sends the next list entry as continuation data when the server asks for one (DONE, SASL responses), and closes the connection after the last command. Tests assert on the full response transcript, preferably with line anchored regexes (`/^A3 NO \[TRYCREATE\]/m`). `ctx.server` is the live server for inspecting state. Because ports are random, test files run in parallel. Keep helpers out of the top level of `test/`, since every `test/*.js` file runs as a test file.
+
+Test layers:
+
+- protocol tests per command or plugin (`test/<command>.js`), table driven strictness checks in `test/conformance.js`
+- multi-session behaviour (EXPUNGE timing, flag updates, IDLE, `\Recent`) in `test/sessions.js`, using `openSession()` from `test/helpers/session.js` for interleaved connections
+- a real client end to end in `test/imapflow.js` (ImapFlow, all plugins and none)
+- MIME fidelity and golden BODYSTRUCTURE/ENVELOPE wire forms (checked against Dovecot) in `test/mime-fidelity.js` with fixtures in `test/fixtures/mime/`
+- parser level tests of the MIME code in `test/mime.js`
+
+Every transcript from `ctx.run` and `openSession` goes through `test/helpers/validate-responses.js` before the test sees it: CRLF framing and literals, the RFC 3501 section 9 shape of tagged, untagged and `+` responses (status text is required, so every OK/NO/BAD/BYE response, including untagged ones with only a response code, must carry human readable text; no 8-bit outside literals, nz-numbers for FETCH/EXPUNGE, FETCH lists in pairs), and ImapFlow's response parser. A failure there means hoodiecrow sent something a compliant client can not parse, so fix the server rather than the check. `test/fuzz.js` replays mutated commands under the same guardrail; on failure it prints `FUZZ_SEED`, the iteration and the input, and `FUZZ_SEED=<n> FUZZ_ITERATIONS=<n> node --test test/fuzz.js` reproduces or widens a run.
 
 ## Comparing with Dovecot
 

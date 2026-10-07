@@ -13,6 +13,7 @@ const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { parseArgs } = require('node:util');
 const hoodiecrow = require('../lib/server');
+const { splitAtLiterals } = require('../lib/framing');
 
 const DEFAULT_STORAGE = path.join(__dirname, 'storage.json');
 
@@ -109,32 +110,6 @@ function buildPayload(text, vars, baseDir) {
     parts.push(Buffer.from('\r\n'));
 
     return Buffer.concat(parts);
-}
-
-/**
- * Splits a payload after every synchronizing literal marker, as the client must
- * wait for a continuation response before sending the literal data
- *
- * @param {Buffer} payload Command bytes
- * @return {Array} chunks
- */
-function splitAtLiterals(payload) {
-    const str = payload.toString('latin1');
-    const chunks = [];
-    const re = /\{(\d+)\}\r\n/g;
-    let start = 0;
-    let match;
-
-    while ((match = re.exec(str))) {
-        const end = match.index + match[0].length;
-        chunks.push(payload.subarray(start, end));
-        start = end;
-        // skip over the literal content so that markers inside it are not matched
-        re.lastIndex = end + Number(match[1]);
-    }
-    chunks.push(payload.subarray(start));
-
-    return chunks.filter(chunk => chunk.length);
 }
 
 /**

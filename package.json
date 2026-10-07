@@ -15,6 +15,7 @@
         "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
         "test": "npm run lint && npm run test:unit",
         "test:unit": "node --test test/*.js",
+        "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='lib/**' --test-coverage-lines=94 test/*.js",
         "lint": "eslint",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
@@ -39,13 +40,14 @@
     "author": "Postal Systems OÜ",
     "license": "MIT",
     "dependencies": {
-        "imap-handler": "1.0.1",
+        "imap-handler": "1.1.0",
         "smtp-server": "3.19.17"
     },
     "devDependencies": {
         "@eslint/js": "10.0.1",
         "eslint": "10.12.0",
         "globals": "17.13.0",
+        "imapflow": "2.2.6",
         "prettier": "3.9.9"
     },
     "engines": {

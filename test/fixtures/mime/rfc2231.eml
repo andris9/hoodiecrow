@@ -1,0 +1,25 @@
+From: params@example.com
+To: rcpt@example.com
+Subject: RFC 2231 parameters
+Date: Wed, 30 Sep 2026 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary=simple
+
+--simple
+Content-Type: text/plain; charset=us-ascii; format=flowed
+
+Body with flowed text.
+--simple
+Content-Type: application/pdf;
+ name*0*=utf-8''%C3%84rger%20und;
+ name*1*=%20%C3%96l.pdf
+Content-Disposition: attachment;
+ filename*0="a very long file name that ";
+ filename*1="continues here.pdf";
+ size=12
+Content-Language: de, en
+Content-Location: http://example.com/doc.pdf
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQK
+--simple--

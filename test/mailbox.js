@@ -11,7 +11,8 @@ describe('SELECT and EXAMINE', () => {
                 // simulates another session expunging the first message
                 server.setCommandHandler('XOTHEREXPUNGE', (connection, parsed, data, callback) => {
                     connection.expungeSpecificMessages(connection.selectedMailbox, [connection.selectedMailbox.messages[0]]);
-                    connection.send({ tag: '*', command: 'OK', attributes: [{ type: 'TEXT', value: 'done' }] }, 'XOTHEREXPUNGE');
+                    // marked as a notification, so the pending EXPUNGE is not flushed with it
+                    connection.send({ tag: parsed.tag, command: 'OK', notification: true, attributes: [{ type: 'TEXT', value: 'done' }] }, 'XOTHEREXPUNGE');
                     callback();
                 });
             }
@@ -37,7 +38,7 @@ describe('SELECT and EXAMINE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* OK [UNSEEN 2]\r\n') >= 0);
+            assert.ok(resp.indexOf('\r\n* OK [UNSEEN 2] First unseen message\r\n') >= 0);
             assert.ok(resp.indexOf('\r\nA2 OK [READ-WRITE]') >= 0);
             done();
         });
@@ -71,7 +72,7 @@ describe('SELECT and EXAMINE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* OK [PERMANENTFLAGS ()]\r\n') >= 0);
+            assert.ok(resp.indexOf('\r\n* OK [PERMANENTFLAGS ()] No permanent flags permitted\r\n') >= 0);
             assert.ok(resp.indexOf('\r\nA2 OK [READ-ONLY]') >= 0);
             assert.ok(resp.indexOf('\r\nA3 NO') >= 0);
             assert.ok(resp.indexOf('\r\nA4 OK') >= 0);

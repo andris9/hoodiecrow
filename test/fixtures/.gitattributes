@@ -1,0 +1,2 @@
+# keep the exact line endings of the MIME fixtures
+*.eml -text
