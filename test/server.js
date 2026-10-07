@@ -243,6 +243,59 @@ describe('Storage', () => {
         done();
     });
 
+    it('Resolves the namespace, separator and parent of mailbox names', () => {
+        const server = hoodiecrow({
+            storage: {
+                INBOX: {},
+                'INBOX.': { folders: { Sent: {}, Work: { folders: { Done: {} } } } },
+                '#shared/': { type: 'shared', folders: { Team: {} } }
+            }
+        });
+
+        assert.strictEqual(server.getMailboxNamespace('inbox'), 'INBOX');
+        assert.strictEqual(server.getMailboxNamespace('INBOX.Missing'), 'INBOX.');
+        assert.strictEqual(server.getMailboxNamespace('#shared/Team'), '#shared/');
+        assert.strictEqual(server.getMailboxNamespace('Elsewhere'), false);
+
+        assert.ok(server.isPersonal('INBOX'));
+        assert.ok(server.isPersonal('INBOX.Missing'));
+        assert.ok(server.isPersonal(server.getMailbox('INBOX.Work.Done')));
+        assert.ok(!server.isPersonal('#shared/Team'));
+        assert.ok(!server.isPersonal('Elsewhere'));
+
+        assert.strictEqual(server.getSeparator('INBOX'), '.');
+        assert.strictEqual(server.getSeparator('#shared/Team'), '/');
+
+        assert.strictEqual(server.getParentPath('INBOX.Work.Done'), 'INBOX.Work');
+        assert.strictEqual(server.getParentPath('INBOX.Work.'), 'INBOX');
+        assert.strictEqual(server.getParentPath('INBOX'), false);
+        // the namespace prefix is not a mailbox name
+        assert.strictEqual(server.getParentPath('#shared/Team'), false);
+
+        assert.deepStrictEqual(
+            server.getDescendants('INBOX.Work').map(mailbox => mailbox.path),
+            ['INBOX.Work.Done']
+        );
+        assert.deepStrictEqual(
+            server
+                .getDescendants('INBOX')
+                .map(mailbox => mailbox.path)
+                .sort(),
+            ['INBOX.Sent', 'INBOX.Work', 'INBOX.Work.Done']
+        );
+
+        assert.deepStrictEqual(server.listAttributes(server.getMailbox('INBOX.Work'), { subscribed: true, hasChildren: true }), [
+            '\\Subscribed',
+            '\\HasChildren'
+        ]);
+        assert.deepStrictEqual(server.listAttributes({ flags: ['\\Noselect', '\\HasNoChildren'] }, { exists: false, extra: ['\\NoAccess'] }), [
+            '\\NonExistent',
+            '\\NoAccess',
+            '\\HasNoChildren'
+        ]);
+        assert.deepStrictEqual(server.listAttributes({ flags: ['\\Noinferiors'] }, {}), ['\\Noinferiors']);
+    });
+
     it('Uses a sensible default namespace separator', (t, done) => {
         const server = hoodiecrow({
             storage: {
