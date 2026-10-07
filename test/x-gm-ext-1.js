@@ -172,3 +172,145 @@ describe('Hoodiecrow tests', () => {
         });
     });
 });
+
+// https://developers.google.com/workspace/gmail/imap/imap-extensions
+describe('X-GM-EXT-1 labels and search', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['X-GM-EXT-1', 'UTF8=ACCEPT'],
+        storage: {
+            INBOX: {
+                messages: [
+                    { raw: 'From: Bob <bob@example.com>\r\nSubject: hello world\r\nDate: Mon, 05 Oct 2026 10:00:00 +0000\r\n\r\nhi', flags: ['\\Seen'] },
+                    {
+                        raw: 'From: alice@example.com\r\nSubject: other\r\nMessage-ID: <x@example.com>\r\n\r\nzzz body text with more words',
+                        internaldate: '01-Jan-2020 00:00:00 +0000',
+                        flags: ['\\Flagged']
+                    }
+                ]
+            },
+            '': {
+                folders: {
+                    '\\Back': { messages: ['Subject: a\r\n\r\na'] },
+                    '&BBYEMARA-': { messages: ['Subject: b\r\n\r\nb'] },
+                    Sent: { 'special-use': '\\Sent', messages: ['Subject: s\r\n\r\ns'] }
+                }
+            }
+        }
+    }));
+
+    const run = (commands, callback) => ctx.run(['A1 LOGIN testuser testpass', ...commands, 'ZZ LOGOUT'], resp => callback(resp.toString('binary')));
+
+    // labels are ASTRINGs, system labels are atoms that start with "\"
+    it('sends label names like mailbox names', (t, done) => {
+        run(
+            [
+                'A2 SELECT INBOX',
+                'A3 STORE 1 +X-GM-LABELS ("\\\\Back" "Muy Importante" &BBYEMARA- \\Important "NIL")',
+                'A4 SELECT "\\\\Back"',
+                'A5 FETCH 1 X-GM-LABELS',
+                'A6 SELECT Sent',
+                'A7 FETCH 1 X-GM-LABELS'
+            ],
+            resp => {
+                assert.match(resp, /^\* 1 FETCH \(X-GM-LABELS \(\\Inbox "\\\\Back" "Muy Importante" &BBYEMARA- \\Important "NIL"\)\)\r$/m);
+                // a mailbox name that starts with "\" is not a system label
+                assert.match(resp, /^\* 1 FETCH \(X-GM-LABELS \("\\\\Back"\)\)\r\nA5 OK/m);
+                assert.match(resp, /^\* 1 FETCH \(X-GM-LABELS \(\\Sent\)\)\r\nA7 OK/m);
+                done();
+            }
+        );
+    });
+
+    // RFC 9755: after ENABLE UTF8=ACCEPT mailbox names, and so label names, are UTF-8
+    it('sends and takes label names as UTF-8 after ENABLE UTF8=ACCEPT', (t, done) => {
+        const name = Buffer.from('Жар', 'utf-8').toString('binary');
+        run(
+            [
+                'A2 ENABLE UTF8=ACCEPT',
+                'A3 SELECT "' + name + '"',
+                'A4 FETCH 1 X-GM-LABELS',
+                'A5 STORE 1 X-GM-LABELS ("' + name + '")',
+                'A6 SEARCH X-GM-LABELS "' + name + '"'
+            ],
+            resp => {
+                assert.match(resp, new RegExp('^\\* 1 FETCH \\(X-GM-LABELS \\("' + name + '"\\)\\)\\r\\nA4 OK', 'm'));
+                assert.match(resp, /^A5 OK/m);
+                assert.deepStrictEqual(ctx.server.getMailbox('&BBYEMARA-').messages[0]['X-GM-LABELS'], ['&BBYEMARA-']);
+                assert.match(resp, /^\* SEARCH 1\r\nA6 OK/m);
+                done();
+            }
+        );
+    });
+
+    it('refuses label names that are not valid mailbox names, without changing anything', (t, done) => {
+        run(['A2 SELECT INBOX', 'A3 STORE 1 X-GM-LABELS (fine "&Jjo")', 'A4 FETCH 1 X-GM-LABELS'], resp => {
+            assert.match(resp, /^A3 BAD /m);
+            assert.match(resp, /^\* 1 FETCH \(X-GM-LABELS \(\\Inbox\)\)\r\nA4 OK/m);
+            done();
+        });
+    });
+
+    it('searches by label', (t, done) => {
+        run(['A2 SELECT INBOX', 'A3 STORE 2 +X-GM-LABELS.SILENT (foo)', 'A4 SEARCH X-GM-LABELS foo', 'A5 SEARCH X-GM-LABELS \\inbox'], resp => {
+            assert.match(resp, /^\* SEARCH 2\r\nA4 OK/m);
+            // system labels match without case
+            assert.match(resp, /^\* SEARCH 1 2\r\nA5 OK/m);
+            done();
+        });
+    });
+
+    it('checks X-GM-MSGID and X-GM-THRID search values', (t, done) => {
+        run(['A2 SELECT INBOX', 'A3 SEARCH X-GM-MSGID abc', 'A4 SEARCH X-GM-THRID 18446744073709551616', 'A5 SEARCH X-GM-MSGID 18446744073709551615'], resp => {
+            assert.match(resp, /^A3 BAD /m);
+            assert.match(resp, /^A4 BAD /m);
+            assert.match(resp, /^\* SEARCH\r\nA5 OK/m);
+            done();
+        });
+    });
+
+    it('supports a subset of the Gmail search syntax with X-GM-RAW', (t, done) => {
+        const cases = {
+            'from:bob is:read': '1',
+            'zzz OR hello': '1 2',
+            '-from:bob': '2',
+            'subject:\\"hello world\\" in:inbox': '1',
+            '\\"more words\\"': '2',
+            '(from:bob OR from:alice) -{zzz hello}': '',
+            'rfc822msgid:<x@example.com> larger:10': '2',
+            'smaller:1k is:starred': '2',
+            'before:2021/01/01': '2',
+            'after:2021-01-01': '1',
+            'in:anywhere': '1 2',
+            'label:Muy': '',
+            'http://example.com': ''
+        };
+        const queries = Object.keys(cases);
+        run(['A2 SELECT INBOX'].concat(queries.map((query, i) => 'Q' + i + ' SEARCH X-GM-RAW "' + query + '"')), resp => {
+            queries.forEach((query, i) => {
+                assert.match(resp, new RegExp('^\\* SEARCH' + (cases[query] ? ' ' + cases[query] : '') + '\\r\\nQ' + i + ' OK', 'm'), query);
+            });
+            done();
+        });
+    });
+
+    it('refuses X-GM-RAW queries it can not run', (t, done) => {
+        run(
+            [
+                'A2 SELECT INBOX',
+                'A3 SEARCH X-GM-RAW "has:attachment"',
+                'A4 SEARCH X-GM-RAW "(from:bob"',
+                'A5 SEARCH X-GM-RAW ""',
+                'A6 SEARCH X-GM-RAW "larger:big"',
+                'A7 SEARCH X-GM-RAW "after:2021/02/30"'
+            ],
+            resp => {
+                // unsupported Gmail operators are refused instead of giving a wrong result
+                assert.match(resp, /^A3 NO /m);
+                for (const tag of ['A4', 'A5', 'A6', 'A7']) {
+                    assert.match(resp, new RegExp('^' + tag + ' BAD ', 'm'));
+                }
+                done();
+            }
+        );
+    });
+});
