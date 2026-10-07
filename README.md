@@ -224,7 +224,7 @@ Available commands:
 - **XTOYBIRD CONNECTION** dumps connection internals
 - **XTOYBIRD STORAGE** dumps storage as JSON
 - **XTOYBIRD USERADD "username" "password"** adds or updates user
-- **XTOYBIRD USERDEL "username"** removes an user
+- **XTOYBIRD USERDEL "username"** removes a user
 - **XTOYBIRD SHUTDOWN** Closes the server after the last client disconnects. New connections are rejected.
 
 Example usage for XTOYBIRD STORAGE:
