@@ -1,0 +1,55 @@
+{
+    "INBOX": {
+        "messages": [
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 1\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m1@example.com>\r\n\r\nBody 1\r\n",
+                "internaldate": "06-Oct-2026 10:00:01 +0300",
+                "flags": []
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 2\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m2@example.com>\r\n\r\nBody 2\r\n",
+                "internaldate": "06-Oct-2026 10:00:02 +0300",
+                "flags": []
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 3\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m3@example.com>\r\n\r\nBody 3\r\n",
+                "internaldate": "06-Oct-2026 10:00:03 +0300",
+                "flags": []
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 4\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m4@example.com>\r\n\r\nBody 4\r\n",
+                "internaldate": "06-Oct-2026 10:00:04 +0300",
+                "flags": ["\\Deleted"]
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 5\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m5@example.com>\r\n\r\nBody 5\r\n",
+                "internaldate": "06-Oct-2026 10:00:05 +0300",
+                "flags": ["\\Deleted"]
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 6\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m6@example.com>\r\n\r\nBody 6\r\n",
+                "internaldate": "06-Oct-2026 10:00:06 +0300",
+                "flags": ["\\Deleted"]
+            },
+            {
+                "raw": "From: sender@example.com\r\nTo: receiver@example.com\r\nSubject: message 7\r\nDate: Tue, 06 Oct 2026 10:00:00 +0300\r\nMessage-ID: <m7@example.com>\r\n\r\nBody 7\r\n",
+                "internaldate": "06-Oct-2026 10:00:07 +0300",
+                "flags": ["\\Deleted"]
+            }
+        ]
+    },
+    "": {
+        "separator": "/",
+        "folders": {
+            "Foo": {
+                "messages": [
+                    {
+                        "raw": "From: a@example.com\r\nSubject: foo\r\n\r\nfoo\r\n",
+                        "internaldate": "06-Oct-2026 10:00:00 +0300"
+                    }
+                ]
+            },
+            "Fred": {}
+        }
+    }
+}

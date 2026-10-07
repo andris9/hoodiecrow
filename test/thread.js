@@ -369,7 +369,8 @@ describe('THREAD', () => {
             assert.strictEqual(output, '* THREAD (1)(2)(3)\r\nA1 OK [EXPUNGEISSUED] THREAD completed\r\n');
 
             output = await a.cmd('A2 UID THREAD ORDEREDSUBJECT UTF-8 ALL');
-            assert.match(output, /^\* THREAD \(1\)\(2\)\(3\)\r\n\* 1 EXPUNGE\r\n/);
+            // the EXPUNGE goes first, the expunged UID is not in the result (RFC 2180 section 4)
+            assert.match(output, /^\* 1 EXPUNGE\r\n\* 2 EXISTS\r\n\* THREAD \(2\)\(3\)\r\n/);
 
             output = await a.cmd('A3 THREAD ORDEREDSUBJECT UTF-8 ALL');
             assert.strictEqual(output, '* THREAD (1)(2)\r\nA3 OK THREAD completed\r\n');

@@ -154,10 +154,10 @@ describe('Multiple sessions', () => {
             assert.ok(/^\* SEARCH( \d+)*\r\n/.test(output), output);
             assert.ok(/ 4(\s|$)/.test(lines(output)[0]), 'message 4 is still number 4: ' + output);
 
-            // STORE: no EXPUNGE either, whatever the result
+            // STORE: no EXPUNGE either, message 4 still exists (RFC 2180 section 4.2, see test/multi-access.js)
             output = await a.cmd('STORE 4 +FLAGS (\\Flagged)');
             assert.deepStrictEqual(countResponses(output), []);
-            assert.match(tagged(output), /^T\d+ (OK|NO)/);
+            assert.match(tagged(output), /^T\d+ OK \[EXPUNGEISSUED\]/);
 
             // NOOP delivers the EXPUNGE responses, after that sequence numbers are renumbered
             output = await a.cmd('NOOP');
@@ -485,44 +485,6 @@ describe('Multiple sessions', () => {
             };
             const seen = [await recentIn(a), await recentIn(b)];
             assert.strictEqual(seen.filter(Boolean).length, 1, JSON.stringify(seen));
-        });
-    });
-
-    describe('DELETE and RENAME of a mailbox selected by another session (RFC 2180 3)', () => {
-        it('DELETE leaves the other session usable and hides the mailbox from new sessions', async () => {
-            const a = await open();
-            const b = await open('Foo');
-
-            let output = await a.cmd('DELETE Foo');
-            assert.match(tagged(output), /^T\d+ OK/);
-
-            // RFC 2180 3.2 or 3.3: the other session keeps its view or is disconnected, it does not hang
-            output = await b.cmd('NOOP');
-            assert.match(tagged(output) || '', /^(T\d+ OK|\* BYE)/);
-
-            const c = await open();
-            output = await c.cmd('STATUS Foo (MESSAGES)');
-            assert.match(tagged(output), /^T\d+ NO/);
-            output = await c.cmd('SELECT Foo');
-            assert.match(tagged(output), /^T\d+ NO/);
-            output = await c.cmd('LIST "" Foo');
-            assert.ok(output.indexOf('* LIST') < 0, output);
-        });
-
-        it('RENAME moves the messages and leaves the other session usable', async () => {
-            const a = await open();
-            const b = await open('Foo');
-
-            let output = await a.cmd('RENAME Foo Bar');
-            assert.match(tagged(output), /^T\d+ OK/);
-
-            output = await b.cmd('FETCH 1 (UID)');
-            assert.match(tagged(output), /^T\d+ (OK|NO)/);
-
-            output = await a.cmd('STATUS Bar (MESSAGES UIDNEXT)');
-            assert.ok(output.indexOf('* STATUS Bar (MESSAGES 1 UIDNEXT 2)\r\n') === 0, output);
-            output = await a.cmd('STATUS Foo (MESSAGES)');
-            assert.match(tagged(output), /^T\d+ NO/);
         });
     });
 });

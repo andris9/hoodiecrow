@@ -106,6 +106,13 @@ function openSession(port, callback) {
         raw(data) {
             socket.write(data);
         },
+        // calls back once the server has closed the connection, with the output that was not waited for
+        whenClosed(cb) {
+            if (socket.closed) {
+                return cb(buffer);
+            }
+            socket.once('close', () => cb(buffer));
+        },
         close() {
             if (layer) {
                 layer.end(() => socket.end());
@@ -123,7 +130,6 @@ function openSession(port, callback) {
     socket.on('data', chunk => (layer ? layer.receive(chunk) : onData(chunk)));
     // the server closes leftover connections after every test
     socket.on('error', () => false);
-
     waiting = { match: line => /^\* OK/.test(line), callback: () => callback(session) };
 }
 

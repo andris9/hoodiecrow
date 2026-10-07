@@ -291,9 +291,9 @@ describe('SORT', () => {
             // the EXPUNGE is pending, EXPUNGEISSUED tells the client (RFC 5530 section 3)
             assert.strictEqual(output, '* SORT 4 3 2 1\r\nA1 OK [EXPUNGEISSUED] SORT completed\r\n');
 
-            // UID SORT may deliver the EXPUNGE, after the SORT response that was built with the old numbers
+            // UID SORT delivers the EXPUNGE first, the expunged UID is not in the result (RFC 2180 section 4)
             output = await a.cmd('A2 UID SORT (SUBJECT) UTF-8 ALL');
-            assert.match(output, /^\* SORT 4 3 2 1\r\n\* 2 EXPUNGE\r\n/);
+            assert.match(output, /^\* 2 EXPUNGE\r\n\* 3 EXISTS\r\n\* SORT 4 3 1\r\n/);
             assert.match(output, /^A2 OK UID SORT completed\r\n/m);
 
             output = await a.cmd('A3 SORT (SUBJECT) UTF-8 ALL');
