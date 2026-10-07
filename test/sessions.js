@@ -8,7 +8,7 @@ const { describe, it, afterEach } = require('node:test');
 const assert = require('node:assert');
 const net = require('net');
 const { setupServer } = require('./helpers');
-const { openSession } = require('./helpers/session');
+const { useSessions } = require('./helpers/session');
 
 const message = n => 'From: sender@example.com\r\nSubject: message ' + n + '\r\n\r\nBody ' + n + '\r\n';
 
@@ -80,44 +80,7 @@ const fetchedUids = output =>
 describe('Multiple sessions', () => {
     const ctx = setupServer(() => ({ plugins: ['IDLE', 'UIDPLUS'], storage: storage() }));
 
-    let sessions = [];
-    let tagCounter = 0;
-
-    /**
-     * Opens a logged in session. `session.cmd(line)` sends a command with a fresh tag and resolves with
-     * everything the server sent up to and including the tagged response
-     */
-    const open = mailbox =>
-        new Promise((resolve, reject) => {
-            openSession(ctx.server.address().port, session => {
-                sessions.push(session);
-                const wrapped = {
-                    cmd: line =>
-                        new Promise(done => {
-                            const tag = 'T' + ++tagCounter;
-                            session.run(tag + ' ' + line, output => done(output));
-                        })
-                };
-                wrapped
-                    .cmd('LOGIN testuser testpass')
-                    .then(output => {
-                        assert.match(output, /^T\d+ OK/m);
-                        return mailbox ? wrapped.cmd('SELECT ' + mailbox) : 'T OK [READ-WRITE]';
-                    })
-                    .then(output => {
-                        assert.match(output, /^T\d* OK \[READ-WRITE\]/m);
-                        resolve(wrapped);
-                    })
-                    .catch(reject);
-            });
-        });
-
-    const closeAll = () => {
-        sessions.forEach(session => session.close());
-        sessions = [];
-    };
-
-    afterEach(closeAll);
+    const open = useSessions(ctx);
 
     const tagged = output => lines(output).pop();
 
@@ -335,6 +298,12 @@ describe('Multiple sessions', () => {
     });
 
     describe('IDLE (RFC 2177 3)', () => {
+        let rawClients = [];
+        afterEach(() => {
+            rawClients.forEach(client => client.close());
+            rawClients = [];
+        });
+
         /**
          * Raw connection for IDLE, where the command is ended by an untagged DONE line
          */
@@ -364,7 +333,7 @@ describe('Multiple sessions', () => {
                         }),
                     close: () => socket.end()
                 };
-                sessions.push(client);
+                rawClients.push(client);
                 socket.on('data', chunk => {
                     client.output += chunk.toString('binary');
                 });

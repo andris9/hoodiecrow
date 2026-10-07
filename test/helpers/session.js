@@ -1,6 +1,8 @@
 'use strict';
 
 const net = require('net');
+const assert = require('node:assert');
+const { afterEach } = require('node:test');
 const { validateThen } = require('./validate-responses');
 const { splitResponses, splitAtLiterals } = require('../../lib/framing');
 const DeflateLayer = require('../../lib/deflate-layer');
@@ -133,4 +135,38 @@ function openSession(port, callback) {
     waiting = { match: line => /^\* OK/.test(line), callback: () => callback(session) };
 }
 
-module.exports = { openSession };
+/**
+ * Registers logged in sessions for the tests of the enclosing `describe` block, they are closed after every test.
+ *
+ * `open(mailbox, examine)` opens a session, logs in and selects (or examines) `mailbox` if set, and resolves with
+ * `{ session, cmd }`. `cmd(line)` sends a command with a fresh tag (T1, T2 ...) and resolves with everything the
+ * server sent up to and including the tagged response, `session` is the openSession() session.
+ *
+ * @param {Object} ctx Test context from setupServer()
+ * @return {Function} open
+ */
+function useSessions(ctx) {
+    let sessions = [];
+    let tagCounter = 0;
+
+    afterEach(() => {
+        sessions.forEach(session => session.close());
+        sessions = [];
+    });
+
+    const connect = () => new Promise(resolve => openSession(ctx.server.address().port, resolve));
+
+    return async (mailbox, examine) => {
+        const session = await connect();
+        sessions.push(session);
+        const cmd = line => new Promise(done => session.run('T' + ++tagCounter + ' ' + line, done));
+        assert.match(await cmd('LOGIN testuser testpass'), /^T\d+ OK/m);
+        if (mailbox) {
+            const output = await cmd((examine ? 'EXAMINE ' : 'SELECT ') + mailbox);
+            assert.match(output, examine ? /^T\d+ OK \[READ-ONLY\]/m : /^T\d+ OK \[READ-WRITE\]/m);
+        }
+        return { session, cmd };
+    };
+}
+
+module.exports = { openSession, useSessions };
