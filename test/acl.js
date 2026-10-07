@@ -111,6 +111,17 @@ describe('ACL', () => {
             });
         });
 
+        // RFC 4314 section 7: identifier = astring, so NIL is an identifier like any other atom
+        it('takes NIL as an identifier', (t, done) => {
+            run([OWNER, 'A1 SETACL Lookup NIL lr', 'A2 LISTRIGHTS Lookup Nil', 'A3 DELETEACL Lookup NIL', 'A4 GETACL Lookup'], resp => {
+                assert.match(resp, /^A1 OK /m);
+                assert.match(resp, /^\* LISTRIGHTS Lookup "Nil" "" /m);
+                assert.match(resp, /^A3 OK /m);
+                assert.match(resp, /^\* ACL Lookup testuser lrswipkxteacd bob l\r\nA4 OK/m);
+                done();
+            });
+        });
+
         it('SETACL replaces, adds and removes rights (section 3.1)', (t, done) => {
             run(
                 [

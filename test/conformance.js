@@ -163,6 +163,15 @@ const CASES = [
     ['CANCELUPDATE without CONTEXT=SEARCH', 'selected', ['A1 CANCELUPDATE "A1"'], { A1: 'BAD' }],
     ['ESEARCH without MULTISEARCH', 'selected', ['A1 ESEARCH ALL'], { A1: 'BAD' }],
 
+    // RFC 3501 section 9: NIL is an atom, so it is a valid astring where the grammar has no nstring
+    [
+        'NIL as a mailbox name and a search string',
+        'selected',
+        ['A1 CREATE nil', 'A2 LIST "" nil', 'A3 STATUS NIL (MESSAGES)', 'A4 SEARCH SUBJECT NIL', 'A5 SELECT nil'],
+        { A1: 'OK', A2: 'OK', A3: 'NO', A4: 'OK', A5: 'OK' },
+        ['A1 BAD', 'A2 BAD']
+    ],
+    ['LOGIN with NIL as the user name', 'none', ['A1 LOGIN NIL NIL'], { A1: 'NO' }],
     // Mailbox names use modified UTF-7, RFC 3501 section 5.1.3
     ['CREATE with 8-bit characters', 'auth', ['A1 CREATE {5}\r\ncaf\xe9'], { A1: 'BAD' }],
     ['CREATE without the closing shift', 'auth', ['A1 CREATE "&Jjo!"'], { A1: 'BAD' }],
