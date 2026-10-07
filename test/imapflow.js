@@ -21,6 +21,7 @@ const ALL_PLUGINS = [
     'SEARCHRES',
     'UIDPLUS',
     'MOVE',
+    'PREVIEW',
     'SPECIAL-USE',
     'UNSELECT',
     'LITERALPLUS',
