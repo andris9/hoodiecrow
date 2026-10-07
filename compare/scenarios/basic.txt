@@ -1,4 +1,4 @@
-# Mailbox level commands. Run: node compare/compare.js compare/scenarios/basic.txt
+# Mailbox level commands. Run: node --import tsx compare/compare.ts compare/scenarios/basic.txt
 LIST "" "*"
 LIST "" "%"
 LIST "" "inbox"

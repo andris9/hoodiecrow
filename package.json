@@ -2,24 +2,61 @@
     "name": "imapkit",
     "version": "4.0.3",
     "description": "Scriptable, strictly RFC compliant in-memory IMAP server for testing IMAP clients",
-    "main": "lib/server.js",
+    "type": "module",
+    "main": "./dist/cjs/index.js",
+    "types": "./dist/cjs/index.d.ts",
+    "typesVersions": {
+        "*": {
+            "lib/*": [
+                "dist/cjs/*.d.ts",
+                "dist/cjs/*/index.d.ts"
+            ]
+        }
+    },
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js"
+        },
+        "./lib/server": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js"
+        },
+        "./lib/server.js": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js"
+        },
+        "./lib/*.js": {
+            "import": "./dist/esm/*.js",
+            "require": "./dist/cjs/*.js"
+        },
+        "./lib/*": {
+            "import": "./dist/esm/*.js",
+            "require": "./dist/cjs/*.js"
+        },
+        "./package.json": "./package.json"
+    },
     "bin": {
         "imapkit": "bin/imapkit.js"
     },
     "files": [
         "bin",
         "cert",
-        "lib"
+        "dist"
     ],
     "scripts": {
-        "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-        "test": "npm run lint && npm run test:unit",
-        "test:unit": "node --test test/*.js",
-        "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='lib/**' --test-coverage-lines=94 test/*.js",
-        "lint": "eslint",
+        "build": "node scripts/build.js",
+        "typecheck": "node scripts/build.js --generate-only && tsc -p tsconfig.json",
+        "prepare": "npm run build && (git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true)",
+        "test": "npm run lint && npm run build && npm run test:unit",
+        "test:unit": "node --import tsx --test test/*.test.ts",
+        "test:coverage": "node --import tsx --test --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-exclude='src/cert.ts' --test-coverage-lines=94 test/*.test.ts",
+        "test:bun": "bun test --timeout 60000 test/",
+        "test:deno": "deno test --no-check --sloppy-imports --allow-all test/",
+        "lint": "eslint && npm run typecheck",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "compare": "node compare/compare.js",
+        "compare": "node --import tsx compare/compare.ts",
         "dovecot:start": "bash compare/dovecot.sh start",
         "dovecot:stop": "bash compare/dovecot.sh stop",
         "update": "rm -rf node_modules package-lock.json && ncu -u && npm install"
@@ -46,15 +83,21 @@
     "author": "Postal Systems OÜ",
     "license": "MIT",
     "dependencies": {
-        "imap-handler": "1.3.2",
+        "imap-handler": "1.4.0",
         "smtp-server": "3.19.17"
     },
     "devDependencies": {
         "@eslint/js": "10.0.1",
+        "@types/node": "20.19.43",
+        "@types/smtp-server": "3.5.13",
         "eslint": "10.12.0",
+        "eslint-config-prettier": "10.1.8",
         "globals": "17.13.0",
         "imapflow": "2.2.7",
-        "prettier": "3.9.9"
+        "prettier": "3.9.9",
+        "tsx": "4.23.15",
+        "typescript": "6.0.3",
+        "typescript-eslint": "8.71.1"
     },
     "engines": {
         "node": ">=20.0.0"

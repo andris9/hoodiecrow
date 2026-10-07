@@ -1,0 +1,58 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import { setupServer } from './helpers/index.js';
+
+describe('Create', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['SPECIAL-USE', 'CREATE-SPECIAL-USE']
+    }));
+
+    it('Create success', (t, done) => {
+        const cmds = [
+            'A1 CAPABILITY',
+            'A2 LOGIN testuser testpass',
+            'A3 CREATE MySpecial (USE (\\Sent \\Flagged))',
+            'A4 LIST (SPECIAL-USE) "" "*"',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren \\Sent \\Flagged) "/" "MySpecial"\r\n') >= 0);
+            done();
+        });
+    });
+
+    it('Create fails', (t, done) => {
+        const cmds = ['A1 CAPABILITY', 'A2 LOGIN testuser testpass', 'A3 CREATE MySpecial (USE (\\NotAllowed))', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA3 NO') >= 0);
+            done();
+        });
+    });
+
+    it('Create matches special-use attributes case-insensitively', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 CREATE MySpecial (USE (\\sent))', 'A3 LIST "" "*"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren \\Sent) "/" "MySpecial"\r\n') >= 0, resp);
+            done();
+        });
+    });
+
+    it('Plain create stores no special-use', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 CREATE Plain', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.ok(resp.indexOf('\nA2 OK') >= 0, resp);
+            assert.ok(!('special-use' in ctx.server.getMailbox('Plain')!));
+            done();
+        });
+    });
+});

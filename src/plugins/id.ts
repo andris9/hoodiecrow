@@ -1,0 +1,138 @@
+import { states } from '../command-states.js';
+import type { Attribute, Callback, IMAPConnection, IMAPServer, ParsedCommand } from '../types.js';
+
+/**
+ * @help Adds ID [RFC2971] capability
+ */
+
+export default function idPlugin(server: IMAPServer) {
+    // Register capability, always usable
+    server.registerCapability('ID');
+
+    // Add ID command
+    server.setCommandHandler(
+        'ID',
+        (connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) => {
+            // keys are client supplied, so the object has no prototype
+            const clientList = Object.create(null);
+            let serverList: Attribute[] | null = null;
+            let i;
+            let len;
+            let key = '';
+
+            // Require exactly 1 attribute (NIL or parameter list)
+            if (!parsed.attributes || parsed.attributes.length !== 1) {
+                return sendError('ID expects 1 attribute', connection, parsed, data, callback);
+            }
+            const list = parsed.attributes[0];
+            if ((list && !Array.isArray(list)) || (list && list.length % 2)) {
+                return sendError('ID expects valid parameter list', connection, parsed, data, callback);
+            }
+
+            // RFC 2971 section 3.3: at most 30 field-value pairs
+            if (list && list.length > 60) {
+                return sendError('ID allows at most 30 field-value pairs', connection, parsed, data, callback);
+            }
+
+            // Build client ID object and check validity of the values
+            if (list && list.length) {
+                for (i = 0, len = list.length; i < len; i++) {
+                    if (i % 2 === 0) {
+                        // Handle keys (always strings)
+                        if (list[i] && ['STRING', 'LITERAL'].indexOf(list[i].type) >= 0) {
+                            key = list[i].value;
+                            // RFC 2971 section 3.3: field names are at most 30 octets, case-insensitive and unique
+                            if (key.length > 30) {
+                                return sendError('ID field names can be at most 30 octets', connection, parsed, data, callback);
+                            }
+                            if (Object.keys(clientList).some(existing => existing.toLowerCase() === key.toLowerCase())) {
+                                return sendError('ID field names must not repeat', connection, parsed, data, callback);
+                            }
+                        } else {
+                            return sendError('ID expects valid parameter list', connection, parsed, data, callback);
+                        }
+                    } else {
+                        // Handle values (string or NIL)
+                        if (!list[i] || ['STRING', 'LITERAL'].indexOf(list[i].type) >= 0) {
+                            if (list[i] && list[i].value.length > 1024) {
+                                return sendError('ID values can be at most 1024 octets', connection, parsed, data, callback);
+                            }
+                            clientList[key] = (list[i] && list[i].value) || null;
+                        } else {
+                            return sendError('ID expects valid parameter list', connection, parsed, data, callback);
+                        }
+                    }
+                }
+            }
+
+            // Build response object from server options
+            if (server.options.id) {
+                const ids: Attribute[] = [];
+                serverList = ids;
+                Object.keys(server.options.id).forEach(key => {
+                    ids.push({
+                        type: 'STRING',
+                        value: key
+                    });
+                    ids.push({
+                        type: 'STRING',
+                        value: (server.options.id[key] || '').toString()
+                    });
+                });
+            }
+
+            // Send untagged ID response
+            connection.send(
+                {
+                    tag: '*',
+                    command: 'ID',
+                    attributes: [serverList]
+                },
+                'ID',
+                parsed,
+                data,
+                clientList
+            );
+
+            // Send tagged response
+            connection.send(
+                {
+                    tag: parsed.tag,
+                    command: 'OK',
+                    attributes: [
+                        {
+                            type: 'TEXT',
+                            value: 'ID command completed'
+                        }
+                    ]
+                },
+                'ID',
+                parsed,
+                data,
+                clientList
+            );
+
+            callback();
+        },
+        { states: states.ANY }
+    );
+}
+
+function sendError(message: string, connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) {
+    connection.send(
+        {
+            tag: parsed.tag,
+            command: 'BAD',
+            attributes: [
+                {
+                    type: 'TEXT',
+                    value: message
+                }
+            ]
+        },
+        'INVALID COMMAND',
+        parsed,
+        data
+    );
+    return callback();
+}

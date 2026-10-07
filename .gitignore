@@ -3,3 +3,6 @@ node_modules
 imaplog*
 *.log
 .claude/*
+dist/
+*.tsbuildinfo
+src/cert.ts

@@ -1,3 +1,5 @@
 package-lock.json
 CHANGELOG.md
 .claude
+dist
+src/cert.ts

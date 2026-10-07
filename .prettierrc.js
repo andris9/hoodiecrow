@@ -1,6 +1,4 @@
-'use strict';
-
-module.exports = {
+export default {
     printWidth: 160,
     tabWidth: 4,
     singleQuote: true,

@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-'use strict';
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { parseArgs } = require('node:util');
-const imapkit = require('../lib/server');
-const packageData = require('../package.json');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import imapkit from '../dist/esm/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
 
 // Non-strict so that boolean flags also accept an explicit value (`--secure=true`)
 const { values: argv } = parseArgs({
@@ -65,15 +67,9 @@ const port = argv.port || process.env.IMAPKIT_PORT || config.port || (secure ? 9
 
 if (argv.help) {
     const help = fs.readFileSync(path.join(__dirname, 'help.txt'), 'utf-8');
-    const pluginsDir = path.join(__dirname, '..', 'lib', 'plugins');
-
-    const plugins = fs.readdirSync(pluginsDir).map(fileName => {
-        const file = fs.readFileSync(path.join(pluginsDir, fileName), 'utf-8');
-        return {
-            key: fileName.replace(/\.js$/i, '').toUpperCase(),
-            value: Array.from(file.matchAll(/@help (.*)/gim), match => match[1])
-        };
-    });
+    // the @help lines of every plugin, collected by the build (scripts/build.js)
+    const pluginHelp = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'dist', 'plugin-help.json'), 'utf-8'));
+    const plugins = Object.keys(pluginHelp).map(key => ({ key, value: pluginHelp[key] }));
 
     const indent = Math.max(0, ...plugins.map(plugin => plugin.key.length)) + 2;
     const pluginText = plugins.flatMap(plugin => [
@@ -103,6 +99,6 @@ if (argv.help) {
 
     if (smtpPort) {
         // loaded on demand, smtp-server is only needed when SMTP is enabled
-        require('../lib/smtp-listener').startSMTPServer(smtpPort, server);
+        import('../dist/esm/smtp-listener.js').then(({ startSMTPServer }) => startSMTPServer(smtpPort, server));
     }
 }

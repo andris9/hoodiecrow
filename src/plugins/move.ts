@@ -1,0 +1,109 @@
+import { copyToMailbox } from '../commands/copy.js';
+import { states } from '../command-states.js';
+import type { Callback, IMAPConnection, IMAPServer, Mailbox, ParsedCommand } from '../types.js';
+
+/**
+ * @help Adds MOVE [RFC6851] capability
+ *
+ * MOVE: http://tools.ietf.org/html/rfc6851
+ *
+ * Additional commands:
+ * - MOVE
+ * - UID MOVE
+ */
+export default function movePlugin(server: IMAPServer) {
+    server.registerCapability('MOVE');
+
+    const moveHandler = function (uidMode: boolean, connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) {
+        function uidify(str: string) {
+            if (uidMode) {
+                return 'UID ' + str;
+            }
+            return str;
+        }
+
+        if (
+            !parsed.attributes ||
+            parsed.attributes.length !== 2 ||
+            !parsed.attributes[0] ||
+            ['ATOM', 'SEQUENCE'].indexOf(parsed.attributes[0].type) < 0 ||
+            !parsed.attributes[1] ||
+            ['ATOM', 'STRING', 'LITERAL'].indexOf(parsed.attributes[1].type) < 0
+        ) {
+            connection.send(
+                {
+                    tag: parsed.tag,
+                    command: 'BAD',
+                    attributes: [
+                        {
+                            type: 'TEXT',
+                            value: uidify('MOVE expects sequence set and a mailbox name')
+                        }
+                    ]
+                },
+                'INVALID COMMAND',
+                parsed,
+                data
+            );
+            return callback();
+        }
+
+        // MOVE expunges messages from the source mailbox, which is not allowed after EXAMINE
+        if (connection.refuseReadOnly(parsed, data, uidify('MOVE FAIL'))) {
+            return callback();
+        }
+
+        const result = copyToMailbox(connection, parsed, data, uidMode, uidify('MOVE FAIL'), true);
+        if (!result) {
+            return callback();
+        }
+
+        // Hook for UIDPLUS to generate the untagged COPYUID response (that wants
+        // to happen prior to the EXPUNGEs).  If the UIDPLUS extension is not
+        // active, this will not happen.
+        connection.send(
+            {
+                tag: '*',
+                command: 'OK',
+                attributes: [
+                    {
+                        type: 'TEXT',
+                        value: 'Copied'
+                    }
+                ],
+                skipResponse: true
+            },
+            uidify('MOVE COPYUID'),
+            parsed,
+            data,
+            result
+        );
+
+        // Expunge the messages from the source folder. When moving into the selected mailbox,
+        // the copies were already announced with EXISTS responses
+        connection.expungeSpecificMessages(connection.selectedMailbox as Mailbox, result.messages, false, true, !!parsed.highestFirst);
+
+        connection.send(
+            {
+                tag: parsed.tag,
+                command: 'OK',
+                attributes: [
+                    {
+                        type: 'TEXT',
+                        value: 'Done'
+                    }
+                ]
+            },
+            uidify('MOVE OK'),
+            parsed,
+            data
+        );
+        callback();
+    };
+
+    // RFC 6851 section 3.1: valid only in the selected state, the second argument is the target mailbox
+    // MOVE takes a sequence set of message numbers, UID MOVE of UIDs
+    const options = { states: states.SELECTED, mailboxArguments: [1] };
+    server.setCommandHandler('MOVE', moveHandler.bind(null, false), Object.assign({ sequenceSet: 0 }, options));
+    server.setCommandHandler('UID MOVE', moveHandler.bind(null, true), options);
+}

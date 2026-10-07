@@ -42,10 +42,20 @@ npm install imapkit
 Create and start an IMAP server
 
 ```javascript
-const imapkit = require('imapkit');
+import imapkit from 'imapkit';
+// or with CommonJS: const imapkit = require('imapkit');
+
 const server = imapkit(options);
 server.listen(1143);
 ```
+
+ImapKit is written in TypeScript and ships both ES modules and CommonJS, each with type declarations. The package exports the `imapkit(options)` factory as its default export, the `IMAPServer` and `IMAPConnection` classes, and types such as `IMAPServerOptions`, `Plugin`, `CommandHandler`, `Mailbox` and `Message` for writing plugins:
+
+```typescript
+import imapkit, { type IMAPServerOptions, type Plugin } from 'imapkit';
+```
+
+ImapKit needs Node.js 20 or newer. It also runs on the latest [Bun](https://bun.sh/) and [Deno](https://deno.com/) releases (`npm:imapkit` in Deno), CI runs the whole test suite on both.
 
 See [complete.js](https://github.com/postalsys/imapkit/blob/master/examples/complete.js) for an example.
 
@@ -55,7 +65,7 @@ ImapKit is a single user, multiple connection IMAP server. Changes made over IMA
 
 Several clients can connect to the server simultaneously but all the clients share the same user account, even if login credentials are different. The ACL plugin can limit what users other than the owner can do (see [ACL](#acl)).
 
-ImapKit is extendable: any command can be overridden and plugins can be added (see [Creating custom plugins](#creating-custom-plugins), and `lib/commands` and `lib/plugins` for the built-in commands and plugins).
+ImapKit is extendable: any command can be overridden and plugins can be added (see [Creating custom plugins](#creating-custom-plugins), and `src/commands` and `src/plugins` for the built-in commands and plugins).
 
 ## Strict by design
 
@@ -273,14 +283,16 @@ S: A1 OK XTOYBIRD Completed
 
 # Running tests
 
-Tests use the built-in Node.js test runner, linting uses ESLint and formatting uses Prettier.
+The source is TypeScript in `src/`, `npm run build` compiles it into `dist/esm` (ES modules) and `dist/cjs` (CommonJS). Tests use the built-in Node.js test runner (TypeScript test files run through [tsx](https://tsx.is/)), linting uses ESLint and the TypeScript compiler, and formatting uses Prettier.
 
     npm install
-    npm test                    # lint + all tests
-    npm run test:unit           # tests only
-    npm run test:coverage       # tests with coverage (Node.js 22.8 or newer)
-    node --test test/fetch.js   # a single test file
-    npm run format              # apply Prettier formatting
+    npm test                                       # lint, type check, build and all tests
+    npm run test:unit                              # tests only
+    npm run test:coverage                          # tests with coverage (Node.js 22.8 or newer)
+    npm run test:bun                               # tests under Bun
+    npm run test:deno                              # tests under Deno
+    node --import tsx --test test/fetch.test.ts    # a single test file
+    npm run format                                 # apply Prettier formatting
 
 `compare/` holds a development tool that replays the same IMAP commands against ImapKit and a Dovecot server running in Docker and shows where the responses differ (`npm run dovecot:start`, then `npm run compare -- compare/scenarios/fetch.txt`). See [CLAUDE.md](CLAUDE.md#comparing-with-dovecot) for details.
 
@@ -351,24 +363,25 @@ storage.json:
 Creating your tests in Node.js is a piece of cake, you do not even need to run the `imapkit` command. Here is a sample test using the built-in [Node.js test runner](https://nodejs.org/api/test.html).
 
 ```javascript
-const { describe, it, beforeEach, afterEach } = require('node:test');
-const imapkit = require('imapkit');
-const myIMAPClient = require('../my-imap-client');
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import imapkit from 'imapkit';
+import myIMAPClient from '../my-imap-client.js';
 
 describe('IMAP tests', () => {
     let server;
 
     // Executed before every test, creates a new blank IMAP server
     // on a random free port
-    beforeEach((t, done) => {
-        server = imapkit();
-        server.listen(0, done);
-    });
+    beforeEach(
+        () =>
+            new Promise(resolve => {
+                server = imapkit();
+                server.listen(0, resolve);
+            })
+    );
 
     // Executed after every test, closes the IMAP server created for the test
-    afterEach((t, done) => {
-        server.close(done);
-    });
+    afterEach(() => new Promise(resolve => server.close(resolve)));
 
     // A new IMAP client is instantiated that tries to connect to the
     // IMAP server. If the client is connected the test is considered as passed.
@@ -558,7 +571,7 @@ connection.inputHandler = function(line){
 }
 ```
 
-See [idle.js](https://github.com/postalsys/imapkit/blob/master/lib/plugins/idle.js) for an example
+See [idle.ts](https://github.com/postalsys/imapkit/blob/master/src/plugins/idle.ts) for an example
 
 Raw output, such as a `+` continuation request, goes through `connection.write(data)`, and `connection.end()` closes the connection once all output is written. Do not use `connection.socket` for this, a COMPRESS layer (`connection.transport`) sits between the protocol and the socket.
 

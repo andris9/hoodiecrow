@@ -1,6 +1,4 @@
-'use strict';
-
-const imapkit = require('../lib/server');
+import imapkit from 'imapkit';
 
 imapkit({
     plugins: ['IDLE', myAwesomePlugin]

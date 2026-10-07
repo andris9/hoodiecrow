@@ -62,8 +62,47 @@ jobs:
             - name: Run tests
               if: ${{ matrix.node != '24' }}
               run: npm run test:unit
-            # Node 24 runs the same tests with coverage; the run fails if line coverage of lib/
+            # Node 24 runs the same tests with coverage; the run fails if line coverage of src/
             # drops below the threshold in package.json (measured at 86.8% when it was added)
             - name: Run tests with coverage
               if: ${{ matrix.node == '24' }}
               run: npm run test:coverage
+
+    # The package is also used from Bun and Deno: the same tests run under their latest releases
+    bun:
+        name: Tests (Bun)
+        if: ${{ !startsWith(github.ref_name, 'release-please--') && !startsWith(github.head_ref, 'release-please--') }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v6
+            - name: Use Node.js 24
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+            - run: npm ci
+            - name: Run tests
+              run: npm run test:bun
+
+    deno:
+        name: Tests (Deno)
+        if: ${{ !startsWith(github.ref_name, 'release-please--') && !startsWith(github.head_ref, 'release-please--') }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@v6
+            - name: Use Node.js 24
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
+            - uses: denoland/setup-deno@v2
+              with:
+                  deno-version: v2.x
+            - run: npm ci
+            - name: Run tests
+              run: npm run test:deno

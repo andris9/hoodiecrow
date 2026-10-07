@@ -67,5 +67,6 @@ jobs:
               with:
                   node-version: 24
                   registry-url: 'https://registry.npmjs.org'
-            # No install step: there is no build, the package is published as-is
+            # installs the dev dependencies, npm publish then builds dist/ from src/ through the prepare script
+            - run: npm ci --ignore-scripts
             - run: npm publish --provenance --access public
