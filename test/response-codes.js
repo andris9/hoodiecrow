@@ -91,7 +91,9 @@ describe('RFC 5530 response codes', () => {
             // the EXPUNGE response must wait (RFC 3501 section 7.4.1), the code tells the client to send NOOP
             assert.match(await a.cmd('A1 FETCH 1:3 FLAGS'), /^A1 OK \[EXPUNGEISSUED\] /m);
             assert.match(await a.cmd('A2 SEARCH ALL'), /^\* SEARCH 1 2 3\r\nA2 OK \[EXPUNGEISSUED\] /m);
-            assert.match(await a.cmd('A3 STORE 1 +FLAGS (\\Seen)'), /^A3 NO \[EXPUNGEISSUED\] /m);
+            assert.match(await a.cmd('A3 STORE 1 +FLAGS (\\Seen)'), /^A3 OK \[EXPUNGEISSUED\] /m);
+            // RFC 2180 section 4.2.2: STORE on the expunged message itself fails
+            assert.match(await a.cmd('A3 STORE 2 +FLAGS (\\Seen)'), /^A3 NO \[EXPUNGEISSUED\] /m);
             // UID commands deliver the EXPUNGE
             const output = await a.cmd('A4 UID FETCH 1 FLAGS');
             assert.match(output, /^\* 2 EXPUNGE\r$/m);

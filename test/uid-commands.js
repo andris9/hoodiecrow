@@ -45,23 +45,23 @@ describe('UID commands share the logic of their non-UID twins', () => {
         });
     }
 
-    it('UID FETCH uses the session snapshot while EXPUNGE is pending', (t, done) => {
-        afterForeignExpunge('A3 UID FETCH 3 (FLAGS)', resp => {
-            assert.ok(resp.indexOf('* 3 FETCH (FLAGS () UID 3)\r\n* 1 EXPUNGE\r\n') >= 0, resp);
-            assert.ok(resp.indexOf('\r\nA3 OK') >= 0);
+    // RFC 3501 section 7.4.1 allows EXPUNGE during UID commands, the pending one is reported before the FETCH
+    // responses that use the new numbers (RFC 2180 section 4, see test/multi-access.js)
+    it('UID FETCH reports a pending EXPUNGE first', (t, done) => {
+        afterForeignExpunge('A3 UID FETCH 1,3 (FLAGS)', resp => {
+            assert.ok(resp.indexOf('* 1 EXPUNGE\r\n* 2 EXISTS\r\n* 2 FETCH (FLAGS () UID 3)\r\nA3 OK') === 0, resp);
             done();
         });
     });
 
-    it('UID STORE uses the session snapshot while EXPUNGE is pending', (t, done) => {
-        afterForeignExpunge('A3 UID STORE 3 +FLAGS (\\Flagged)', resp => {
-            assert.ok(resp.indexOf('* 3 FETCH (FLAGS (\\Flagged) UID 3') >= 0, resp);
-            assert.ok(resp.indexOf('* 1 EXPUNGE\r\n') >= 0);
-            assert.ok(resp.indexOf('\r\nA3 OK') >= 0);
+    it('UID STORE reports a pending EXPUNGE first', (t, done) => {
+        afterForeignExpunge('A3 UID STORE 1,3 +FLAGS (\\Flagged)', resp => {
+            assert.ok(resp.indexOf('* 1 EXPUNGE\r\n* 2 EXISTS\r\n* 2 FETCH (FLAGS (\\Flagged) UID 3)\r\nA3 OK') === 0, resp);
             done();
         });
     });
 
+    // message numbers in UID SEARCH criteria refer to the messages before the EXPUNGE (RFC 9051 section 5.5)
     it('UID SEARCH uses the session snapshot while EXPUNGE is pending', (t, done) => {
         afterForeignExpunge('A3 UID SEARCH 1:3', resp => {
             assert.ok(resp.indexOf('* SEARCH 1 2 3\r\n') >= 0, resp);

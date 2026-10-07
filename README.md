@@ -98,6 +98,20 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 
 Responses follow the grammar strictly too: strings that can not be quoted are sent as literals. Failures carry the RFC 5530 response codes that RFC 9051 section 7.1 lists, in both protocol revisions: `AUTHENTICATIONFAILED` and `AUTHORIZATIONFAILED` for logins, `ALREADYEXISTS`, `NONEXISTENT`, `CANNOT`, `HASCHILDREN` and `NOPERM` for mailbox operations, `TRYCREATE` when the target of APPEND, COPY or MOVE does not exist or is a `\Noselect` name, `CLIENTBUG` for `STATUS` on the selected mailbox and for `STORE`, `EXPUNGE`, `UID EXPUNGE`, `MOVE` and `REPLACE` in a mailbox selected read-only, and `EXPUNGEISSUED` when FETCH, STORE, SEARCH, SORT or THREAD completes while the EXPUNGE of another session can not be reported yet.
 
+Some client side recommendations of RFC 2683 are checked too: `STATUS` on the selected mailbox gets `CLIENTBUG` (section 3.1.1), mailbox names must be valid modified UTF-7 (section 3.4.2), and EXPUNGE or STORE after EXAMINE, which answered `[READ-ONLY]`, get `NO` (section 3.3.2). Command lines are not limited to the 1000 octets that section 3.2.1.5 suggests for clients, the server accepts up to 1 MiB (the section asks servers for at least 8000 octets) and answers a longer line with `BAD`.
+
+## Multiple sessions
+
+Hoodiecrow follows these of the strategies that RFC 2180 (IMAP4 Multi-Accessed Mailbox Practice) allows, so a client can be tested against one consistent behavior:
+
+- a session that has not been told about the EXPUNGE of another session yet keeps its message numbers. FETCH still returns the expunged messages (section 4.1.1) and SEARCH still finds them (section 4.3), both end with `OK [EXPUNGEISSUED]`
+- STORE does not change expunged messages: with `.SILENT` it ends with `OK` (section 4.2.1), otherwise the other messages are stored and get their FETCH responses, and the tagged response is `NO [EXPUNGEISSUED]` (sections 4.2.2 and 4.2.3; with CONDSTORE `NO [MODIFIED ...]` when that applies, RFC 7162 section 3.1.3)
+- COPY and MOVE of a set that includes an expunged message copy nothing and return the pending EXPUNGE responses with `NO [EXPUNGEISSUED]` (section 4.4.1)
+- UID commands report the pending EXPUNGE responses before they run (RFC 3501 section 7.4.1), the UIDs of the expunged messages then no longer exist and are ignored (RFC 3501 section 6.4.8). UID SEARCH with message numbers in its criteria still uses the old numbers
+- DELETE of a mailbox that other sessions have selected disconnects them with `* BYE` (section 3.3)
+- RENAME keeps the messages of the mailbox under the new name, sessions that have it selected keep working, the old name no longer exists (section 3.4)
+- a session that ends without LOGOUT or CLOSE does not expunge anything (RFC 2683 section 3.1.2), and there is no inactivity timeout
+
 ## Authentication
 
 An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
@@ -258,11 +272,10 @@ S: A1 OK XTOYBIRD Completed
 
 # Known issues
 
-- **STORE** does not emit notifications to other clients
 - **MODSEQ** updates are not notified
 - **addr-adl** (at-domain-list) values are not supported, NIL is always used
 - **anonymous namespaces** are not supported
-- **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
+- **LIST** does not insert a hierarchy delimiter between a reference without one and the mailbox name (RFC 2683 section 3.4.9 recommends it), the two are concatenated as RFC 9051 section 6.3.9 describes, like Dovecot does
 - **CHARSET** values other than US-ASCII and UTF-8 are not supported
 
 # Running tests

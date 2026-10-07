@@ -1,0 +1,32 @@
+# RFC 2180 multi-accessed mailbox practice: session 2 expunges messages 4:7 (the scenario of section 4.1),
+# session 1 uses them before it was told. Run with:
+#   npm run compare -- --storage compare/storage-multi-access.json --plugin MOVE,UIDPLUS compare/scenarios/multi-access.txt
+# Dovecot keeps changing the flags of expunged messages in STORE, hoodiecrow follows sections 4.2.1 to 4.2.3.
+# Dovecot keeps expunged UIDs in UID FETCH, UID COPY and UID MOVE (NO [EXPUNGEISSUED]), hoodiecrow reports the
+# pending EXPUNGE responses first and ignores those UIDs (RFC 3501 section 6.4.8).
+1: SELECT INBOX
+2: SELECT INBOX
+2: EXPUNGE
+# 4.1.1: expunged messages can still be fetched
+1: FETCH 3:5 (UID FLAGS)
+1: FETCH 4 BODY.PEEK[HEADER.FIELDS (SUBJECT)]
+# 4.3
+1: SEARCH DELETED
+# 4.2.1, 4.2.2, 4.2.3
+1: STORE 1:7 +FLAGS.SILENT (\Seen)
+1: STORE 5:7 +FLAGS (\Flagged)
+1: STORE 1:7 +FLAGS (\Answered)
+# 4.4.1: COPY fails and returns the pending EXPUNGE responses
+1: COPY 2,4,6 Fred
+1: STATUS Fred (MESSAGES)
+# UID commands after another expunge
+2: STORE 3 +FLAGS (\Deleted)
+2: EXPUNGE
+1: UID FETCH 1:* (FLAGS)
+2: STORE 2 +FLAGS (\Deleted)
+2: EXPUNGE
+1: UID COPY 1:2 Fred
+# 3.3: DELETE of a mailbox selected in another session
+2: SELECT Foo
+1: DELETE Foo
+2: NOOP
