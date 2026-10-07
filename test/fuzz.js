@@ -55,7 +55,10 @@ const PLUGINS = [
     'SORT',
     'SORT=DISPLAY',
     'THREAD=ORDEREDSUBJECT',
-    'THREAD=REFERENCES'
+    'THREAD=REFERENCES',
+    'QUOTA',
+    'OBJECTID',
+    'SAVEDATE'
 ];
 
 const MESSAGE = 'From: sender@example.com\r\nTo: rcpt@example.com\r\nSubject: hello\r\nContent-Type: text/plain\r\n\r\nHello world!\r\n';
@@ -113,6 +116,9 @@ const CORPUS = [
     { state: 'auth', input: 'C1 ENABLE METADATA\r\nC2 SETMETADATA INBOX (/private/comment "hello" /shared/comment {5}\r\nworld)\r\n' },
     { state: 'auth', input: 'C1 GETMETADATA (MAXSIZE 1024 DEPTH infinity) "" (/shared /private/comment)\r\n' },
     { state: 'auth', input: 'C1 SETMETADATA "" (/shared/vendor/vendor.example/x NIL)\r\nC2 GETMETADATA (DEPTH 1) Sent /private\r\n' },
+    { state: 'auth', input: 'C1 GETQUOTAROOT INBOX\r\nC2 GETQUOTA "User quota"\r\n' },
+    { state: 'auth', input: 'C1 SETQUOTA "User quota" (STORAGE 1 MESSAGE 4 MAILBOX 3)\r\n' },
+    { state: 'auth', input: 'C1 STATUS INBOX (DELETED DELETED-STORAGE MAILBOXID)\r\n' },
     { state: 'selected', input: 'C1 FETCH 1:* (FLAGS UID INTERNALDATE RFC822.SIZE)\r\n' },
     { state: 'selected', input: 'C1 FETCH 1 (BODY.PEEK[HEADER.FIELDS (Subject From)] BODY[TEXT]<0.5>)\r\n' },
     { state: 'selected', input: 'C1 FETCH 3 (BODYSTRUCTURE ENVELOPE BODY[1.MIME] BODY[2]<2.3>)\r\n' },
@@ -139,6 +145,8 @@ const CORPUS = [
     { state: 'selected', input: 'C1 UID SORT (ARRIVAL CC TO SIZE REVERSE DISPLAYTO) "US-ASCII" ALL\r\n' },
     { state: 'selected', input: 'C1 THREAD REFERENCES UTF-8 NOT DELETED\r\n' },
     { state: 'selected', input: 'C1 UID THREAD ORDEREDSUBJECT US-ASCII SUBJECT {5}\r\nhello\r\n' },
+    { state: 'selected', input: 'C1 FETCH 1:* (EMAILID THREADID SAVEDATE)\r\n' },
+    { state: 'selected', input: 'C1 SEARCH OR EMAILID M1 THREADID T2 SAVEDSINCE 1-Jan-2020 SAVEDATESUPPORTED\r\n' },
     { state: 'selected', input: 'C1 COPY 1:2 Archive\r\n' },
     { state: 'selected', input: 'C1 UID COPY 1 "Archive"\r\n' },
     { state: 'selected', input: 'C1 MOVE 2 Archive\r\n' },

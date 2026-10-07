@@ -16,7 +16,7 @@ const CR = 0x0d;
 
 // Untagged response names hoodiecrow may send. RFC 3501 section 9 (response-data, mailbox-data,
 // capability-data) plus the extensions it implements: ENABLED (RFC 5161), ID (RFC 2971),
-// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464), SORT and THREAD (RFC 5256). "X" prefixed names are
+// NAMESPACE (RFC 2342), ESEARCH (RFC 4731), VANISHED (RFC 7162), METADATA (RFC 5464), SORT and THREAD (RFC 5256), QUOTA and QUOTAROOT (RFC 9208). "X" prefixed names are
 // experimental extensions (RFC 3501 section 6.5.1 allows X commands, and their responses).
 const UNTAGGED = new Set([
     'OK',
@@ -37,7 +37,9 @@ const UNTAGGED = new Set([
     'VANISHED',
     'METADATA',
     'SORT',
-    'THREAD'
+    'THREAD',
+    'QUOTA',
+    'QUOTAROOT'
 ]);
 
 // RFC 3501 section 9: message-data uses nz-number, EXISTS and RECENT use number
@@ -52,6 +54,8 @@ const NUMERIC = {
 const ATOM_RE = /^(?:(?![(){%*"\\\]])[!-~])+$/;
 
 const NUMBER_RE = /^[0-9]+$/;
+// RFC 8474 section 7: objectid = 1*255(ALPHA / DIGIT / "_" / "-")
+const OBJECTID_RE = /^[A-Za-z0-9_-]{1,255}$/;
 const NZ_NUMBER_RE = /^[1-9][0-9]*$/;
 
 /**
@@ -223,6 +227,10 @@ function checkMailboxList(name, attrs, response) {
     }
 }
 
+function isNumber(attr) {
+    return !!attr && attr.type === 'ATOM' && NUMBER_RE.test(attr.value);
+}
+
 function checkResponse(response, parsed) {
     const first = response.lines[0].toString('binary');
 
@@ -302,7 +310,8 @@ function checkResponse(response, parsed) {
 
     if (name === 'STATUS') {
         // RFC 3501 section 9: "STATUS" SP mailbox SP "(" [status-att-list] ")", every status-att-val is
-        // an item name and a number (RFC 8438 section 4: SIZE is a number64)
+        // an item name and a number (RFC 8438 section 4: SIZE is a number64), except
+        // RFC 8474 section 7: status-att-val =/ "MAILBOXID" SP "(" objectid ")"
         const attrs = parsed.attributes || [];
         if (attrs.length !== 2 || !isString(attrs[0]) || !Array.isArray(attrs[1]) || attrs[1].length % 2) {
             fail('STATUS response must be a mailbox and a list of item and value pairs', response.text);
@@ -310,6 +319,12 @@ function checkResponse(response, parsed) {
         for (let i = 0; i < attrs[1].length; i += 2) {
             const item = attrs[1][i];
             const value = attrs[1][i + 1];
+            if (item && String(item.value).toUpperCase() === 'MAILBOXID') {
+                if (!Array.isArray(value) || value.length !== 1 || !value[0] || value[0].type !== 'ATOM' || !OBJECTID_RE.test(value[0].value)) {
+                    fail('STATUS MAILBOXID must be a parenthesized object identifier', response.text);
+                }
+                continue;
+            }
             if (!item || item.type !== 'ATOM' || !ATOM_RE.test(item.value) || !value || value.type !== 'ATOM' || !NUMBER_RE.test(value.value)) {
                 fail('STATUS response items must be atoms with numeric values', response.text);
             }
@@ -327,6 +342,28 @@ function checkResponse(response, parsed) {
 
     if (name === 'THREAD' && (response.lines.length > 1 || !isThreadData(first.replace(/^\* THREAD/i, '')))) {
         fail('THREAD response does not match the thread-data grammar', response.text);
+    }
+
+    if (name === 'QUOTA') {
+        // RFC 9208 section 7: "QUOTA" SP quota-root-name SP quota-list, quota-resource = resource-name SP resource-usage SP resource-limit
+        const attrs = parsed.attributes || [];
+        const list = attrs[1];
+        if (attrs.length !== 2 || !isString(attrs[0]) || !Array.isArray(list) || list.length % 3) {
+            fail('QUOTA response must have a quota root name and a list of resource triplets', response.text);
+        }
+        for (let i = 0; i < list.length; i += 3) {
+            if (!list[i] || list[i].type !== 'ATOM' || !ATOM_RE.test(list[i].value) || !isNumber(list[i + 1]) || !isNumber(list[i + 2])) {
+                fail('QUOTA resource must be an atom and two numbers', response.text);
+            }
+        }
+    }
+
+    if (name === 'QUOTAROOT') {
+        // RFC 9208 section 7: "QUOTAROOT" SP mailbox *(SP quota-root-name)
+        const attrs = parsed.attributes || [];
+        if (!attrs.length || !attrs.every(isString)) {
+            fail('QUOTAROOT response must have a mailbox name and quota root names', response.text);
+        }
     }
 
     if (name === 'SEARCH') {

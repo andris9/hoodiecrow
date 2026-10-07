@@ -33,7 +33,10 @@ const ALL_PLUGINS = [
     'METADATA',
     'SORT=DISPLAY',
     'THREAD=ORDEREDSUBJECT',
-    'THREAD=REFERENCES'
+    'THREAD=REFERENCES',
+    'QUOTA',
+    'OBJECTID',
+    'SAVEDATE'
 ];
 
 const ATTACHMENT = Buffer.from(Array.from({ length: 300 }, (v, i) => (i * 7) % 256));
@@ -195,7 +198,12 @@ describe('ImapFlow', () => {
         const log = [];
         const ctx = setupServer(() => {
             log.length = 0;
-            return { plugins: ALL_PLUGINS.concat(recorder(log)), id: { name: 'hoodiecrow' }, storage: storage() };
+            return {
+                plugins: ALL_PLUGINS.concat(recorder(log)),
+                id: { name: 'hoodiecrow' },
+                quota: { STORAGE: 100, MESSAGE: 10 },
+                storage: storage()
+            };
         });
 
         it('authenticates with AUTHENTICATE PLAIN and sees the extension capabilities', async () => {
@@ -569,7 +577,8 @@ describe('ImapFlow', () => {
         it('creates, renames, subscribes and deletes mailboxes', async () => {
             const client = await connect(ctx);
 
-            assert.deepStrictEqual(await client.mailboxCreate('Projects/Alpha'), { path: 'Projects/Alpha', created: true });
+            const created = await client.mailboxCreate('Projects/Alpha');
+            assert.deepStrictEqual({ path: created.path, created: created.created }, { path: 'Projects/Alpha', created: true });
             // NO [ALREADYEXISTS] (RFC 5530) lets ImapFlow report an existing mailbox instead of an error
             assert.strictEqual((await client.mailboxCreate('Projects/Alpha')).created, false);
             assert.deepStrictEqual(await client.mailboxRename('Projects', 'Work'), { path: 'Projects', newPath: 'Work' });
@@ -685,13 +694,48 @@ describe('ImapFlow', () => {
             );
         });
 
-        it('reads Gmail labels and message ids with X-GM-EXT-1', async () => {
+        it('reads Gmail labels with X-GM-EXT-1', async () => {
             const client = await connect(ctx);
             await client.mailboxOpen('INBOX');
             const messages = await fetchAll(client, '1:*', { uid: true, labels: true });
+            assert.ok(messages[0].labels.has('\\Inbox'));
+        });
+
+        // ImapFlow prefers OBJECTID (RFC 8474) over X-GM-MSGID and X-GM-THRID
+        it('reads message, thread and mailbox ids with OBJECTID', async () => {
+            const client = await connect(ctx);
+            const mailbox = await client.mailboxOpen('INBOX');
+            assert.match(mailbox.mailboxId, /^F\d+$/);
+            const messages = await fetchAll(client, '1:*', { uid: true, emailId: true, threadId: true });
             const ids = messages.map(message => message.emailId);
             assert.strictEqual(new Set(ids).size, 3);
-            ids.forEach(id => assert.match(id, /^\d+$/));
+            ids.forEach(id => assert.match(id, /^M\d+$/));
+            // MESSAGE_3 replies to MESSAGE_1
+            assert.strictEqual(messages[2].threadId, messages[0].threadId);
+            assert.notStrictEqual(messages[1].threadId, messages[0].threadId);
+
+            const found = await client.search({ emailId: ids[1] }, { uid: true });
+            assert.deepStrictEqual(found, [2]);
+
+            const created = await client.mailboxCreate('Ids');
+            const status = await client.status('Ids', { messages: true });
+            assert.match(created.mailboxId, /^F\d+$/);
+            assert.strictEqual(status.path, 'Ids');
+
+            // the copy keeps its EMAILID (RFC 8474 section 5.1)
+            await client.messageCopy('1', 'Ids', { uid: true });
+            await client.mailboxOpen('Ids');
+            const [copy] = await fetchAll(client, '1:*', { uid: true, emailId: true });
+            assert.strictEqual(copy.emailId, ids[0]);
+        });
+
+        it('reads the quota with QUOTA', async () => {
+            const client = await connect(ctx);
+            const quota = await client.getQuota('INBOX');
+            assert.strictEqual(quota.quotaRoot, 'User quota');
+            assert.deepStrictEqual(quota.message, { usage: 3, limit: 10, status: '30%' });
+            assert.strictEqual(quota.storage.limit, 100 * 1024);
+            assert.ok(quota.storage.usage > 0);
         });
     });
 

@@ -1,0 +1,18 @@
+# QUOTA (RFC 9208) and SAVEDATE (RFC 8514)
+# npm run compare -- compare/scenarios/quota-savedate.txt --plugin QUOTA,SAVEDATE,UIDPLUS,MOVE
+# Dovecot uses the count quota driver (STORAGE 10240, MESSAGE 1000) and refuses SETQUOTA,
+# hoodiecrow has no limits unless the quota option sets them
+GETQUOTAROOT INBOX
+GETQUOTAROOT "Not yet"
+GETQUOTA "User quota"
+GETQUOTA "nope"
+SETQUOTA "User quota" (STORAGE 100)
+STATUS INBOX (MESSAGES DELETED)
+SELECT INBOX
+SEARCH SAVEDATESUPPORTED
+SEARCH SAVEDBEFORE 1-Jan-2000
+SEARCH SAVEDSINCE 1-Jan-2000
+SEARCH SAVEDON 32-Jan-2020
+SEARCH SAVEDSINCE
+COPY 1 Archive
+FETCH 1 (SAVEDATE)
