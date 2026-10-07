@@ -47,7 +47,7 @@ describe('SUBSCRIBE, UNSUBSCRIBE and LSUB', () => {
         });
     });
 
-    it('refuses missing and \\Noselect mailboxes', (t, done) => {
+    it('refuses to subscribe missing and \\Noselect mailboxes', (t, done) => {
         const cmds = [
             'A1 LOGIN testuser testpass',
             'A2 SUBSCRIBE missing',
@@ -61,11 +61,133 @@ describe('SUBSCRIBE, UNSUBSCRIBE and LSUB', () => {
             resp = resp.toString();
             assert.ok(/^A2 NO \[NONEXISTENT\]/m.test(resp), resp);
             assert.strictEqual(tagged(resp, 'A3'), 'NO');
-            assert.strictEqual(tagged(resp, 'A4'), 'NO');
+            // a name on the subscription list can always be removed, even if it is not a mailbox (RFC 3501 section 6.3.6)
+            assert.strictEqual(tagged(resp, 'A4'), 'OK');
             // hoodiecrow treats removing a name that is not on the subscription list as done
             assert.strictEqual(tagged(resp, 'A5'), 'OK');
             done();
         });
+    });
+});
+
+describe('the subscription list holds names', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['LIST-EXTENDED'],
+        storage: {
+            INBOX: {},
+            '': {
+                folders: {
+                    Alerts: {},
+                    Parent: {
+                        folders: {
+                            Child: {}
+                        }
+                    },
+                    Quiet: { subscribed: false },
+                    Plain: { subscribed: false, folders: { Sub: {} } }
+                }
+            }
+        }
+    }));
+
+    const run = (commands, callback) => ctx.run(['A1 LOGIN testuser testpass', ...commands, 'ZZ LOGOUT'], resp => callback(resp.toString('binary')));
+
+    // the untagged responses of one command, followed by its tagged response
+    const section = (resp, tag) => {
+        const match = resp.match(new RegExp('(?:^|\\n)((?:\\* [^\\r]*\\r\\n)*' + tag + ' [^\\r]*\\r\\n)'));
+        assert.ok(match, 'no response for ' + tag + '\n' + resp);
+        return match[1];
+    };
+
+    // RFC 3501 sections 6.3.6 and 6.3.9: the server MUST NOT unilaterally remove a name from the subscription list
+    it('keeps the subscription of a deleted mailbox until UNSUBSCRIBE', (t, done) => {
+        run(
+            [
+                'A2 DELETE Alerts',
+                'A3 LSUB "" "Alerts"',
+                'A4 CREATE Alerts',
+                'A5 LSUB "" "Alerts"',
+                'A6 DELETE Alerts',
+                'A7 UNSUBSCRIBE Alerts',
+                'A8 LSUB "" "Alerts"'
+            ],
+            resp => {
+                // a name that is not a mailbox is not \Noselect in LSUB, which means "not subscribed" there (RFC 5258 section 3.1)
+                assert.match(section(resp, 'A3'), /^\* LSUB \(\) "\/" "Alerts"\r\nA3 OK/);
+                // the mailbox created again with the same name is subscribed
+                assert.match(section(resp, 'A5'), /^\* LSUB \(\\HasNoChildren\) "\/" "Alerts"\r\nA5 OK/);
+                assert.match(section(resp, 'A7'), /^A7 OK/);
+                assert.match(section(resp, 'A8'), /^A8 OK/);
+                done();
+            }
+        );
+    });
+
+    it('keeps the subscription of a deleted mailbox with children', (t, done) => {
+        run(['A2 DELETE Parent', 'A3 LSUB "" "Parent"', 'A4 LIST "" "Parent"', 'A5 UNSUBSCRIBE Parent', 'A6 LSUB "" "Parent"'], resp => {
+            assert.match(section(resp, 'A3'), /^\* LSUB \(\\HasChildren\) "\/" "Parent"\r\nA3 OK/);
+            assert.match(section(resp, 'A4'), /^\* LIST \(\\Noselect \\HasChildren\) "\/" "Parent"\r\nA4 OK/);
+            assert.match(section(resp, 'A5'), /^A5 OK/);
+            assert.match(section(resp, 'A6'), /^A6 OK/);
+            done();
+        });
+    });
+
+    // RFC 9051 section 6.3.6: renaming a mailbox doesn't update subscription information on the original name
+    it('leaves the subscription with the old name on RENAME', (t, done) => {
+        run(['A2 RENAME Alerts Renamed', 'A3 LSUB "" "*e*"', 'A4 RENAME Parent Moved', 'A5 LSUB "" "*"'], resp => {
+            assert.match(section(resp, 'A3'), /^\* LSUB \(\) "\/" "Alerts"\r\n(?!.*Renamed)/);
+            const names = [...section(resp, 'A5').matchAll(/^\* LSUB \([^)]*\) "\/" "([^"]+)"\r$/gm)].map(match => match[1]).sort();
+            assert.deepStrictEqual(names, ['Alerts', 'INBOX', 'Parent', 'Parent/Child', 'Plain/Sub']);
+            done();
+        });
+    });
+
+    it('does not subscribe new mailboxes', (t, done) => {
+        run(['A2 CREATE Fresh', 'A3 LSUB "" "Fresh"', 'A4 LSUB "" "Quiet"'], resp => {
+            assert.match(section(resp, 'A3'), /^A3 OK/);
+            assert.match(section(resp, 'A4'), /^A4 OK/);
+            done();
+        });
+    });
+
+    // RFC 3501 section 6.3.9: with "%" an unsubscribed level that has subscribed names below it is listed with \Noselect
+    it('lists unsubscribed levels with subscribed children as \\Noselect for "%"', (t, done) => {
+        run(
+            ['A2 CREATE Gone/Deep/Box', 'A3 SUBSCRIBE Gone/Deep/Box', 'A4 DELETE Gone/Deep/Box', 'A5 LSUB "" "%"', 'A6 LSUB "" "Gone/%"', 'A7 LSUB "" "*"'],
+            resp => {
+                assert.match(section(resp, 'A5'), /^\* LSUB \(\\Noselect\) "\/" "Plain"\r$/m);
+                assert.match(section(resp, 'A5'), /^\* LSUB \(\\Noselect\) "\/" "Gone"\r$/m);
+                assert.doesNotMatch(section(resp, 'A5'), /"Quiet"/);
+                assert.match(section(resp, 'A6'), /^\* LSUB \(\\Noselect\) "\/" "Gone\/Deep"\r\nA6 OK/);
+                // "*" matches the subscribed names themselves
+                assert.match(section(resp, 'A7'), /^\* LSUB \(\) "\/" "Gone\/Deep\/Box"\r$/m);
+                assert.doesNotMatch(section(resp, 'A7'), /"(Plain|Gone|Gone\/Deep)"/);
+                done();
+            }
+        );
+    });
+
+    // RFC 5258 section 3.1: LIST (SUBSCRIBED) also lists subscribed names that are not mailboxes, as \NonExistent
+    it('lists subscribed names that are not mailboxes with LIST (SUBSCRIBED)', (t, done) => {
+        run(
+            [
+                'A2 CREATE Gone/Box',
+                'A3 SUBSCRIBE Gone/Box',
+                'A4 DELETE Gone/Box',
+                'A5 DELETE Gone',
+                'A6 LIST (SUBSCRIBED) "" "Gone*"',
+                'A7 LIST (SUBSCRIBED RECURSIVEMATCH) "" "%"',
+                'A8 LIST "" "Gone*" RETURN (SUBSCRIBED)'
+            ],
+            resp => {
+                assert.match(section(resp, 'A6'), /^\* LIST \(\\NonExistent \\Subscribed \\HasNoChildren\) "\/" "Gone\/Box"\r\nA6 OK/);
+                assert.match(section(resp, 'A7'), /^\* LIST \(\\NonExistent \\HasNoChildren\) "\/" "Gone" \("CHILDINFO" \("SUBSCRIBED"\)\)\r$/m);
+                // without the SUBSCRIBED selection option only existing mailboxes are listed
+                assert.match(section(resp, 'A8'), /^A8 OK/);
+                done();
+            }
+        );
     });
 });
 
