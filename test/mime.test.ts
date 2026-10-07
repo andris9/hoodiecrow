@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { setupServer } from './helpers/index.js';
+import { setupServer, assertTagged } from './helpers/index.js';
 import mimeParser, { normalizeLineBreaks, render } from '../src/mimeparser.js';
 import bodystructure from '../src/bodystructure.js';
 import envelope from '../src/envelope.js';
@@ -166,6 +166,19 @@ describe('MIME parser', () => {
         ]);
     });
 
+    it('parses a group without a display name', () => {
+        // RFC 5322 section 3.4 requires the display name, the parser keeps the group with an empty one
+        assert.deepStrictEqual(addressparser(':a@example.com;'), [{ name: '', group: [{ address: 'a@example.com', name: '' }] }]);
+        assert.deepStrictEqual(addressparser(':;'), [{ name: '', group: [] }]);
+        // RFC 3501 section 7.4.2: a non-NIL mailbox name with a NIL host starts a group
+        const env = envelope(mimeParser('From: a@example.com\r\nTo: :b@example.com;\r\n\r\nbody').parsedHeader);
+        assert.deepStrictEqual(env[5], [
+            [null, null, '', null],
+            [null, null, 'b', 'example.com'],
+            [null, null, null, null]
+        ]);
+    });
+
     it('parses deeply nested groups in linear time', () => {
         const start = Date.now();
         const result = addressparser('g:'.repeat(50000) + 'a@b;');
@@ -173,6 +186,22 @@ describe('MIME parser', () => {
         assert.strictEqual(result.length, 1);
         assert.strictEqual(result[0].name, 'g');
         assert.strictEqual(result[0].group!.length, 1);
+    });
+});
+
+describe('Address groups without a display name', () => {
+    const ctx = setupServer(() => ({
+        storage: { INBOX: { messages: [{ raw: 'From: a@example.com\r\nTo: :b@example.com;\r\nSubject: x\r\n\r\nbody' }] } }
+    }));
+
+    it('are sent in the ENVELOPE and searched like other groups', (t, done) => {
+        ctx.run(['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 1 ENVELOPE', 'A4 SEARCH TO b@example.com', 'ZZ LOGOUT'], resp => {
+            resp = resp.toString('binary');
+            assert.match(resp, /^\* 1 FETCH \(ENVELOPE \(.* \(\(NIL NIL "" NIL\)\(NIL NIL "b" "example\.com"\)\(NIL NIL NIL NIL\)\) /m);
+            assert.match(resp, /^\* SEARCH 1\r$/m);
+            assertTagged(resp, { A3: 'OK', A4: 'OK' });
+            done();
+        });
     });
 });
 
