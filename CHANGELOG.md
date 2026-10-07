@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.1](https://github.com/postalsys/imapkit/compare/v4.0.0...v4.0.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* correct typos in the --help output ([b108887](https://github.com/postalsys/imapkit/commit/b1088878cc6d5ec0083cc872b6a38127b98ec836))
+* correct typos in the --help output ([7a2e1db](https://github.com/postalsys/imapkit/commit/7a2e1dba3d0e98c0f1fda9ad6fd24f5b95d60fef))
+
 ## [4.0.0](https://github.com/postalsys/imapkit/compare/v3.3.1...v4.0.0) (2026-10-07)
 
 
