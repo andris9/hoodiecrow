@@ -62,6 +62,22 @@ Several clients can connect to the server simultanously but all the clients shar
 
 Hoodiecrow is extendable, any command can be overwritten, plugins can be added etc (see command folder for built in command examples and plugin folder for plugin examples).
 
+## Strict by design
+
+Hoodiecrow is meant for developing standards compliant IMAP clients, so it follows the RFCs strictly instead of accepting whatever clients send. Most production servers are lenient, which hides client bugs until the client meets a stricter server. Hoodiecrow answers these with `BAD` (or `NO` where the RFC requires it):
+
+- commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` after login
+- arguments to commands that take none (`NOOP x`, `CLOSE x`), missing or extra arguments, and values that break the RFC 3501 grammar
+- command lines that end with a bare LF instead of CRLF
+- literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ is enabled
+- literals for unknown commands, or for commands that can not run in the current state, are refused without a continuation request
+- mailbox names that are not valid modified UTF-7 (RFC 3501 section 5.1.3), including 8-bit names
+- invalid sequence sets (`0`, `abc`), flags that are not atoms, `\Recent` in STORE or APPEND, invalid dates
+- 8-bit SEARCH strings without `CHARSET UTF-8`, invalid UTF-8, unsupported charsets (`NO [BADCHARSET]`)
+- invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE
+
+Responses follow the grammar strictly too: strings that can not be quoted are sent as literals.
+
 ## Authentication
 
 An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
@@ -102,10 +118,6 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 Planned but not yet implemented
 
 - **QUOTA**
-
-## Authentication
-
-An user can always login with username `"testuser"` and password `"testpass"`. Any other credentials can be added as needed.
 
 ## Existing XTOYBIRD commands
 
@@ -159,20 +171,12 @@ S: A1 OK XTOYBIRD Completed
 
 # Known issues
 
-- _INBOX_* as a separate namespace and managing INBOX subfolders is a mess. CREATE seems to work, DELETE is buggy and RENAME doesn't work with INBOX subfolders (unless the default namespace is `"INBOX."`, not `""`). I need to rethink how this works.
-
-Not sure if these should be fixed or not
-
 - **STORE** does not emit notifications to other clients
 - **MODSEQ** updates are not notified
-
-These issues are probably not going to get fixed
-
-- **Session flags** are not supported (this means that `\Recent` flag is also not supported)
 - **addr-adl** (at-domain-list) values are not supported, NIL is always used
 - **anonymous namespaces** are not supported
 - **STORE** returns NO and nothing is updated if there are pending EXPUNGE messages
-- **CHARSET** argument is ignored
+- **CHARSET** values other than US-ASCII and UTF-8 are not supported
 
 # Running tests
 
