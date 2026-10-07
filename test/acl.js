@@ -591,6 +591,30 @@ describe('ACL options', () => {
         });
     });
 
+    describe('with CATENATE', () => {
+        const ctx = setupServer(() => ({ plugins: ['ACL', 'CATENATE'], users: users(), storage: storage() }));
+
+        // RFC 4469 section 5 with RFC 4314 section 4: a URL is read like FETCH, so it needs "r"
+        it('needs the r right on the mailbox of a CATENATE URL', (t, done) => {
+            ctx.run(
+                [
+                    BOB,
+                    'A1 APPEND Insert CATENATE (URL "/Shared/;UID=1")',
+                    'A2 APPEND Insert CATENATE (URL "/Lookup/;UID=1")',
+                    'A3 APPEND Insert CATENATE (URL "/Secret/;UID=1")',
+                    'ZZ LOGOUT'
+                ],
+                resp => {
+                    resp = resp.toString('binary');
+                    assert.match(resp, /^A1 OK /m);
+                    assert.match(resp, /^A2 NO \[BADURL \/Lookup\/;UID=1\] Permission denied\r$/m);
+                    assert.match(resp, /^A3 NO \[BADURL \/Secret\/;UID=1\] Mailbox does not exist\r$/m);
+                    done();
+                }
+            );
+        });
+    });
+
     describe('with UNAUTHENTICATE', () => {
         let seen = null;
         // records the session state when the command after UNAUTHENTICATE is answered
