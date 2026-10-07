@@ -115,20 +115,29 @@ describe('STARTTLS', () => {
 
     // RFC 9051 section 6.2.1: once a client issues STARTTLS, it MUST NOT issue further commands until it has seen
     // the response. TLS is not started then, so no plaintext input can be read as if it came through TLS
-    it('Refuses STARTTLS with pipelined commands and stays in plaintext', (t, done) => {
+    it('Refuses STARTTLS with pipelined commands and runs none of them', (t, done) => {
         const socket = net.connect(ctx.server.address().port, 'localhost');
         let resp = '';
+        let loggedOut = false;
         socket.on('data', chunk => {
             resp += chunk.toString();
+            if (!loggedOut && /^A3 /m.test(resp)) {
+                // sent after the refusals were seen, so it runs
+                loggedOut = true;
+                socket.write('A4 LOGOUT\r\n');
+            }
         });
         socket.on('close', () => {
             assert.match(resp, /^A1 BAD Commands must not be pipelined after STARTTLS\r$/m);
-            assert.match(resp, /^A2 OK /m);
-            assert.match(resp, /^\* BYE /m);
+            // the client meant these to run under TLS, so they do not run in plaintext
+            assert.match(resp, /^A2 BAD Commands must not be pipelined after STARTTLS\r$/m);
+            assert.match(resp, /^A3 BAD Commands must not be pipelined after STARTTLS\r$/m);
+            assert.doesNotMatch(resp, /logged in/i);
+            assert.match(resp, /^A4 OK /m);
             done();
         });
         socket.once('data', () => {
-            socket.write('A1 STARTTLS\r\nA2 CAPABILITY\r\nA3 LOGOUT\r\n');
+            socket.write('A1 STARTTLS\r\nA2 LOGIN testuser testpass\r\nA3 APPEND INBOX {3}\r\n');
         });
     });
 

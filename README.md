@@ -78,7 +78,7 @@ Hoodiecrow is meant for developing standards compliant IMAP clients, so it follo
 - invalid base64 in SASL exchanges, and anything other than `DONE` while IDLE
 - 8-bit user names or passwords in `LOGIN` (RFC 9755 section 5: UTF-8 user names need `AUTHENTICATE`), and invalid UTF-8 in an `AUTHENTICATE PLAIN` message (RFC 4616 section 2). User names are unicode strings everywhere: the keys of `users`, SASL user names and ACL identifiers
 - OAUTHBEARER client responses that break the RFC 7628 or GS2 (RFC 5801) grammar, and anything other than a single `%x01` after an OAUTHBEARER error result
-- `STARTTLS` and `COMPRESS` with commands pipelined after them (RFC 9051 section 6.2.1, RFC 4978 section 3), TLS or compression is then not started, and `COMPRESS` while compression is active (`BAD [COMPRESSIONACTIVE]`)
+- `STARTTLS` and `COMPRESS` with commands pipelined after them (RFC 9051 section 6.2.1, RFC 4978 section 3), TLS or compression is then not started and the pipelined commands are refused with `BAD` without running, and `COMPRESS` while compression is active (`BAD [COMPRESSIONACTIVE]`)
 - pipelined commands that RFC 3501 section 5.5 calls ambiguous, for example `CHECK` followed by `FETCH` without waiting for the `CHECK` result
 - `ENABLE` after `SELECT` or `EXAMINE` (RFC 5161 section 3.1), and `ID` lists that break the RFC 2971 limits
 - the QRESYNC `SELECT` parameter or the `VANISHED` modifier without `ENABLE QRESYNC`, `VANISHED` with `FETCH` or without `CHANGEDSINCE`, and QRESYNC values that break the RFC 7162 grammar (UIDVALIDITY or mod-sequence `0`, `*` in the UID sets, sequence match sets that are not ascending or not of the same size)
@@ -472,7 +472,7 @@ Where
     - **searchCriteria** is the position where SEARCH style criteria start, **sequenceSet** the position of an argument with message sequence numbers. Both are used for the RFC 3501 section 5.5 pipelining check
     - **noExpunge** if true, EXPUNGE responses are held back while the command runs (like FETCH, STORE and SEARCH, RFC 3501 section 7.4.1)
     - **literal8** if true (or the name of the capability that allows it), the command accepts `~{n}` literals (RFC 3516)
-    - **noPipelining** if true, the command is refused with BAD when the client sent more input after it (STARTTLS, COMPRESS)
+    - **noPipelining** if true, the command is refused with BAD when the client sent more input after it (STARTTLS, COMPRESS), and so are the commands sent with it
     - **appendMessage** if true, the command takes a message after its mailbox argument like APPEND (REPLACE), so a message literal to a missing mailbox is refused with `NO [TRYCREATE]` before it is sent
 
     Without options, a command that already exists (such as a built-in one that the handler wraps) keeps its settings.
