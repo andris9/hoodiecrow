@@ -1,0 +1,67 @@
+name: Documentation
+
+# The Docusaurus site in docs/ is published to GitHub Pages at https://imapkit.com/. Pull requests that change it
+# only build it (broken links fail the build), pushes to master build and deploy.
+on:
+    push:
+        branches:
+            - master
+        paths:
+            - 'docs/**'
+            - '.github/workflows/docs.yml'
+    pull_request:
+        paths:
+            - 'docs/**'
+            - '.github/workflows/docs.yml'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+# a newer push supersedes the build of a pull request, a deployment from master always runs to completion
+concurrency:
+    group: docs-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+    build:
+        name: Build
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        defaults:
+            run:
+                working-directory: docs
+        steps:
+            - uses: actions/checkout@v6
+            - name: Use Node.js 24
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
+                  cache-dependency-path: docs/package-lock.json
+            - run: npm ci
+            - name: Type check
+              run: npm run typecheck
+            - name: Build website
+              run: npm run build
+            - name: Upload artifact
+              if: github.ref == 'refs/heads/master'
+              uses: actions/upload-pages-artifact@v5
+              with:
+                  path: docs/build
+
+    deploy:
+        name: Deploy
+        if: github.ref == 'refs/heads/master'
+        needs: build
+        runs-on: ubuntu-24.04
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v5

@@ -3,3 +3,8 @@ CHANGELOG.md
 .claude
 dist
 src/cert.ts
+# the Docusaurus site: dependencies, build output and generated files
+docs/node_modules
+docs/build
+docs/.docusaurus
+docs/package-lock.json

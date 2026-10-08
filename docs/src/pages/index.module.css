@@ -1,0 +1,27 @@
+.heroBanner {
+    padding: 4rem 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+@media screen and (max-width: 996px) {
+    .heroBanner {
+        padding: 2rem;
+    }
+}
+
+.buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.install {
+    display: inline-block;
+    margin: 1.5rem auto 0;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    border: none;
+}
