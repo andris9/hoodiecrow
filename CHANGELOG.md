@@ -5,13 +5,11 @@
 
 ### Features
 
-* literals and defer actions for script rules ([c43b957](https://github.com/postalsys/imapkit/commit/c43b957f725b0d4c42c01d097a21320723efd0aa))
 * literals and defer actions for script rules ([c26ddce](https://github.com/postalsys/imapkit/commit/c26ddceeb3e91a502b4a5090579838280ddefb28)), closes [#78](https://github.com/postalsys/imapkit/issues/78) [#79](https://github.com/postalsys/imapkit/issues/79)
 
 
 ### Bug Fixes
 
-* script rule close: 'reset' could lose the RST after the last output ([f38c1c7](https://github.com/postalsys/imapkit/commit/f38c1c78a469d976225002c4adbf75f6d3eb5cd1))
 * script rule close: 'reset' could lose the RST after the last output ([6b93d9b](https://github.com/postalsys/imapkit/commit/6b93d9b097245b112b80b260c7a65d08ea5c0a60)), closes [#81](https://github.com/postalsys/imapkit/issues/81)
 
 ## [4.2.0](https://github.com/postalsys/imapkit/compare/v4.1.1...v4.2.0) (2026-10-07)
