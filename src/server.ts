@@ -154,6 +154,17 @@ function isPendingExpunge(notification: Notification): boolean {
 }
 
 /**
+ * Checks if a notification is an untagged EXISTS response
+ *
+ * @param {Object} [notification] Notification to send
+ * @return {Boolean} true for an EXISTS response
+ */
+function isExists(notification?: Notification): boolean {
+    const name = notification && !notification.command && notification.attributes && notification.attributes[1];
+    return !!name && name.type === 'ATOM' && name.value === 'EXISTS';
+}
+
+/**
  * Creates a new IMAP server, call `listen()` on it to start accepting connections
  *
  * @param options Server options, the mailbox tree comes from `options.storage`
@@ -2939,16 +2950,48 @@ class IMAPConnection {
         // a message changed several times is reported once, its FETCH response carries the current flags
         const reported = new Set<Message>();
 
+        // before the snapshot (or with all of it still held back) the session knows the old list
+        const sessionList = (i: number) => (snapshot && (snapshotIndex < 0 || i < snapshotIndex) ? (snapshot.mailboxCopy as Message[]) : current);
+
+        // the last EXISTS response of a run of EXISTS responses, and if the run announces new messages
+        let lastExists = -1;
+        let newMessages = false;
         queue.forEach((notification, i) => {
             if (notification.flagUpdate) {
-                // before the snapshot (or with all of it still held back) the session knows the old list
-                this.sendFlagUpdate(
-                    notification.flagUpdate,
-                    getSequence(snapshot && (snapshotIndex < 0 || i < snapshotIndex) ? (snapshot.mailboxCopy as Message[]) : current),
-                    reported
-                );
+                this.sendFlagUpdate(notification.flagUpdate, getSequence(sessionList(i)), reported);
             } else {
                 this.send(notification);
+            }
+            if (isExists(notification)) {
+                lastExists = i;
+                // the EXISTS after the EXPUNGE responses of another session carries the snapshot instead of a message
+                newMessages = newMessages || !!notification.message;
+            }
+            const next = queue[i + 1];
+            if (lastExists >= 0 && !isExists(next) && !(next && next.fetchedMessage)) {
+                const announced = newMessages;
+                const existsIndex = lastExists;
+                lastExists = -1;
+                newMessages = false;
+                if (!announced) {
+                    // after expunges, the EXPUNGE responses report the change (RFC 3501 section 7.4.1)
+                    return;
+                }
+                // RFC 3501 section 7.3.2: the RECENT response "occurs as a result of a SELECT or EXAMINE command, and if
+                // the size of the mailbox changes (e.g., new messages)". One for consecutive EXISTS responses that announce
+                // new messages, with the number of \Recent messages among those the client was told about. It goes after
+                // the FETCH responses that NOTIFY sends for new messages, RFC 5465 section 5.2: "an unsolicited EXISTS
+                // response, followed by an unsolicited FETCH response [...] The server MAY also send a RECENT response"
+                const count = Number(queue[existsIndex].attributes[0]);
+                const known = sessionList(existsIndex).slice(0, count);
+                this.send(
+                    {
+                        tag: '*',
+                        notification: true,
+                        attributes: [known.filter(message => this.isRecent(message)).length, { type: 'ATOM', value: 'RECENT' }]
+                    },
+                    'RECENT NOTIFICATION'
+                );
             }
         });
     }

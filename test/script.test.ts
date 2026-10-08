@@ -262,7 +262,7 @@ describe('Script rules', () => {
             await first.waitFor(/^A1 OK/m);
             const secondNoop = await command(second, 'N1 NOOP');
             // the first session sees every EXISTS changed, the second one the real count
-            assert.match(first.output(), /^\* 99 EXISTS\r\n[\s\S]*^\* 99 EXISTS\r\nA1 OK/m);
+            assert.match(first.output(), /^\* 99 EXISTS\r\n[\s\S]*^\* 99 EXISTS\r\n\* 1 RECENT\r\nA1 OK/m);
             assert.doesNotMatch(first.output(), /^\* \d EXISTS/m);
             assert.match(secondNoop, /^\* 3 EXISTS\r\n/m);
             first.close();

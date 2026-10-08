@@ -82,7 +82,7 @@ describe('IDLE', () => {
                                 }
                                 client.send('A4 NOOP');
                                 client.waitFor('A4 OK', () => {
-                                    assert.ok(client.output.indexOf('* 3 EXISTS\r\nA4 OK') >= 0, client.output);
+                                    assert.ok(client.output.indexOf('* 3 EXISTS\r\n* 2 RECENT\r\nA4 OK') >= 0, client.output);
                                     client.close();
                                     done();
                                 });

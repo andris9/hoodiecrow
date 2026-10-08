@@ -143,7 +143,8 @@ describe('SELECT and EXAMINE', () => {
 
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.ok(resp.indexOf('\r\n* 4 EXISTS\r\nA3 OK') >= 0);
+            // message 2 and the new one are \Recent in this session (RFC 3501 section 7.3.2)
+            assert.match(resp, /^\* 4 EXISTS\r\n\* 2 RECENT\r\nA3 OK /m);
             done();
         });
     });

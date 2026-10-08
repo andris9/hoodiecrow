@@ -206,7 +206,7 @@ describe('NOTIFY', () => {
             await run(a, 'S1 SELECT INBOX');
             await run(b, append('B1', 'INBOX'));
             const resp = await run(a, 'A1 NOTIFY SET (selected (MessageNew MessageExpunge))');
-            assert.match(resp, /^\* 4 EXISTS\r\nA1 OK/m);
+            assert.match(resp, /^\* 4 EXISTS\r\n\* 1 RECENT\r\nA1 OK/m);
         });
     });
 
@@ -219,10 +219,11 @@ describe('NOTIFY', () => {
             await run(a, 'S1 SELECT INBOX');
             await run(a, 'A1 NOTIFY SET (selected (MessageNew (UID FLAGS BODY.PEEK[HEADER.FIELDS (SUBJECT)]) MessageExpunge))');
             await run(b, append('B1', 'INBOX', '\\Flagged'));
-            const resp = await expect(a, /^\* 4 FETCH/);
+            // the RECENT response of an IMAP4rev1 session follows the FETCH ("MAY also send a RECENT response")
+            const resp = await expect(a, /^\* 1 RECENT/);
             assert.match(
                 resp,
-                /^\* 4 EXISTS\r\n\* 4 FETCH \(UID 4 FLAGS \(\\Flagged \\Recent\) BODY\[HEADER\.FIELDS \(SUBJECT\)\] \{20\}\r\nSubject: new one\r\n\r\n\)$/m
+                /^\* 4 EXISTS\r\n\* 4 FETCH \(UID 4 FLAGS \(\\Flagged \\Recent\) BODY\[HEADER\.FIELDS \(SUBJECT\)\] \{20\}\r\nSubject: new one\r\n\r\n\)\r\n\* 1 RECENT$/m
             );
             // the fetch attributes never set \Seen
             const flags = await run(a, 'A2 UID FETCH 4 FLAGS');
@@ -323,7 +324,7 @@ describe('NOTIFY', () => {
             assert.match(resp, /^A2 OK \[EXPUNGEISSUED\] /m);
             await assertQuiet(a);
             resp = await run(a, 'A3 NOOP');
-            assert.match(resp, /^\* 3 EXPUNGE\r\n\* 2 EXISTS\r\n\* 3 EXISTS\r\n\* 3 FETCH \(UID 4\)\r\nA3 OK/m);
+            assert.match(resp, /^\* 3 EXPUNGE\r\n\* 2 EXISTS\r\n\* 3 EXISTS\r\n\* 3 FETCH \(UID 4\)\r\n\* 1 RECENT\r\nA3 OK/m);
         });
 
         it('holds notifications during FETCH and sends them after it with SELECTED (RFC 3501 section 7.4.1)', async () => {
@@ -437,7 +438,8 @@ describe('NOTIFY', () => {
             await run(a, 'S1 SELECT INBOX');
             await run(a, 'A1 NOTIFY SET (selected (MessageNew MessageExpunge)) (personal (MessageNew MessageExpunge FlagChange))');
             await run(b, append('B1', 'INBOX'));
-            const resp = await expect(a, /^\* 4 EXISTS/);
+            const resp = await expect(a, /^\* 1 RECENT/);
+            assert.match(resp, /^\* 4 EXISTS\r\n\* 1 RECENT$/m);
             assert.doesNotMatch(resp, /STATUS/);
             await assertQuiet(a);
         });
@@ -591,7 +593,7 @@ describe('NOTIFY with other extensions', () => {
             await run(a, 'A2 SEARCH RETURN (UPDATE) FROM new');
             await run(b, append('B1', 'INBOX'));
             const resp = await expect(a, /^\* ESEARCH/);
-            assert.match(resp, /^\* 4 EXISTS\r\n\* 4 FETCH \(UID 4\)\r\n\* ESEARCH \(TAG "A2"\) ADDTO \(0 4\)$/m);
+            assert.match(resp, /^\* 4 EXISTS\r\n\* 4 FETCH \(UID 4\)\r\n\* 1 RECENT\r\n\* ESEARCH \(TAG "A2"\) ADDTO \(0 4\)$/m);
         });
     });
 

@@ -246,7 +246,7 @@ describe('UIDONLY', () => {
             ],
             resp => {
                 assert.match(resp, /^\* 20 UIDFETCH \(FLAGS \(\\Seen\)\)\r\n\* 30 UIDFETCH \(FLAGS \(\)\)\r\nA5 OK/m);
-                assert.match(resp, /^\* OK \[APPENDUID 42 41\] .*\r\n\* 5 EXISTS\r\n\* VANISHED 30\r\nA6 OK/m);
+                assert.match(resp, /^\* OK \[APPENDUID 42 41\] .*\r\n\* 5 EXISTS\r\n\* 1 RECENT\r\n\* VANISHED 30\r\nA6 OK/m);
                 assert.match(resp, /^\* 20 UIDFETCH \(FLAGS \(\\Seen\)\)\r\nA7 OK/m);
                 done();
             }

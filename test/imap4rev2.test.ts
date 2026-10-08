@@ -437,14 +437,15 @@ describe('IMAP4rev2', () => {
         assert.match(resp, /^\* 1 RECENT\r$/m);
     });
 
-    it('unsolicited FETCH responses include the UID and no \\Recent (section 7.5.2)', async () => {
-        const open = () =>
-            new Promise<{ cmd: (line: string) => Promise<string>; session: Session }>(resolve => {
-                openSession(ctx.port, session => {
-                    const cmd = (line: string) => new Promise<string>(done => session.run(line, done));
-                    resolve({ cmd, session });
-                });
+    const open = () =>
+        new Promise<{ cmd: (line: string) => Promise<string>; session: Session }>(resolve => {
+            openSession(ctx.port, session => {
+                const cmd = (line: string) => new Promise<string>(done => session.run(line, done));
+                resolve({ cmd, session });
             });
+        });
+
+    it('unsolicited FETCH responses include the UID and no \\Recent (section 7.5.2)', async () => {
         const a = await open();
         const b = await open();
         try {
@@ -459,6 +460,29 @@ describe('IMAP4rev2', () => {
         } finally {
             a.session.close();
             b.session.close();
+        }
+    });
+
+    // Appendix E item 12 removes the RECENT response, an IMAP4rev1 session gets it after the EXISTS (RFC 3501 section 7.3.2)
+    it('new messages are reported with EXISTS and without RECENT (Appendix E item 12)', async () => {
+        const a = await open();
+        const b = await open();
+        const c = await open();
+        try {
+            await a.cmd(LOGIN);
+            await a.cmd(ENABLE);
+            await a.cmd('A1 SELECT INBOX');
+            await b.cmd(LOGIN);
+            await b.cmd('B1 EXAMINE INBOX');
+            await c.cmd(LOGIN);
+            await c.cmd('C1 APPEND INBOX {12}\r\nSubject: x\r\n');
+            assert.match(await a.cmd('A2 NOOP'), /^\* 4 EXISTS\r\nA2 OK /);
+            // A selected INBOX first and took \\Recent of the messages, the EXAMINE session B has none
+            assert.match(await b.cmd('B2 NOOP'), /^\* 4 EXISTS\r\n\* 0 RECENT\r\nB2 OK /);
+        } finally {
+            a.session.close();
+            b.session.close();
+            c.session.close();
         }
     });
 });

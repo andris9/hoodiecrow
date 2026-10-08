@@ -220,7 +220,10 @@ describe('CONTEXT=SORT', () => {
                 // bravo (3) is the second result and the third one reversed
                 assert.match(resp, /^\* ESEARCH \(TAG "A1"\) REMOVEFROM \(2 3\)\r\n\* ESEARCH \(TAG "A2"\) UID REMOVEFROM \(3 3\)\r\n\* 3 EXPUNGE\r\nA7 OK /m);
                 // bingo is second, after alpha
-                assert.match(resp, /^\* 4 EXISTS\r\n\* ESEARCH \(TAG "A1"\) ADDTO \(2 4\)\r\n\* ESEARCH \(TAG "A2"\) UID ADDTO \(3 5\)\r\nA8 OK /m);
+                assert.match(
+                    resp,
+                    /^\* 4 EXISTS\r\n\* 1 RECENT\r\n\* ESEARCH \(TAG "A1"\) ADDTO \(2 4\)\r\n\* ESEARCH \(TAG "A2"\) UID ADDTO \(3 5\)\r\nA8 OK /m
+                );
                 done();
             }
         );

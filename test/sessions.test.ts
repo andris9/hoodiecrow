@@ -493,6 +493,14 @@ describe('Multiple sessions', () => {
             ]);
         });
 
+        it('delivers RECENT after the EXISTS of a new message while idling (RFC 3501 7.3.2)', async () => {
+            const watcher = await startIdle('INBOX');
+            const c = await open();
+            await c.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+            const output = await watcher.waitFor('RECENT\r\n');
+            assert.match(output, /^\* 5 EXISTS\r\n\* 1 RECENT\r\n$/m);
+        });
+
         it('delivers flag changes while idling', async () => {
             const watcher = await startIdle('INBOX');
             const b = await open('INBOX');
@@ -568,6 +576,49 @@ describe('Multiple sessions', () => {
             };
             const seen = [await recentIn(a), await recentIn(b)];
             assert.strictEqual(seen.filter(Boolean).length, 1, JSON.stringify(seen));
+        });
+
+        // RFC 3501 7.3.2: the RECENT response "occurs as a result of a SELECT or EXAMINE command, and if the size of the
+        // mailbox changes (e.g., new messages)", and "The update from the RECENT response MUST be recorded by the client"
+        it('a RECENT response with the new count follows the EXISTS of new messages (RFC 3501 7.3.2)', async () => {
+            const a = await open('INBOX');
+            const b = await open('Fresh', true);
+            const c = await open();
+
+            await c.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+            await c.cmd('APPEND INBOX {' + message(6).length + '}\r\n' + message(6));
+            // A is the only session with INBOX selected, both new messages are recent in A
+            let output = await a.cmd('NOOP');
+            assert.match(output, /^\* 5 EXISTS\r\n\* 6 EXISTS\r\n\* 2 RECENT\r\nT\d+ OK /);
+            output = await a.cmd('SEARCH RECENT');
+            assert.match(output, /^\* SEARCH 5 6\r\n/);
+
+            // the session that appends to its selected mailbox gets them as well (RFC 3501 6.3.11)
+            output = await a.cmd('APPEND INBOX {' + message(7).length + '}\r\n' + message(7));
+            assert.match(output, /^\* 7 EXISTS\r\n\* 3 RECENT\r\nT\d+ OK \[APPENDUID /);
+
+            // B examined Fresh and sees its 2 recent messages, a new message there stays recent for the next session
+            // that selects the mailbox read-write (RFC 3501 6.3.2), so the count of B stays the same
+            await c.cmd('APPEND Fresh {' + message(8).length + '}\r\n' + message(8));
+            output = await b.cmd('FETCH 4 (UID)');
+            assert.match(output, /^\* 4 EXISTS\r\n\* 2 RECENT\r\n\* 4 FETCH \(UID 4\)\r\n/);
+        });
+
+        it('expunges by another session are reported without RECENT, new messages after them with it (RFC 3501 7.3.2)', async () => {
+            const a = await open('Fresh');
+            const b = await open('Fresh');
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            // the EXPUNGE response reports the new size (RFC 3501 7.4.1), the EXISTS after it is not needed
+            let output = await a.cmd('NOOP');
+            assert.match(output, /^\* 1 EXPUNGE\r\n\* 2 EXISTS\r\nT\d+ OK /);
+
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            await b.cmd('APPEND Fresh {' + message(5).length + '}\r\n' + message(5));
+            // both messages that were recent in A are gone, the new message is recent in A
+            output = await a.cmd('NOOP');
+            assert.match(output, /^\* 1 EXPUNGE\r\n\* 1 EXISTS\r\n\* 2 EXISTS\r\n\* 1 RECENT\r\nT\d+ OK /);
         });
     });
 });

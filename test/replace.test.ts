@@ -39,7 +39,7 @@ describe('REPLACE', () => {
         ctx.run(cmds, resp => {
             resp = resp.toString();
             // APPENDUID in an untagged OK before the EXISTS and EXPUNGE responses, like the example in section 3.2
-            assert.match(resp, /^\+ Go ahead\r\n\* OK \[APPENDUID 1 4\] [^\r\n]+\r\n\* 4 EXISTS\r\n\* 2 EXPUNGE\r\nA3 OK [^\r\n]+\r\n/m);
+            assert.match(resp, /^\+ Go ahead\r\n\* OK \[APPENDUID 1 4\] [^\r\n]+\r\n\* 4 EXISTS\r\n\* 1 RECENT\r\n\* 2 EXPUNGE\r\nA3 OK [^\r\n]+\r\n/m);
             // no flags are inherited from the replaced message (RFC 8508 section 1)
             assert.match(
                 resp,
@@ -53,7 +53,7 @@ describe('REPLACE', () => {
         const cmds = [LOGIN, SELECT, 'A3 UID REPLACE 3 INBOX ' + literal(msg(4)), 'A4 UID FETCH 1:* UID', 'ZZ LOGOUT'];
         ctx.run(cmds, resp => {
             resp = resp.toString();
-            assert.match(resp, /^\* OK \[APPENDUID 1 4\] [^\r\n]+\r\n\* 4 EXISTS\r\n\* 3 EXPUNGE\r\nA3 OK /m);
+            assert.match(resp, /^\* OK \[APPENDUID 1 4\] [^\r\n]+\r\n\* 4 EXISTS\r\n\* 1 RECENT\r\n\* 3 EXPUNGE\r\nA3 OK /m);
             assert.match(resp, /^\* 1 FETCH \(UID 1\)\r\n\* 2 FETCH \(UID 2\)\r\n\* 3 FETCH \(UID 4\)\r\n/m);
             done();
         });
@@ -211,7 +211,7 @@ describe('REPLACE', () => {
                     ctx.run([LOGIN, SELECT, 'A3 REPLACE 1 INBOX ' + literal(msg(4)), 'ZZ LOGOUT'], () => {
                         a.run('S3 NOOP', output => {
                             a.close();
-                            assert.match(output, /^\* 4 EXISTS\r\n\* 1 EXPUNGE\r\n/m);
+                            assert.match(output, /^\* 4 EXISTS\r\n\* 1 RECENT\r\n\* 1 EXPUNGE\r\n/m);
                             done();
                         });
                     });
@@ -246,7 +246,7 @@ describe('REPLACE without UIDPLUS', () => {
         ctx.run([LOGIN, SELECT, 'A3 REPLACE 1 INBOX ' + literal(msg(4)), 'ZZ LOGOUT'], resp => {
             resp = resp.toString();
             assert.doesNotMatch(resp, /APPENDUID|^\* OK Replacement/m);
-            assert.match(resp, /^\* 4 EXISTS\r\n\* 1 EXPUNGE\r\nA3 OK /m);
+            assert.match(resp, /^\* 4 EXISTS\r\n\* 1 RECENT\r\n\* 1 EXPUNGE\r\nA3 OK /m);
             done();
         });
     });
