@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="REST API"><rect width="96" height="96" rx="22" fill="#e3f2ea"/>
+  <path d="M36 24 C28 24 30 36 30 42 C30 46 26 48 22 48 C26 48 30 50 30 54 C30 60 28 72 36 72" fill="none" stroke="#2e8555" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60 24 C68 24 66 36 66 42 C66 46 70 48 74 48 C70 48 66 50 66 54 C66 60 68 72 60 72" fill="none" stroke="#2e8555" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="40" cy="48" r="3.5" fill="#2e8555"/><circle cx="48" cy="48" r="3.5" fill="#2e8555"/><circle cx="56" cy="48" r="3.5" fill="#2e8555"/>
+</svg>

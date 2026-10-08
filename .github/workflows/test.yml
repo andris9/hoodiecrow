@@ -63,7 +63,7 @@ jobs:
               if: ${{ matrix.node != '24' }}
               run: npm run test:unit
             # Node 24 runs the same tests with coverage; the run fails if line coverage of src/
-            # drops below the threshold in package.json (measured at 86.8% when it was added)
+            # drops below the threshold in package.json
             - name: Run tests with coverage
               if: ${{ matrix.node == '24' }}
               run: npm run test:coverage

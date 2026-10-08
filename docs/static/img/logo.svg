@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ImapKit">
-  <rect x="4" y="12" width="56" height="40" rx="6" fill="#2e8555"/>
-  <path d="M8 18 L32 36 L56 18" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="4" y="12" width="48" height="34" rx="5" fill="#2e8555"/>
+  <path d="M8 17 L28 32 L48 17" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="44" r="13" fill="#1f5c3b" stroke="#ffffff" stroke-width="3"/>
+  <path d="M42 44 L46.5 48.5 L54.5 39.5" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

@@ -722,7 +722,7 @@ Replays IMAP commands against imapkit and Dovecot (start it with
   -v, --verbose         also show greetings, login and seeding notes
   --json                print machine readable results
 
-Scenario syntax: see the comment on parseScenario() in compare/compare.js.`);
+Scenario syntax: see the comment on parseScenario() in compare/compare.ts.`);
         return;
     }
 

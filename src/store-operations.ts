@@ -264,7 +264,7 @@ function createMailbox(server: IMAPServer, path: string): Mailbox {
  *
  * @param {Object} server IMAP server
  * @param {String} path Storage name of the mailbox
- * @throws {Error} with a RFC 5530 `code` (NONEXISTENT, CANNOT, HASCHILDREN ...)
+ * @throws {Error} with a response `code` (NONEXISTENT, CANNOT, HASCHILDREN ...)
  */
 function deleteMailbox(server: IMAPServer, path: string): void {
     const mailbox = server.getMailbox(path);

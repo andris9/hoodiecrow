@@ -1,0 +1,63 @@
+---
+title: Known Issues
+sidebar_position: 5
+description: What ImapKit does not support, deliberate limitations of the server and its plugins, and known differences from the RFCs.
+---
+
+# Known issues
+
+ImapKit implements IMAP4rev1, IMAP4rev2 and more than 50 extensions, but not every corner of every RFC. This page lists what is missing or deliberately limited, so you know where ImapKit can not stand in for a real server.
+
+## Protocol
+
+| Area                 | Issue                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| addr-adl             | Address lists in ENVELOPE always have NIL in the at-domain-list (source route) field, values from the message are not used.                                                                                                                                                                                                                                                                                                 |
+| Anonymous namespaces | Not supported. Namespaces are personal, other users (`user`) or shared, see [Storage](../guides/storage.md#namespaces).                                                                                                                                                                                                                                                                                                     |
+| LIST reference       | A reference without a trailing hierarchy delimiter is concatenated with the mailbox name as it is: `LIST "Work" "Sub"` looks for `WorkSub`, not `Work/Sub`. [RFC 2683 section 3.4.9](https://www.rfc-editor.org/rfc/rfc2683#section-3.4.9) recommends inserting the delimiter, ImapKit concatenates the two as [RFC 9051 section 6.3.9](https://www.rfc-editor.org/rfc/rfc9051#section-6.3.9) describes, like Dovecot does. |
+| Search charsets      | Only `US-ASCII` and `UTF-8` are supported. Other charsets in SEARCH, SORT and THREAD get `NO [BADCHARSET (US-ASCII UTF-8)]`.                                                                                                                                                                                                                                                                                                |
+| Case folding         | SEARCH matches strings case-insensitively in the ASCII range only. SORT advertises no `I18NLEVEL`.                                                                                                                                                                                                                                                                                                                          |
+| Single user          | All users share the same mailbox tree. The ACL plugin limits what users other than the owner can do, but there are no per-user mailboxes.                                                                                                                                                                                                                                                                                   |
+
+### LIST with a prefixed personal namespace
+
+With a personal namespace that has a prefix, such as `"INBOX."` in the [Cyrus layout](../guides/storage.md#cyrus), LIST with an empty reference matches the pattern relative to the prefix instead of interpreting the name as SELECT does ([RFC 9051 section 6.3.9](https://www.rfc-editor.org/rfc/rfc9051#section-6.3.9)). With mailboxes `INBOX.Drafts` and `INBOX.Sent`:
+
+```text
+C: A6 LIST "" "INBOX.%"
+S: A6 OK Completed
+C: B1 LIST "" "%"
+S: * LIST (\HasNoChildren) "." "INBOX.Drafts"
+S: * LIST (\HasNoChildren) "." "INBOX.Sent"
+S: B1 OK Completed
+```
+
+`LIST "" "INBOX.%"` should list both mailboxes, and `LIST "" "%"` should list `INBOX` and not the mailboxes below it. `LIST "" "*"` and `LIST "INBOX." "%"` work. The default storage and the Gmail layout, where the personal namespace is `""`, are not affected.
+
+## Extensions
+
+| Extension      | Limitation                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMAP4rev2      | The server always advertises IMAP4rev1 next to IMAP4rev2, a server that advertises only IMAP4rev2 is not implemented. UTF-8 in response text and the `OLDNAME` LIST extended data item for RENAME ([RFC 9051 section 6.3.9.7](https://www.rfc-editor.org/rfc/rfc9051#section-6.3.9.7)) are not implemented. STARTTLS and LOGINDISABLED are not loaded by the plugin, load them yourself. |
+| UTF8=ACCEPT    | `UTF8=ONLY`, the obsolete `APPEND ... UTF8 (...)` data item of RFC 6855 and downgrading of 8-bit headers for clients that did not enable UTF-8 ([RFC 9755 section 8](https://www.rfc-editor.org/rfc/rfc9755#section-8)) are not implemented.                                                                                                                                             |
+| ACL            | Identifiers are not prepared with SASLprep, which [RFC 4314 section 3](https://www.rfc-editor.org/rfc/rfc4314#section-3) asks for. Identifiers that SASLprep would refuse (control characters, invalid UTF-8) and empty ones are answered with BAD. The rights of the owner can not be changed.                                                                                          |
+| CONDSTORE      | `SEARCH MODSEQ` checks the entry name and type but ignores them, mod-sequences are not stored per flag.                                                                                                                                                                                                                                                                                  |
+| CONTEXT=SEARCH | The `CONTEXT` result option is accepted as a hint and ignored.                                                                                                                                                                                                                                                                                                                           |
+| NOTIFY         | `AnnotationChange` is refused with `NO [BADEVENT]`, as there is no ANNOTATE support. The fetch attributes of the CONTEXT=SEARCH `UPDATE` option ([RFC 5465 section 7](https://www.rfc-editor.org/rfc/rfc5465#section-7)) are not supported.                                                                                                                                              |
+| MULTISEARCH    | `UPDATE` (with CONTEXT=SEARCH) only applies to the selected mailbox.                                                                                                                                                                                                                                                                                                                     |
+| LIST-EXTENDED  | The `REMOTE` selection option is accepted, but there are no remote mailboxes.                                                                                                                                                                                                                                                                                                            |
+| XOAUTH2        | Needs the SASL-IR plugin and the initial response, Gmail itself does not.                                                                                                                                                                                                                                                                                                                |
+| OAUTHBEARER    | Channel binding (`p=` in the GS2 header) is not supported and fails with `invalid_request`.                                                                                                                                                                                                                                                                                              |
+| BINARY         | Binary parts of an appended message, and parts with NUL octets, are stored base64 encoded, so `BODY[]` returns a valid IMAP4rev1 message rather than the octets the client appended.                                                                                                                                                                                                     |
+
+## Server
+
+| Area             | Limitation                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugins          | Plugins are chosen when the server is built. They can not be loaded or unloaded while it runs.                                                                            |
+| Timeouts         | There is no inactivity timeout, sessions stay open until the client or the test closes them. Use a [script rule](../faults/scripted-faults.md) to simulate an autologout. |
+| `sessionTimeout` | The `xoauth2.sessionTimeout` value of a user is kept, but has no effect: access tokens never expire.                                                                      |
+| Command lines    | Up to 1 MiB, a longer line is answered with BAD.                                                                                                                          |
+| Literals         | Up to 64 MiB after login (the `maxLiteralSize` option changes it) and 64 KiB before login.                                                                                |
+
+For differences between ImapKit and Dovecot that are not ImapKit bugs, see [Comparing with Dovecot](../contributing/comparing-with-dovecot.md).
