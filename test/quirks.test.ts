@@ -22,6 +22,18 @@ describe('quirks', () => {
         assert.throws(() => imapkit({ quirks: ['nope'] }), /Unknown quirk "nope". Available quirks: james-fetchgroup/);
     });
 
+    it('refuse to remove a plugin that another listed plugin requires', () => {
+        // RFC 9051 Appendix E: IMAP4rev2 folds in UIDPLUS and MOVE (sections 6.3.12, 6.4.7, 6.4.8 and 6.4.9), so a
+        // server that advertises IMAP4rev2 can not leave them out
+        assert.throws(() => imapkit({ plugins: ['IMAP4rev2'], quirks: ['no-move'] }), /^Error: IMAP4rev2 requires MOVE, which the "no-move" quirk removes$/);
+        assert.throws(
+            () => imapkit({ plugins: ['IDLE', 'imap4rev2'], quirks: ['no-uidplus'] }),
+            /^Error: imap4rev2 requires UIDPLUS, which the "no-uidplus" quirk removes$/
+        );
+        // a plugin the quirk removes only because it is listed is still left out
+        assert.strictEqual(imapkit({ plugins: ['MOVE', 'QRESYNC'], quirks: ['no-move'] }).capabilities.MOVE, undefined);
+    });
+
     it('are exported as data', () => {
         assert.deepStrictEqual(Object.keys(quirks), [
             'james-fetchgroup',

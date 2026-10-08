@@ -307,7 +307,7 @@ class IMAPServer extends Stream {
         this.control = new Control(this);
 
         // a quirk preset can leave plugins out (no-move, no-uidplus)
-        loadPlugins(this, this.options.plugins, [...quirks.removePlugins]);
+        loadPlugins(this, this.options.plugins, quirks.removePlugins);
 
         if (this.options.storage) {
             // a typo in a fixture fails here with the path of the problem

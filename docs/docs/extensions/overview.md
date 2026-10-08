@@ -66,10 +66,11 @@ Some plugins only add to others when both are loaded: LIST-MYRIGHTS comes with A
 
 A few extensions exclude each other, and loading both throws an error when the server is created:
 
-| Combination                    | Error                                                                         | Reason                                                 |
-| ------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `LITERAL+` and `LITERAL-`      | `LITERAL- can not be enabled together with LITERAL+` (or the other way round) | RFC 7888 section 5: a server must not advertise both   |
-| `MESSAGELIMIT` and `SAVELIMIT` | `SAVELIMIT can not be enabled together with MESSAGELIMIT`                     | RFC 9738 section 3: a server advertises one of the two |
+| Combination                                         | Error                                                                         | Reason                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `LITERAL+` and `LITERAL-`                           | `LITERAL- can not be enabled together with LITERAL+` (or the other way round) | RFC 7888 section 5: a server must not advertise both     |
+| `MESSAGELIMIT` and `SAVELIMIT`                      | `SAVELIMIT can not be enabled together with MESSAGELIMIT`                     | RFC 9738 section 3: a server advertises one of the two   |
+| `IMAP4rev2` and the `no-move` or `no-uidplus` quirk | `IMAP4rev2 requires MOVE, which the "no-move" quirk removes` (or UIDPLUS)     | RFC 9051 Appendix E: IMAP4rev2 folds in MOVE and UIDPLUS |
 
 IMAP4rev2 loads LITERAL- only when LITERAL+ is not loaded, and a LITERAL+ loaded after it replaces that implied LITERAL-, so `['IMAP4rev2', 'LITERAL+']` works.
 
@@ -77,7 +78,7 @@ IMAP4rev2 loads LITERAL- only when LITERAL+ is not loaded, and a LITERAL+ loaded
 
 A plugin that is not loaded leaves no trace. Without CONDSTORE, messages have no MODSEQ value and `SELECT INBOX (CONDSTORE)` is answered with `BAD`. Without MOVE, `MOVE` is an unknown command. This lets you check that your client only uses what the server advertises.
 
-The `no-uidplus` and `no-move` [quirk presets](../faults/quirk-presets.md) remove UIDPLUS and MOVE even when the plugin list names them.
+The `no-uidplus` and `no-move` [quirk presets](../faults/quirk-presets.md) remove UIDPLUS and MOVE even when the plugin list names them. With IMAP4rev2, which requires both (RFC 9051 Appendix E), they throw `IMAP4rev2 requires MOVE, which the "no-move" quirk removes` (or the same for UIDPLUS) when the server is created.
 
 ### Capabilities
 

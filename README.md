@@ -575,13 +575,13 @@ Faults change only the output and the handling of the lines a rule matches, the 
 
 The `quirks` option (`--quirk` for the `imapkit` command) turns on named presets that make the server behave like a known real server, so a client test reproduces that server's bug in every run, without the server itself. A preset is a set of script rules, after the rules of the `script` option, and plugins it leaves out. The presets are exported as data (`import { quirks } from 'imapkit'`), copy one into your own script rules to adjust it.
 
-| Quirk                   | Behavior                                                                                                                                                                            |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `james-fetchgroup`      | Apache James FetchGroup: only the first section asked for a part in one FETCH is answered, later ones for the same part are empty (`BODY[2.MIME] BODY[2]` gives a zero-length body) |
-| `james-late-fetch`      | Apache James: 1 in 4 FETCH responses come after the tagged OK of their command                                                                                                      |
-| `yahoo-quoted-sections` | Yahoo: short body sections (up to 100 octets without line breaks) are quoted strings instead of literals                                                                            |
-| `m365-throttle`         | Microsoft 365: 1 in 10 commands (not LOGOUT) is refused with `BAD Request is throttled. Suggested Backoff Time: 1000 milliseconds`                                                  |
-| `no-uidplus`, `no-move` | servers without UIDPLUS or MOVE, the plugins are not loaded even when `plugins` lists them                                                                                          |
+| Quirk                   | Behavior                                                                                                                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `james-fetchgroup`      | Apache James FetchGroup: only the first section asked for a part in one FETCH is answered, later ones for the same part are empty (`BODY[2.MIME] BODY[2]` gives a zero-length body)     |
+| `james-late-fetch`      | Apache James: 1 in 4 FETCH responses come after the tagged OK of their command                                                                                                          |
+| `yahoo-quoted-sections` | Yahoo: short body sections (up to 100 octets without line breaks) are quoted strings instead of literals                                                                                |
+| `m365-throttle`         | Microsoft 365: 1 in 10 commands (not LOGOUT) is refused with `BAD Request is throttled. Suggested Backoff Time: 1000 milliseconds`                                                      |
+| `no-uidplus`, `no-move` | servers without UIDPLUS or MOVE, the plugins are not loaded even when `plugins` lists them, and with IMAP4rev2 (which requires both, RFC 9051 Appendix E) the server constructor throws |
 
 ```javascript
 const server = imapkit({ plugins: ['IDLE', 'MOVE'], quirks: ['james-fetchgroup', 'm365-throttle'], scriptSeed: 42 });
