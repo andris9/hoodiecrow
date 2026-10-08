@@ -1597,8 +1597,10 @@ class IMAPServer extends Stream {
         // RFC 3501 section 6.3.8 (RFC 9051 section 6.3.9): "An empty ("" string) reference name argument
         // indicates that the mailbox name is interpreted as by SELECT", and without break out characters
         // "the canonical form is normally the reference name appended with the mailbox name". The pattern
-        // matches full mailbox names, also in a personal namespace with a prefix such as "INBOX."
-        const lookup = (referenceName || '') + match;
+        // matches full mailbox names, also in a personal namespace with a prefix such as "INBOX.". With the
+        // namespace convention "#" is a break out character "and must be treated as such" (RFC 3501 section 6.3.8,
+        // RFC 9051 section 6.3.9): a pattern that starts with it is a name of its own, the reference is ignored
+        const lookup = match.charAt(0) === '#' ? match : (referenceName || '') + match;
 
         // "%" does not match the hierarchy delimiter, which is the one of the namespace a name belongs to
         const queries = new Map<string, RegExp>();

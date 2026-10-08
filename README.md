@@ -260,7 +260,7 @@ The XTOYBIRD commands map to the [control API](#control-api):
 # Known issues
 
 - **anonymous namespaces** are not supported
-- **LIST** does not insert a hierarchy delimiter between a reference without one and the mailbox name (RFC 2683 section 3.4.9 recommends it), the two are concatenated as RFC 9051 section 6.3.9 describes, like Dovecot does
+- **LIST** does not insert a hierarchy delimiter between a reference without one and the mailbox name (RFC 2683 section 3.4.9 recommends it), the two are concatenated as RFC 9051 section 6.3.9 describes, like Dovecot does. A pattern that starts with the `#` break out character ignores the reference
 - **CHARSET** values other than US-ASCII and UTF-8 are not supported
 
 # Running tests

@@ -41,7 +41,7 @@ Without plugins, LIST and LSUB follow RFC 3501. `\HasChildren` and `\HasNoChildr
 - DELETE does not unsubscribe, so LSUB keeps listing the name until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name.
 - SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name.
 - LSUB sends the LIST attributes of an existing mailbox, without `\Noselect`, and `()` for a subscribed name that is no longer a mailbox.
-- LIST concatenates the reference and the pattern as they are, without inserting a hierarchy delimiter (RFC 9051 section 6.3.9).
+- LIST concatenates the reference and the pattern as they are, without inserting a hierarchy delimiter (RFC 9051 section 6.3.9). A pattern that starts with `#` is a break out character of the namespace convention and ignores the reference: `LIST "Work/" "#news.*"` lists the `#news.` namespace.
 
 ```text
 C: A2 LIST "" "*"

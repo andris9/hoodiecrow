@@ -112,6 +112,21 @@ describe('ImapKit tests', () => {
         });
     });
 
+    // RFC 3501 section 6.3.8: with the namespace convention "#" is a break out character "and must be treated as
+    // such", a mailbox name that starts with it overrides the reference
+    it('LIST ignores the reference for a name that starts with #', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "Test/" "#news.*"', 'A3 LIST "Test/" "%"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* LIST \(\\HasNoChildren\) "\." "#news\.world"\r\n/m);
+            assert.match(resp, /^A2 OK/m);
+            // without a break out character the reference still applies
+            assert.doesNotMatch(resp.slice(resp.indexOf('A2 OK')), /#news/);
+            done();
+        });
+    });
+
     it('LIST #news namespace', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 CAPABILITY', 'A3 LIST "#news." "*"', 'ZZ LOGOUT'];
 
