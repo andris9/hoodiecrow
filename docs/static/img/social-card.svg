@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#2e8555"/>
+  <rect x="0" y="560" width="1200" height="70" fill="#1f5c3b"/>
+  <g transform="translate(90 150) scale(3.2)">
+    <rect x="4" y="12" width="48" height="34" rx="5" fill="#ffffff"/>
+    <path d="M8 17 L28 32 L48 17" fill="none" stroke="#2e8555" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="48" cy="44" r="13" fill="#1f5c3b" stroke="#ffffff" stroke-width="3"/>
+    <path d="M42 44 L46.5 48.5 L54.5 39.5" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="380" y="260" font-family="Helvetica, Arial, sans-serif" font-size="110" font-weight="700" fill="#ffffff">ImapKit</text>
+  <text x="384" y="330" font-family="Helvetica, Arial, sans-serif" font-size="36" fill="#e3f2ea">In-memory IMAP server for testing IMAP clients</text>
+  <text x="384" y="390" font-family="Menlo, monospace" font-size="30" fill="#ffffff">npm install --save-dev imapkit</text>
+  <text x="90" y="604" font-family="Helvetica, Arial, sans-serif" font-size="28" fill="#e3f2ea">imapkit.com</text>
+  <text x="1110" y="604" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="24" fill="#e3f2ea">IMAP4rev1 · IMAP4rev2 · 50+ extensions · scripted faults</text>
+</svg>

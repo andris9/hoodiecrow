@@ -1,6 +1,5 @@
 import { Stream } from 'node:stream';
 import net from 'node:net';
-import http from 'node:http';
 import tls from 'node:tls';
 import imapHandler from 'imap-handler';
 import type { CompilerOptions, ParserOptions } from 'imap-handler';
@@ -21,6 +20,7 @@ import { Control } from './control.js';
 import { resolveQuirks } from './quirks.js';
 import { validateStorage } from './storage-schema.js';
 import { createRestServer } from './rest.js';
+import type { RestServer } from './rest.js';
 import type { SessionInfo } from './control.js';
 import * as bundledCert from './cert.js';
 import { ServerScript, sendOutput, handleLine, handleQuiet, literalResponse, releaseDeferred } from './script.js';
@@ -210,7 +210,7 @@ class IMAPServer extends Stream {
     /** the SMTP server that `start()` runs for the `smtp` option */
     declare smtpServer: SMTPListener | null;
     /** the HTTP server of the REST API that `start()` runs for the `rest` option */
-    declare restServer: http.Server | null;
+    declare restServer: RestServer | null;
 
     constructor(options?: IMAPServerOptions) {
         super();
@@ -468,6 +468,8 @@ class IMAPServer extends Stream {
             this.smtpServer = null;
         }
         if (this.restServer) {
+            // event streams never end on their own, a graceful shutdown would wait for them forever
+            this.restServer.endStreams?.();
             this.restServer.close();
             // keep-alive connections would hold the server open
             if (force) {

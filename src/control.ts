@@ -4,7 +4,7 @@
  * unsolicited FETCH, BYE, NOTIFY events, CONDSTORE mod-sequences), with no session as its origin. The API is the
  * operator: ACL does not apply, but every argument is checked. Mailboxes are addressed by their storage name
  * (modified UTF-7), messages by mailbox and UID. Methods return plain data and throw an ImapKitError with a `code`:
- * NONEXISTENT, ALREADYEXISTS, INVALID, or a RFC 5530 code of a failed mailbox operation (CANNOT, HASCHILDREN ...)
+ * NONEXISTENT, ALREADYEXISTS, INVALID, or the response code of a failed mailbox operation (CANNOT, HASCHILDREN ...)
  */
 
 import validateMailboxName from './mailbox-name.js';
@@ -37,7 +37,7 @@ interface MailboxInfo {
     unseen: number;
     uidnext: number;
     uidvalidity: number;
-    /** flags that can be stored, \* when new keywords are allowed */
+    /** the flags of the FLAGS response, SELECT adds \* to PERMANENTFLAGS when new keywords are allowed */
     permanentFlags: string[];
     /** only with CONDSTORE */
     highestModseq?: number;

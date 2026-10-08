@@ -83,7 +83,9 @@ if (debug) {
     config.debug = true;
 }
 
-const port = argv.port || process.env.IMAPKIT_PORT || config.port || (secure ? 993 : 143);
+// secureConnection can also come from the --config file
+const isSecure = secure || config.secureConnection === true;
+const port = argv.port || process.env.IMAPKIT_PORT || config.port || (isSecure ? 993 : 143);
 
 if (argv.help) {
     const help = fs.readFileSync(path.join(__dirname, 'help.txt'), 'utf-8');
@@ -120,13 +122,21 @@ if (argv.help) {
         // smtp-server is an optional dependency, start() loads it only when SMTP is enabled
         config.smtp = { port: Number(smtpPort) };
     }
-    const server = imapkit(config);
+    let server;
+    try {
+        server = imapkit(config);
+    } catch (err) {
+        // an unknown plugin or quirk name, invalid storage ...
+        console.error('Failed to start ImapKit: %s', err.message);
+        process.exit(1);
+    }
     console.log('Starting ImapKit ...');
     server.start(Number(port)).then(
-        () => {
-            console.log('ImapKit successfully%s listening on port %s', secure ? ' and securely' : '', port);
+        listening => {
+            // the actual port, also for -p 0
+            console.log('ImapKit successfully%s listening on port %s', isSecure ? ' and securely' : '', listening);
             if (server.restServer) {
-                console.log('REST API listening on %s:%s', restHost || '127.0.0.1', server.restServer.address().port);
+                console.log('REST API listening on %s:%s', (config.rest && config.rest.host) || '127.0.0.1', server.restServer.address().port);
             }
             if (server.smtpServer) {
                 console.log('Incoming SMTP server up and running on port %s', server.smtpServer.server.address().port);

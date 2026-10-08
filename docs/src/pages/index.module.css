@@ -1,27 +1,81 @@
 .heroBanner {
     padding: 4rem 0;
-    text-align: center;
-    position: relative;
     overflow: hidden;
 }
 
-@media screen and (max-width: 996px) {
-    .heroBanner {
-        padding: 2rem;
-    }
+.heroGrid {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+}
+
+.heroText {
+    flex: 1 1 0;
+    text-align: left;
+}
+
+.heroImage {
+    flex: 1 1 0;
+    max-width: 560px;
+    width: 100%;
 }
 
 .buttons {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.outlineButton {
+    color: #ffffff;
+    border-color: #ffffff;
+}
+
+.outlineButton:hover {
+    color: var(--ifm-color-primary-darkest);
+    background: #ffffff;
 }
 
 .install {
     display: inline-block;
-    margin: 1.5rem auto 0;
+    margin-top: 1.5rem;
     padding: 0.5rem 1rem;
     background: rgba(0, 0, 0, 0.25);
-    color: #fff;
+    color: #ffffff;
     border: none;
+    font-size: 1rem;
+}
+
+@media screen and (max-width: 996px) {
+    .heroBanner {
+        padding: 2.5rem 1rem;
+    }
+
+    .heroGrid {
+        flex-direction: column;
+    }
+
+    .heroText {
+        text-align: center;
+    }
+
+    .buttons {
+        justify-content: center;
+    }
+}
+
+.codeSection {
+    padding: 3rem 0;
+    border-top: 1px solid var(--ifm-toc-border-color);
+}
+
+.banner {
+    padding: 2.5rem 0;
+    border-top: 1px solid var(--ifm-toc-border-color);
+}
+
+.bannerInner {
+    max-width: 720px;
+    margin: 0 auto;
+    text-align: center;
 }

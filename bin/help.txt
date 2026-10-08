@@ -72,7 +72,7 @@ Configuration file takes the following structure
         }
     },
     "id":{
-        "name": "hoodecrow",
+        "name": "imapkit",
         "version": "__VERSION__",
         "key": "value"
     }
@@ -82,7 +82,8 @@ Scripted faults
 ---------------
 
 A script file holds a list of rules. Each rule watches one event
-("greeting", "command", "input", "response" or "continuation") and
+("greeting", "command", "input", "response", "continuation" or
+"quiet", no input and output for "quietFor" milliseconds) and
 changes what the server does when its matchers fit. For example, this
 script answers the first FETCH with a literal that is too short and
 then drops the connection:
