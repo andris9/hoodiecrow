@@ -1231,6 +1231,20 @@ class IMAPServer extends Stream {
     }
 
     /**
+     * Checks if a flag can be stored on messages of a mailbox: any flag when the mailbox allows new keywords
+     * (PERMANENTFLAGS has `\*`), otherwise only a flag in the PERMANENTFLAGS list that getStatus() builds, the
+     * `permanentFlags` of the mailbox and every flag its messages had. RFC 3501 section 7.1 (RFC 9051 section 7.1):
+     * PERMANENTFLAGS "indicates which of the known flags the client can change permanently", STORE ignores the others
+     *
+     * @param {Object} mailbox Mailbox object
+     * @param {String} flag Normalized flag
+     * @return {Boolean} true if the flag is a permanent flag of the mailbox
+     */
+    isPermanentFlag(mailbox: Mailbox, flag: string): boolean {
+        return mailbox.allowPermanentFlags || mailbox.permanentFlags.indexOf(flag) >= 0 || (mailbox.knownFlags || []).indexOf(flag) >= 0;
+    }
+
+    /**
      * The current time for dates the server sets itself (INTERNALDATE of a message without one, SAVEDATE). The `now`
      * option fixes it for repeatable tests: a Date, a timestamp, or a function that returns one
      *
@@ -1321,9 +1335,10 @@ class IMAPServer extends Stream {
     ): { mailbox: Mailbox; message: Message } {
         const mailbox = typeof path === 'string' ? (this.getMailbox(path) as Mailbox) : path;
 
-        // processMessage() below sets the UID
+        // processMessage() below sets the UID. Flags the mailbox can not store are left out (APPEND, COPY: the flags
+        // SHOULD be set, RFC 3501 sections 6.3.11 and 6.4.7), as STORE ignores them (RFC 3501 section 7.1, PERMANENTFLAGS)
         const message = Object.assign({}, properties, {
-            flags: flags,
+            flags: flags.filter(flag => this.isPermanentFlag(mailbox, flag)),
             internaldate: internaldate,
             raw: raw,
             recent: true

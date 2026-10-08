@@ -186,7 +186,7 @@ function checkFlags(server: IMAPServer, mailbox: Mailbox, flags: unknown, stored
         } catch (err) {
             throw storeError((err as Error).message, 'INVALID');
         }
-        if (stored && mailbox.permanentFlags.indexOf(flag) < 0 && !mailbox.allowPermanentFlags) {
+        if (stored && !server.isPermanentFlag(mailbox, flag)) {
             throw storeError('Flag ' + flag + ' is not a permanent flag of ' + mailbox.path, 'INVALID');
         }
         if (list.indexOf(flag) < 0) {

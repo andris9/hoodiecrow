@@ -130,7 +130,7 @@ All RFC 3501 commands are supported. Some choices that the RFCs leave to the ser
 - The subscription list holds names, not mailboxes (RFC 3501 section 6.3.6). DELETE does not unsubscribe, so LSUB and `LIST (SUBSCRIBED)` keep listing the name (as `\NonExistent` in extended LIST) until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name (RFC 9051 section 6.3.6). A mailbox from the storage object is subscribed unless it has `"subscribed": false`, a new mailbox is not. SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name
 - CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3, Dovecot creates a `\Noselect` level instead). An existing `\Noselect` level stays `\Noselect`
 - DELETE of a mailbox with children leaves a `\Noselect` level that keeps nothing but the children, CREATE of that name makes a new mailbox with a new UIDVALIDITY
-- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6, like Dovecot)
+- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6, like Dovecot). In a mailbox with `"allowPermanentFlags": false` STORE accepts exactly the flags PERMANENTFLAGS lists (`permanentFlags` and the flags its messages have or had) and ignores the others, APPEND and COPY leave them out (RFC 3501 section 7.1)
 
 ### Supported Plugins
 

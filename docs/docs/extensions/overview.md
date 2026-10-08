@@ -164,7 +164,7 @@ Some choices that the RFCs leave to the server:
 - The subscription list holds names, not mailboxes (RFC 3501 section 6.3.6). DELETE does not unsubscribe, so LSUB and `LIST (SUBSCRIBED)` keep listing the name until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name. A mailbox from the storage object is subscribed unless it has `"subscribed": false`, a new mailbox is not. SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name.
 - CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3). An existing `\Noselect` level stays `\Noselect`.
 - DELETE of a mailbox with children leaves a `\Noselect` level that keeps nothing but the children. CREATE of that name makes a new mailbox with a new UIDVALIDITY.
-- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6).
+- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6). In a mailbox with `"allowPermanentFlags": false` STORE accepts exactly the flags PERMANENTFLAGS lists (`permanentFlags` and the flags its messages have or had) and ignores the others, APPEND and COPY leave them out (RFC 3501 section 7.1).
 - SEARCH, SORT and THREAD support the `US-ASCII` and `UTF-8` charsets. Any other charset gets `NO [BADCHARSET (US-ASCII UTF-8)]`.
 
 The [Mailboxes](./mailboxes.md#core-list-lsub-and-subscriptions) page shows these in transcripts, and [Strict by design](../guides/strict-by-design.md) lists what the core refuses.

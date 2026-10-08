@@ -213,3 +213,74 @@ describe('Custom flags not allowed', () => {
         });
     });
 });
+
+// RFC 3501 section 7.1 (RFC 9051 section 7.1): PERMANENTFLAGS "indicates which of the known flags the client can
+// change permanently", a STORE of a flag that is not in the list is ignored. Flags that messages of the mailbox
+// already have are in PERMANENTFLAGS, so STORE must accept them, and APPEND and COPY (RFC 3501 sections 6.3.11 and
+// 6.4.7, the flags SHOULD be set) keep only flags the target mailbox can store
+describe('PERMANENTFLAGS and STORE agree', () => {
+    const ctx = setupServer(() => ({
+        storage: {
+            INBOX: {
+                allowPermanentFlags: false,
+                permanentFlags: ['\\Seen'],
+                messages: [
+                    { raw: 'Subject: hello 1\r\n\r\nWorld 1!', flags: ['\\Seen', '\\Flagged', '$Known'] },
+                    { raw: 'Subject: hello 2\r\n\r\nWorld 2!', flags: [] }
+                ]
+            },
+            '': {
+                folders: {
+                    Other: {
+                        messages: [{ raw: 'Subject: other\r\n\r\nOther', flags: ['\\Draft', '$Known', '$Fresh'] }]
+                    }
+                }
+            }
+        }
+    }));
+
+    it('STORE sets the flags PERMANENTFLAGS lists and ignores the others', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 SELECT INBOX',
+            'A3 STORE 2 +FLAGS (\\Flagged $Known \\Deleted $New)',
+            'A4 STORE 2 FLAGS (\\Seen \\Answered $Known $Other)',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* OK \[PERMANENTFLAGS \(\\Seen \\Flagged \$Known\)\]/m);
+            assert.match(resp, /^\* 2 FETCH \(FLAGS \(\\Flagged \$Known\)\)\r$/m);
+            assert.match(resp, /^\* 2 FETCH \(FLAGS \(\\Seen \$Known\)\)\r$/m);
+            done();
+        });
+    });
+
+    it('APPEND and COPY keep only the permanent flags', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 APPEND INBOX (\\Flagged \\Deleted $New) {3}\r\nabc',
+            'A3 SELECT Other',
+            'A4 COPY 1 INBOX',
+            'A5 SELECT INBOX',
+            'A6 FETCH 3:4 FLAGS',
+            'ZZ LOGOUT'
+        ];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* 3 FETCH \(FLAGS \(\\Flagged \\Recent\)\)\r$/m);
+            assert.match(resp, /^\* 4 FETCH \(FLAGS \(\$Known \\Recent\)\)\r$/m);
+            assert.match(resp, /^\* OK \[PERMANENTFLAGS \(\\Seen \\Flagged \$Known\)\]/m);
+            done();
+        });
+    });
+
+    it('the control API uses the same permanent flags', () => {
+        assert.deepStrictEqual(ctx.server.control.setFlags('INBOX', [2], ['\\Flagged', '$Known'], 'add'), [{ uid: 2, flags: ['\\Flagged', '$Known'] }]);
+        assert.throws(() => ctx.server.control.setFlags('INBOX', [2], ['\\Deleted'], 'add'), { code: 'INVALID' });
+        assert.strictEqual(ctx.server.control.addMessage('INBOX', { raw: 'Subject: x\r\n\r\nx', flags: ['$Known'] }).uid, 3);
+        assert.throws(() => ctx.server.control.addMessage('INBOX', { raw: 'Subject: x\r\n\r\nx', flags: ['$New'] }), { code: 'INVALID' });
+    });
+});
