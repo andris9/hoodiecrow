@@ -232,7 +232,16 @@ export interface MailboxStatus {
 
 export interface UserData {
     password?: string | undefined;
-    xoauth2?: { accessToken?: string | undefined; sessionTimeout?: number | undefined } | undefined;
+    xoauth2?:
+        | {
+              accessToken?: string | undefined;
+              /**
+               * @deprecated kept from hoodiecrow and ignored: access tokens never expire. Change the token with
+               * `control.updateUser()` to test a client against an expired one
+               */
+              sessionTimeout?: number | undefined;
+          }
+        | undefined;
     [key: string]: any;
 }
 

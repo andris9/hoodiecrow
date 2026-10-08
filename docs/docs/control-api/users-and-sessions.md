@@ -29,12 +29,12 @@ server.control.listUsers();
 addUser(name: string, options: { password?: string; xoauth2?: { accessToken: string; sessionTimeout?: number } }): void
 ```
 
-| Parameter                        | Description                                                                                                           |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `name`                           | user name, a non-empty string                                                                                         |
-| `options.password`               | password for the LOGIN command and AUTHENTICATE PLAIN                                                                 |
-| `options.xoauth2.accessToken`    | access token for XOAUTH2 and OAUTHBEARER                                                                              |
-| `options.xoauth2.sessionTimeout` | stored with the token in milliseconds, default 3600000. ImapKit does not expire tokens, so it has no effect on logins |
+| Parameter                        | Description                                                                                                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                           | user name, a non-empty string                                                                                                                                              |
+| `options.password`               | password for the LOGIN command and AUTHENTICATE PLAIN                                                                                                                      |
+| `options.xoauth2.accessToken`    | access token for XOAUTH2 and OAUTHBEARER                                                                                                                                   |
+| `options.xoauth2.sessionTimeout` | deprecated and ignored, stored with the token in milliseconds, default 3600000. ImapKit does not expire tokens, replace the token with `updateUser` to test an expired one |
 
 **Errors:** `INVALID` for an empty name, a password that is not a string or an `xoauth2` without an `accessToken` string, `ALREADYEXISTS` for an existing user.
 

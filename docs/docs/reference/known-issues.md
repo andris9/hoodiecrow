@@ -51,12 +51,12 @@ S: B1 OK Completed
 
 ## Server
 
-| Area             | Limitation                                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plugins          | Plugins are chosen when the server is built. They can not be loaded or unloaded while it runs.                                                                            |
-| Timeouts         | There is no inactivity timeout, sessions stay open until the client or the test closes them. Use a [script rule](../faults/scripted-faults.md) to simulate an autologout. |
-| `sessionTimeout` | The `xoauth2.sessionTimeout` value of a user is kept, but has no effect: access tokens never expire.                                                                      |
-| Command lines    | Up to 1 MiB, a longer line is answered with BAD.                                                                                                                          |
-| Literals         | Up to 64 MiB after login (the `maxLiteralSize` option changes it) and 64 KiB before login.                                                                                |
+| Area             | Limitation                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugins          | Plugins are chosen when the server is built. They can not be loaded or unloaded while it runs.                                                                                              |
+| Timeouts         | There is no inactivity timeout, sessions stay open until the client or the test closes them. Use a [script rule](../faults/scripted-faults.md) to simulate an autologout.                   |
+| `sessionTimeout` | The `xoauth2.sessionTimeout` value of a user is deprecated, it is kept but has no effect: access tokens never expire. Replace the token with `control.updateUser()` to test an expired one. |
+| Command lines    | Up to 1 MiB, a longer line is answered with BAD.                                                                                                                                            |
+| Literals         | Up to 64 MiB after login (the `maxLiteralSize` option changes it) and 64 KiB before login.                                                                                                  |
 
 For differences between ImapKit and Dovecot that are not ImapKit bugs, see [Comparing with Dovecot](../contributing/comparing-with-dovecot.md).
