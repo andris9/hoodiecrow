@@ -23,7 +23,8 @@ export type {
 } from './types.js';
 export type { ScriptRule, ScriptContext, ScriptEvent, ScriptBytes, ScriptHandle } from './script.js';
 export type { Quirk } from './quirks.js';
-export type { Control, MailboxInfo, MessageInfo, SessionInfo, NewMessage, UserOptions, SessionFilter } from './control.js';
+export type { Control, MailboxInfo, MessageInfo, SessionInfo, NewMessage, UserOptions, SessionFilter, ControlRoute, RouteRequest } from './control.js';
+export type { FlagMode, UidMode, UidValidityOptions } from './store-operations.js';
 
 // `imapkit(options)` creates a server. TAG_REGEX was a property of the CommonJS export, it and the
 // classes are properties of the factory with both module formats

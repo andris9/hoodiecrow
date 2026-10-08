@@ -245,6 +245,23 @@ describe('REST API', () => {
         assert.strictEqual((await call('GET', '/v1/events?types=nope')).status, 400);
     });
 
+    it('ends open event streams on a graceful shutdown', async () => {
+        const res = await fetch(base + '/v1/events?types=session');
+        const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+        const rest = server.restServer!;
+        const closed = new Promise(resolve => rest.once('close', resolve));
+        await server.control.shutdown();
+        // the stream ends instead of keeping the shutdown waiting
+        for (;;) {
+            const { done } = await reader.read();
+            if (done) {
+                break;
+            }
+        }
+        await closed;
+        assert.strictEqual(server.server.listening, false);
+    });
+
     it('describes itself as OpenAPI', async () => {
         const doc = (await call('GET', '/v1/openapi.json')).body;
         assert.strictEqual(doc.openapi, '3.1.0');

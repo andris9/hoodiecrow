@@ -13,6 +13,9 @@ import type { IMAPConnection, IMAPServer, Mailbox, Message } from './types.js';
 import type { ControlRoute as Route, MessageInfo } from './control.js';
 import type { ScriptHandle, ScriptRule } from './script.js';
 
+/** The HTTP server of the REST API, `endStreams()` ends the open event streams */
+type RestServer = http.Server & { endStreams?: () => void };
+
 /** Options of the REST API, the `rest` server option */
 interface RestOptions {
     port?: number | undefined;
@@ -121,8 +124,9 @@ function eventData(type: string, args: any[]): unknown {
  * @param {Array} types Event types to send
  * @return {Function} writes the stream to a response
  */
-function eventStream(server: IMAPServer, types: string[]) {
+function eventStream(server: IMAPServer, types: string[], streams: Set<http.ServerResponse>) {
     return (res: http.ServerResponse, req: http.IncomingMessage) => {
+        streams.add(res);
         res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store' });
         res.write(': connected\n\n');
         const listeners = types.map(type => {
@@ -134,6 +138,7 @@ function eventStream(server: IMAPServer, types: string[]) {
         const ping = setInterval(() => res.write(': ping\n\n'), 15000);
         ping.unref();
         req.on('close', () => {
+            streams.delete(res);
             clearInterval(ping);
             listeners.forEach(({ type, listener }) => server.removeListener(type, listener));
         });
@@ -146,7 +151,7 @@ function eventStream(server: IMAPServer, types: string[]) {
  * @param {Object} server IMAP server
  * @return {Array} routes
  */
-function getRoutes(server: IMAPServer): Route[] {
+function getRoutes(server: IMAPServer, streams: Set<http.ServerResponse> = new Set()): Route[] {
     const control = server.control;
     const ruleJson = (handle: ScriptHandle) => ({ id: handle.id, rule: handle.rule, matched: handle.matched, hits: handle.hits });
 
@@ -183,7 +188,7 @@ function getRoutes(server: IMAPServer): Route[] {
                 if (unknown.length) {
                     throw storeError('Unknown event type ' + unknown.join(', ') + ', expected ' + EVENT_TYPES.join(', '), 'INVALID');
                 }
-                return { stream: eventStream(server, types) };
+                return { stream: eventStream(server, types, streams) };
             }
         },
         {
@@ -523,7 +528,7 @@ function readBody(req: http.IncomingMessage): Promise<any> {
  * @return {Object} HTTP server
  * @throws {Error} for a host that is not a loopback address without a token
  */
-function createRestServer(server: IMAPServer, options: RestOptions): http.Server {
+function createRestServer(server: IMAPServer, options: RestOptions): RestServer {
     const host = options.host || '127.0.0.1';
     const token = options.token;
     if (token !== undefined && (typeof token !== 'string' || !token)) {
@@ -532,7 +537,9 @@ function createRestServer(server: IMAPServer, options: RestOptions): http.Server
     if (!token && !isLoopback(host)) {
         throw new Error('The REST API controls the whole server, it needs a token (rest.token, --rest-token) to listen on ' + host);
     }
-    const routes = getRoutes(server);
+    // open event streams, a shutdown ends them so that the server can close
+    const streams = new Set<http.ServerResponse>();
+    const routes = getRoutes(server, streams);
 
     const send = (res: http.ServerResponse, status: number, body: unknown) => {
         const json = JSON.stringify(body);
@@ -574,7 +581,7 @@ function createRestServer(server: IMAPServer, options: RestOptions): http.Server
         send(res, 200, result === undefined ? {} : result);
     };
 
-    return http.createServer((req, res) => {
+    const rest: RestServer = http.createServer((req, res) => {
         handle(req, res).catch((err: Error & { code?: string }) => {
             const code = err instanceof ImapKitError ? err.code : 'SERVERERROR';
             // RFC 5530 codes of failed mailbox operations (CANNOT, HASCHILDREN ...) are conflicts with the state
@@ -584,7 +591,9 @@ function createRestServer(server: IMAPServer, options: RestOptions): http.Server
             }
         });
     });
+    rest.endStreams = () => streams.forEach(res => res.end());
+    return rest;
 }
 
 export { createRestServer, isLoopback, getRoutes, openApi };
-export type { RestOptions };
+export type { RestOptions, RestServer };

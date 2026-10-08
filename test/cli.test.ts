@@ -77,6 +77,27 @@ describe('imapkit command', { skip: !built && 'run npm run build first' }, () =>
         }
     });
 
+    it('prints the port it listens on, also for -p 0', async () => {
+        const child = spawn(process.execPath, [bin, '-p', '0'], { stdio: ['ignore', 'pipe', 'inherit'] });
+        try {
+            const port = await new Promise<number>((resolve, reject) => {
+                let output = '';
+                child.stdout?.on('data', chunk => {
+                    output += chunk;
+                    const match = output.match(/listening on port (\d+)/);
+                    if (match) {
+                        resolve(Number(match[1]));
+                    }
+                });
+                child.once('exit', code => reject(new Error('imapkit exited with ' + code)));
+            });
+            assert.ok(port > 0);
+            assert.match(await capability(port), /^A1 OK/m);
+        } finally {
+            child.kill();
+        }
+    });
+
     it('loads script rules with --script', async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'imapkit-script-'));
         const file = path.join(dir, 'script.json');
@@ -114,7 +135,10 @@ describe('imapkit command', { skip: !built && 'run npm run build first' }, () =>
     });
 
     it('refuses an unknown quirk', () => {
-        assert.throws(() => execFileSync(process.execPath, [bin, '-p', '0', '--quirk=nope'], { encoding: 'utf-8', stdio: 'pipe' }), /Unknown quirk "nope"/);
+        assert.throws(
+            () => execFileSync(process.execPath, [bin, '-p', '0', '--quirk=nope'], { encoding: 'utf-8', stdio: 'pipe' }),
+            /Failed to start ImapKit: Unknown quirk "nope"/
+        );
     });
 
     it('starts the REST API with --rest-port', async () => {
