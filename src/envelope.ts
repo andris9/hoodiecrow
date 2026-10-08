@@ -4,7 +4,32 @@ import type { ParsedAddress } from './addressparser.js';
 import type { ParsedHeader } from './mimeparser.js';
 
 /** An address of the ENVELOPE (RFC 3501 section 9): name, source route, mailbox and host, all NIL for a group end */
-export type EnvelopeAddress = [name: string | null, adl: null, mailbox: string | null, host: string | null];
+export type EnvelopeAddress = [name: string | null, adl: string | null, mailbox: string | null, host: string | null];
+
+// RFC 5322 section 4.4: obs-angle-addr = [CFWS] "<" obs-route addr-spec ">" [CFWS], obs-route = obs-domain-list ":",
+// obs-domain-list = *(CFWS / ",") "@" domain *("," [CFWS] ["@" domain]). A domain-literal can hold a colon
+const OBS_ROUTE = /^[\s,]*(@(?:[^:[]|\[[^\]]*\])*):/;
+
+/**
+ * Splits an obsolete source route from an address: the route goes to addr-adl, the rest is the addr-spec
+ * (RFC 9051 section 7.5.2: the at-domain-list is the "source route and obs-route ABNF production from [RFC5322]",
+ * the mailbox name the "local-part ABNF production"). The route is sent like Dovecot does, "@a,@b"
+ *
+ * @param {String} address Address from the angle brackets
+ * @return {Array} [route or null, addr-spec]
+ */
+function splitRoute(address: string): [string | null, string] {
+    const match = address.match(OBS_ROUTE);
+    if (!match) {
+        return [null, address];
+    }
+    const route = match[1]
+        .split(',')
+        .map(domain => domain.trim())
+        .filter(domain => domain)
+        .join(',');
+    return [route, address.substr(match[0].length).trim()];
+}
 
 /** The fields of the ENVELOPE (RFC 3501 section 7.4.2), in order */
 export type Envelope = [
@@ -83,13 +108,15 @@ function processAddress(arr: ParsedAddress | ParsedAddress[] | undefined, def?: 
             return;
         }
 
+        const [route, addrSpec] = splitRoute(address);
+        address = addrSpec;
         const at = address.lastIndexOf('@');
         const user = at >= 0 ? address.substr(0, at) : address;
         // RFC 3501 7.4.2 reserves a NIL host for group markers, so an address without a domain gets
         // the placeholder host that Dovecot uses for the same input
         const domain = (at >= 0 ? address.substr(at + 1) : '') || 'MISSING_DOMAIN';
 
-        result.push([name, null, user || null, domain]);
+        result.push([name, route, user || null, domain]);
     });
 
     // env-from = "(" 1*address ")", there is no SP between the addresses (RFC 3501 section 9)

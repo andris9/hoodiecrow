@@ -16,7 +16,7 @@ APPENDLIMIT, the other size limit a server can announce, is on the [Messages](./
 
 ## METADATA
 
-Adds `GETMETADATA` and `SETMETADATA` for server annotations (mailbox name `""`) and mailbox annotations.
+Adds `GETMETADATA` and `SETMETADATA` for server annotations (mailbox name `""`) and mailbox annotations. Loads ENABLE, which [RFC 5464 section 4.1](https://www.rfc-editor.org/rfc/rfc5464#section-4.1) requires for the unsolicited METADATA responses.
 
 | Option               | Default | Effect                                                                     |
 | -------------------- | ------- | -------------------------------------------------------------------------- |
@@ -71,7 +71,7 @@ What is implemented:
 - Values can be binary: SETMETADATA takes a literal8 (`~{n}`), and values with NUL octets are sent back as a literal8.
 - `/shared/admin` on the server is read-only (`NO [CANNOT]`).
 - RENAME moves the annotations of a mailbox, renaming INBOX copies them (RFC 5464 section 4.1). DELETE removes them.
-- After `ENABLE METADATA` (needs the ENABLE plugin), changes made by other sessions are announced with unsolicited `METADATA` responses.
+- After `ENABLE METADATA`, changes made by other sessions are announced with unsolicited `METADATA` responses.
 - With SPECIAL-USE loaded, the read-only `/private/specialuse` entry shows the special-use attributes of a mailbox (RFC 6154 section 4).
 - With NOTIFY loaded, the `MailboxMetadataChange` and `ServerMetadataChange` events are available.
 - With ACL loaded, mailbox annotations need the rights listed on [Access control](./access-control.md#with-other-plugins).
@@ -86,7 +86,7 @@ S: A4 BAD GETMETADATA expects options, a mailbox name and entries
 
 ## METADATA-SERVER
 
-The same as METADATA, but only for server annotations (mailbox name `""`). A mailbox annotation command gets `NO`. The same options apply, and `ENABLE METADATA-SERVER` turns on unsolicited responses. When METADATA is loaded too, only `METADATA` is advertised.
+The same as METADATA (it loads ENABLE too), but only for server annotations (mailbox name `""`). A mailbox annotation command gets `NO`. The same options apply, and `ENABLE METADATA-SERVER` turns on unsolicited responses. When METADATA is loaded too, only `METADATA` is advertised.
 
 ```javascript
 const server = imapkit({ plugins: ['METADATA-SERVER'], metadataPrivate: false });

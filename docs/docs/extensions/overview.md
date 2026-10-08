@@ -51,7 +51,7 @@ Some extensions are defined on top of others, so their plugins load what they ne
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `IMAP4rev2`                                             | ENABLE, NAMESPACE, UNSELECT, UIDPLUS, ESEARCH, SEARCHRES, IDLE, SASL-IR, LIST-EXTENDED, LIST-STATUS, MOVE, BINARY, SPECIAL-USE, STATUS=SIZE, AUTH=PLAIN, and LITERAL- unless LITERAL+ is loaded |
 | `QRESYNC`                                               | ENABLE, CONDSTORE                                                                                                                                                                               |
-| `UIDONLY`, `UTF8=ACCEPT`                                | ENABLE                                                                                                                                                                                          |
+| `UIDONLY`, `UTF8=ACCEPT`, `METADATA`, `METADATA-SERVER` | ENABLE                                                                                                                                                                                          |
 | `SEARCHRES`, `PARTIAL`, `MULTISEARCH`, `CONTEXT=SEARCH` | ESEARCH                                                                                                                                                                                         |
 | `ESORT`                                                 | SORT, ESEARCH                                                                                                                                                                                   |
 | `CONTEXT=SORT`                                          | ESORT, SORT, ESEARCH, CONTEXT=SEARCH                                                                                                                                                            |
@@ -66,10 +66,11 @@ Some plugins only add to others when both are loaded: LIST-MYRIGHTS comes with A
 
 A few extensions exclude each other, and loading both throws an error when the server is created:
 
-| Combination                    | Error                                                                         | Reason                                                 |
-| ------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `LITERAL+` and `LITERAL-`      | `LITERAL- can not be enabled together with LITERAL+` (or the other way round) | RFC 7888 section 5: a server must not advertise both   |
-| `MESSAGELIMIT` and `SAVELIMIT` | `SAVELIMIT can not be enabled together with MESSAGELIMIT`                     | RFC 9738 section 3: a server advertises one of the two |
+| Combination                                         | Error                                                                         | Reason                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `LITERAL+` and `LITERAL-`                           | `LITERAL- can not be enabled together with LITERAL+` (or the other way round) | RFC 7888 section 5: a server must not advertise both     |
+| `MESSAGELIMIT` and `SAVELIMIT`                      | `SAVELIMIT can not be enabled together with MESSAGELIMIT`                     | RFC 9738 section 3: a server advertises one of the two   |
+| `IMAP4rev2` and the `no-move` or `no-uidplus` quirk | `IMAP4rev2 requires MOVE, which the "no-move" quirk removes` (or UIDPLUS)     | RFC 9051 Appendix E: IMAP4rev2 folds in MOVE and UIDPLUS |
 
 IMAP4rev2 loads LITERAL- only when LITERAL+ is not loaded, and a LITERAL+ loaded after it replaces that implied LITERAL-, so `['IMAP4rev2', 'LITERAL+']` works.
 
@@ -77,7 +78,7 @@ IMAP4rev2 loads LITERAL- only when LITERAL+ is not loaded, and a LITERAL+ loaded
 
 A plugin that is not loaded leaves no trace. Without CONDSTORE, messages have no MODSEQ value and `SELECT INBOX (CONDSTORE)` is answered with `BAD`. Without MOVE, `MOVE` is an unknown command. This lets you check that your client only uses what the server advertises.
 
-The `no-uidplus` and `no-move` [quirk presets](../faults/quirk-presets.md) remove UIDPLUS and MOVE even when the plugin list names them.
+The `no-uidplus` and `no-move` [quirk presets](../faults/quirk-presets.md) remove UIDPLUS and MOVE even when the plugin list names them. With IMAP4rev2, which requires both (RFC 9051 Appendix E), they throw `IMAP4rev2 requires MOVE, which the "no-move" quirk removes` (or the same for UIDPLUS) when the server is created.
 
 ### Capabilities
 
@@ -164,7 +165,8 @@ Some choices that the RFCs leave to the server:
 - The subscription list holds names, not mailboxes (RFC 3501 section 6.3.6). DELETE does not unsubscribe, so LSUB and `LIST (SUBSCRIBED)` keep listing the name until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name. A mailbox from the storage object is subscribed unless it has `"subscribed": false`, a new mailbox is not. SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name.
 - CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3). An existing `\Noselect` level stays `\Noselect`.
 - DELETE of a mailbox with children leaves a `\Noselect` level that keeps nothing but the children. CREATE of that name makes a new mailbox with a new UIDVALIDITY.
-- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6).
+- A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6). In a mailbox with `"allowPermanentFlags": false` STORE accepts exactly the flags PERMANENTFLAGS lists (`permanentFlags` and the flags its messages have or had) and ignores the others, APPEND and COPY leave them out (RFC 3501 section 7.1).
+- An obsolete source route in an address (`<@route.example:a@b.c>`, RFC 5322 section 4.4) goes to the at-domain-list field of the ENVELOPE address (`(NIL "@route.example" "a" "b.c")`), the mailbox name is the local part only (RFC 9051 section 7.5.2), like Dovecot sends it.
 - SEARCH, SORT and THREAD support the `US-ASCII` and `UTF-8` charsets. Any other charset gets `NO [BADCHARSET (US-ASCII UTF-8)]`.
 
 The [Mailboxes](./mailboxes.md#core-list-lsub-and-subscriptions) page shows these in transcripts, and [Strict by design](../guides/strict-by-design.md) lists what the core refuses.

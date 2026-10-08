@@ -228,6 +228,8 @@ describe('BINARY', () => {
             });
         });
 
+        // RFC 3516 and RFC 9051 section 6.4.5 define no error for a part that does not exist, and BINARY follows
+        // the semantics of BODY (RFC 3516 section 4.2), so it is empty like BODY[1.1] of a single part message
         it('returns an empty string for a part that does not exist, like BODY[]', (t, done) => {
             ctx.run([LOGIN, SELECT, 'A1 FETCH 2 (BINARY.PEEK[3] BINARY.SIZE[3] BINARY.PEEK[1.1])', 'ZZ LOGOUT'], resp => {
                 resp = resp.toString('binary');

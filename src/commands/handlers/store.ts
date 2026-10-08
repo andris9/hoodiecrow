@@ -16,8 +16,8 @@ function setFlags(connection: IMAPConnection, message: Message, flags: FlagValue
         flag = normalizeSystemFlag(typeof flag === 'string' ? flag : String(flag.value || ''));
         checkSystemFlags(connection.server, flag);
 
-        // Ignore if it is not in allowed list and only permament flags are allowed to use
-        if (mailbox.permanentFlags.indexOf(flag) < 0 && !mailbox.allowPermanentFlags) {
+        // a flag that is not in PERMANENTFLAGS is ignored (RFC 3501 section 7.1, RFC 9051 section 7.1)
+        if (!connection.server.isPermanentFlag(mailbox, flag)) {
             return;
         }
 
@@ -35,8 +35,8 @@ function addFlags(connection: IMAPConnection, message: Message, flags: FlagValue
         flag = normalizeSystemFlag(typeof flag === 'string' ? flag : String(flag.value || ''));
         checkSystemFlags(connection.server, flag);
 
-        // Ignore if it is not in allowed list and only permament flags are allowed to use
-        if (mailbox.permanentFlags.indexOf(flag) < 0 && !mailbox.allowPermanentFlags) {
+        // a flag that is not in PERMANENTFLAGS is ignored (RFC 3501 section 7.1, RFC 9051 section 7.1)
+        if (!connection.server.isPermanentFlag(mailbox, flag)) {
             return;
         }
 

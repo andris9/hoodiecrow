@@ -94,3 +94,32 @@ describe('XOAUTH2 edge cases', () => {
         });
     });
 });
+
+// xoauth2.sessionTimeout is deprecated and ignored: access tokens do not expire, a test changes the token with
+// control.updateUser() to see how a client handles an expired one
+describe('XOAUTH2 sessionTimeout', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['SASL-IR', 'XOAUTH2'],
+        users: { alice: { xoauth2: { accessToken: 'alice-token', sessionTimeout: 1 } } }
+    }));
+    const auth = (token: string) => 'AUTHENTICATE XOAUTH2 ' + Buffer.from(['user=alice', 'auth=Bearer ' + token, '', ''].join('\x01')).toString('base64');
+
+    it('does not expire the access token', (t, done) => {
+        setTimeout(() => {
+            ctx.run(['A1 ' + auth('alice-token'), 'ZZ LOGOUT'], resp => {
+                assert.match(resp.toString(), /^A1 OK/m);
+                done();
+            });
+        }, 20);
+    });
+
+    it('a replaced token fails like an expired one', (t, done) => {
+        ctx.server.control.updateUser('alice', { xoauth2: { accessToken: 'fresh-token' } });
+        ctx.run(['A1 ' + auth('alice-token'), '', 'A2 ' + auth('fresh-token'), 'ZZ LOGOUT'], resp => {
+            resp = resp.toString();
+            assert.match(resp, /^A1 NO \[AUTHENTICATIONFAILED\]/m);
+            assert.match(resp, /^A2 OK/m);
+            done();
+        });
+    });
+});

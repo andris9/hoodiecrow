@@ -32,7 +32,7 @@ const server = imapkit({
 
 `testuser` is not added when `users` is set, so here only `alice` and `bob` can log in, and only `alice` has an access token. User names are Unicode strings, in `users`, in SASL exchanges and in ACL identifiers.
 
-The `xoauth2` object also takes a `sessionTimeout` (milliseconds, default one hour). It is kept with the user but has no effect on logins.
+The `xoauth2` object also takes a `sessionTimeout` (milliseconds, default one hour). It is deprecated: ImapKit keeps it from hoodiecrow, stores and lists it, but never uses it, access tokens do not expire. To test how a client handles an expired token, replace the token with [`control.updateUser()`](#users-at-runtime): a login with the old token then fails like an expired one.
 
 ## LOGIN
 

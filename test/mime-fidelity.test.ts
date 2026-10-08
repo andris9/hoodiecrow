@@ -112,6 +112,12 @@ const GOLDEN: Record<string, Record<string, string>> = {
         BODYSTRUCTURE:
             '(("TEXT" "PLAIN" NIL NIL NIL "7BIT" 10 0 NIL NIL NIL)("TEXT" "PLAIN" NIL NIL NIL "7BIT" 27 1 NIL NIL NIL) "MIXED" ("BOUNDARY" "nb") NIL NIL)'
     },
+    // RFC 9051 section 7.5.2: the obs-route of RFC 5322 section 4.4 is the at-domain-list, the mailbox name is the local-part
+    'test/fixtures/mime/source-route.eml': {
+        ENVELOPE:
+            '("Thu, 08 Oct 2026 12:00:00 +0000" "Source routes" ((NIL "@route.example" "a" "b.c")) (("Sender" "@one.example,@two.example" "sender" "example.com")) ((NIL "@route.example" "a" "b.c")) ' +
+            '(("Bob" "@r1.example,@r2.example" "bob" "d.e")(NIL NIL "plain" "x.y")) (("Group" "@[192.0.2.1]" "carol" "f.g")) NIL NIL "<route@example.com>")'
+    },
     'test/fixtures/mime/eightbit-headers.eml': {
         BODYSTRUCTURE: '("TEXT" "PLAIN" ("CHARSET" "utf-8") NIL NIL "8BIT" 41 2 NIL NIL NIL)',
         ENVELOPE:
