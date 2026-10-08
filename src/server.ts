@@ -9,7 +9,7 @@ import { commands as builtinCommands } from './commands/index.js';
 import { getCommandOptions, commandOptions } from './command-states.js';
 import type { ResolvedCommandOptions } from './command-states.js';
 import validateMailboxName from './mailbox-name.js';
-import { MONTHS, monthIndex, isRealDate } from './dates.js';
+import { MONTHS, monthIndex, isDateTime } from './dates.js';
 import fetchHandlers from './commands/handlers/fetch.js';
 import { hasSequenceSetKey } from './commands/handlers/search.js';
 import { isSequenceSet } from './numbers.js';
@@ -744,23 +744,8 @@ class IMAPServer extends Stream {
      * @return {Boolean} Returns true if the date string is in IMAP date-time format
      */
     validateInternalDate(date: unknown): boolean {
-        if (!date || typeof date !== 'string') {
-            return false;
-        }
-        // date-time from RFC 3501 section 9, month names are case-insensitive like all ABNF strings
-        const match = date.match(/^( \d|\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4}) (\d{2}):(\d{2}):(\d{2}) [-+](\d{2})(\d{2})$/i);
-        if (!match) {
-            return false;
-        }
-
-        // the values must also make a real date and time
-        return (
-            isRealDate(match[1], monthIndex(match[2]), match[3]) &&
-            Number(match[4]) < 24 &&
-            Number(match[5]) < 60 &&
-            Number(match[6]) < 61 &&
-            Number(match[8]) < 60
-        );
+        // date-time from RFC 3501 section 9
+        return isDateTime(date);
     }
 
     /**
@@ -1591,58 +1576,61 @@ class IMAPServer extends Stream {
         exportName?: ((name: string) => string) | null,
         folders?: Record<string, ListedMailbox> | null
     ): ListedMailbox[] {
-        let includeINBOX = false;
-
         const source = folders || this.folderCache;
-
         const toName = exportName || ((name: string) => name);
-        let reference = referenceName || '';
-        if (reference === '' && this.referenceNamespace !== false) {
-            reference = toName(this.referenceNamespace);
-            includeINBOX = true;
-        }
 
-        // the reference does not have to be a namespace, use the namespace it belongs to
-        let nsKey: string | false = false;
-        let nsName = '';
-        for (const key of Object.keys(this.storage)) {
-            const name = toName(key);
-            if (key !== 'INBOX' && reference.substr(0, name.length) === name && (nsKey === false || name.length > nsName.length)) {
-                nsKey = key;
-                nsName = name;
+        // RFC 3501 section 6.3.8 (RFC 9051 section 6.3.9): "An empty ("" string) reference name argument
+        // indicates that the mailbox name is interpreted as by SELECT", and without break out characters
+        // "the canonical form is normally the reference name appended with the mailbox name". The pattern
+        // matches full mailbox names, also in a personal namespace with a prefix such as "INBOX."
+        const lookup = (referenceName || '') + match;
+
+        // "%" does not match the hierarchy delimiter, which is the one of the namespace a name belongs to
+        const queries = new Map<string, RegExp>();
+        const getQuery = (separator: string, flags = '') => {
+            const key = separator + '/' + flags;
+            let query = queries.get(key);
+            if (!query) {
+                const pattern = lookup
+                    // escape regex symbols
+                    .replace(/([\\^$+?!.():=[\]{}|,-])/g, '\\$1')
+                    .replace(/[*]/g, '.*')
+                    .replace(/[%]/g, '[^' + separator.replace(/([\\^$+*?!.():=[\]{}|,-])/g, '\\$1') + ']*');
+                query = new RegExp('^' + pattern + '$', flags);
+                queries.set(key, query);
             }
-        }
+            return query;
+        };
 
-        if (nsKey === false) {
-            return [];
-        }
+        // RFC 3501 section 6.3.8 allows to "hide" otherwise accessible mailboxes from the wildcards: the
+        // mailboxes of namespaces other than the personal one are only matched when the pattern names
+        // the prefix of the namespace before any wildcard (LIST "" "user.%", LIST "#news." "*")
+        const fixedPrefix = lookup.replace(/[*%].*$/, '');
+        const visible = new Map<string, boolean>();
+        const isVisible = (key: string) => {
+            if (!visible.has(key)) {
+                const name = toName(key);
+                visible.set(key, key === this.referenceNamespace || fixedPrefix.substr(0, name.length) === name);
+            }
+            return visible.get(key);
+        };
 
-        const namespace = this.storage[nsKey];
-        const lookup = reference + match;
         const result: ListedMailbox[] = [];
 
-        const pattern =
-            '^' +
-            lookup
-                // escape regex symbols
-                .replace(/([\\^$+?!.():=[\]{}|,-])/g, '\\$1')
-                .replace(/[*]/g, '.*')
-                .replace(/[%]/g, '[^' + namespace.separator.replace(/([\\^$+*?!.():=[\]{}|,-])/g, '\\$1') + ']*') +
-            '$';
-        const query = new RegExp(pattern, '');
-
-        // INBOX is case-insensitive
-        if (includeINBOX && source.INBOX && ((reference ? reference + namespace.separator : '') + 'INBOX').match(new RegExp(pattern, 'i'))) {
+        // "The special name INBOX is included in the output from LIST, if [...] the uppercase string "INBOX"
+        // matches the interpreted reference and mailbox name arguments", INBOX is case-insensitive
+        if (source.INBOX && getQuery((this.storage.INBOX && this.storage.INBOX.separator) || '/', 'i').test('INBOX')) {
             result.push(source.INBOX);
         }
 
         Object.keys(source).forEach(path => {
             const folder = source[path];
-            if (folder.namespace !== nsKey) {
+            const nsKey = folder.namespace;
+            if (path === 'INBOX' || nsKey === false || nsKey === 'INBOX' || !this.storage[nsKey] || !isVisible(nsKey)) {
                 return;
             }
             const name = toName(path);
-            if (name.match(query) && (folder.flags.indexOf('\\NonExistent') < 0 || name === match)) {
+            if (getQuery(this.storage[nsKey].separator).test(name) && (folder.flags.indexOf('\\NonExistent') < 0 || name === lookup)) {
                 result.push(folder);
             }
         });
@@ -3464,6 +3452,13 @@ class IMAPConnection {
             }
             this.processQueue();
         } else if (/^AUTHENTICATE /i.test(parsed.command)) {
+            // AUTHENTICATE is only valid in the not authenticated state (RFC 3501 section 6.2), which is checked
+            // first, as for a supported mechanism (processQueue), so the answer does not depend on the mechanism
+            const states = this.server.getCommandOptions(parsed.command).states;
+            if (states && states.indexOf(this.state) < 0) {
+                this.sendStatus(parsed, data, 'BAD', stateError(parsed.command.toUpperCase(), this.state));
+                return;
+            }
             // an unsupported mechanism is a NO, not a syntax error (RFC 3501 section 6.2.2)
             this.send(
                 {

@@ -71,7 +71,7 @@ ImapKit is extendable: any command can be overridden and plugins can be added (s
 
 ImapKit is meant for developing standards compliant IMAP clients, so it follows the RFCs strictly instead of accepting whatever clients send. Most production servers are lenient, which hides client bugs until the client meets a stricter server. ImapKit answers these with `BAD` (or `NO` where the RFC requires it):
 
-- commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` after login
+- commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` and `AUTHENTICATE` (with any mechanism, known or not) after login
 - arguments to commands that take none (`NOOP x`, `CLOSE x`), missing or extra arguments, and values that break the RFC 3501 grammar
 - command lines that end with a bare LF instead of CRLF
 - literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ or LITERAL- is enabled, and with LITERAL- only up to 4096 octets, a larger one is answered with `BAD [TOOBIG]` (RFC 7888 section 5)
@@ -89,6 +89,7 @@ ImapKit is meant for developing standards compliant IMAP clients, so it follows 
 - the QRESYNC `SELECT` parameter or the `VANISHED` modifier without `ENABLE QRESYNC`, `VANISHED` with `FETCH` or without `CHANGEDSINCE`, and QRESYNC values that break the RFC 7162 grammar (UIDVALIDITY or mod-sequence `0`, `*` in the UID sets, sequence match sets that are not ascending or not of the same size)
 - unknown `SEARCH RETURN` options or `RETURN` after `CHARSET` (RFC 4466 section 2.6.1), `$` combined with numbers, and `SEARCH MODSEQ` values or entry names that break the RFC 7162 grammar
 - extended LIST commands (RFC 5258) with unknown options, `RECURSIVEMATCH` without a base option like `SUBSCRIBED` (also `(SPECIAL-USE RECURSIVEMATCH)`, RFC 6154 section 6), an empty pattern list, options with values they do not take, a repeated `STATUS` return option with different items, and invalid `STATUS` items (RFC 5819)
+- `CREATE ... (USE (...))` (CREATE-SPECIAL-USE) with entries that are not an atom starting with a backslash, like `NIL`, quoted strings or `Sent` (RFC 6154 section 6: `use-attr-ext = "\" atom`); an attribute the server does not support gets `NO [USEATTR]` (section 3)
 - METADATA entry names that break RFC 5464 section 3.2 (`//`, a trailing `/`, `*`, `%`, 8-bit or control characters, a scope other than `/private` or `/shared`), values that are atoms or use bare CR or LF as line ends, empty entry or option lists, and GETMETADATA options after the mailbox name (errata 2785)
 - unknown or uppercase ACL rights, and empty identifiers or identifiers with control characters or invalid UTF-8 (RFC 4314 section 3)
 - more than one message in `APPEND` without MULTIAPPEND, and with MULTIAPPEND a zero-length message literal cancels the whole `APPEND` with `NO` (RFC 3502)
@@ -595,7 +596,7 @@ const server = imapkit({ plugins: ['IDLE', 'MOVE'], quirks: ['james-fetchgroup',
 - `now`: the time the server uses for the dates it sets itself, the INTERNALDATE of a message without one and SAVEDATE: a Date, a timestamp, or a function that returns one. The dates are formatted in the time zone of the process.
 - `resetUidValidity(path, { uids: 'shuffle', seed })` of the control API.
 
-The `storage` option is checked when the server is built: a key that looks like a typo of a known one (`message` for `messages`, `uidValidity`) or a wrong type fails with the path of the problem, e.g. `Invalid storage at "INBOX".messages[2]: unknown key "flag", did you mean "flags"?`. Plugins keep their own data on mailboxes and messages, so other keys are allowed. The package exports the check as `validateStorage(storage)` and the shape as a JSON Schema, `storageSchema`, for editors and fixture tooling. `server.control.snapshot()` returns the same shape.
+The `storage` option is checked when the server is built: a key that looks like a typo of a known one (`message` for `messages`, `uidValidity`) or a wrong type fails with the path of the problem, e.g. `Invalid storage at "INBOX".messages[2]: unknown key "flag", did you mean "flags"?`. A message `internaldate` (or `SAVEDATE`) must be an RFC 3501 date-time string like `"14-Sep-2013 21:22:28 -0300"` or a valid Date, a Date header value like `"Thu, 1 Jan 2026 10:00:00 +0000"` is refused. Plugins keep their own data on mailboxes and messages, so other keys are allowed. The package exports the check as `validateStorage(storage)` and the shape as a JSON Schema, `storageSchema`, for editors and fixture tooling. `server.control.snapshot()` returns the same shape.
 
 ## Creating custom plugins
 

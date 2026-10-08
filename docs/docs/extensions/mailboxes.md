@@ -220,16 +220,18 @@ const server = imapkit({
 });
 ```
 
-An attribute that is not allowed gets `NO [USEATTR]`, and an attribute that is not an atom or a string gets `BAD`. Load SPECIAL-USE as well so that LIST shows the attributes.
+An attribute that is not allowed gets `NO [USEATTR]` ([RFC 6154 section 3](https://www.rfc-editor.org/rfc/rfc6154#section-3)). An entry that is not an atom starting with a backslash (`use-attr-ext = "\" atom`, [RFC 6154 section 6](https://www.rfc-editor.org/rfc/rfc6154#section-6)), such as `NIL`, a quoted string, a literal or `Sent`, gets `BAD`. Load SPECIAL-USE as well so that LIST shows the attributes.
 
 ```text
 C: A2 CREATE Drafts (USE (\Drafts))
 S: A2 OK CREATE completed
 C: A3 CREATE Stuff (USE (\Important))
 S: A3 NO [USEATTR] \Important not supported
-C: A4 LIST "" "Drafts"
+C: A4 CREATE Stuff (USE ("\\Sent"))
+S: A4 BAD Invalid syntax for special use flag #1
+C: A5 LIST "" "Drafts"
 S: * LIST (\HasNoChildren \Drafts) "/" "Drafts"
-S: A4 OK Completed
+S: A5 OK Completed
 ```
 
 ## STATUS=SIZE

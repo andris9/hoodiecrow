@@ -157,7 +157,7 @@ The Plugin column shows the file name spelling. The capability spellings listed 
 
 ## What core IMAP4rev1 supports
 
-Without any plugin, ImapKit supports every RFC 3501 command: `CAPABILITY`, `NOOP`, `LOGOUT`, `LOGIN`, `AUTHENTICATE` (no mechanism is built in, so it answers `NO Unsupported authentication mechanism` until an AUTH plugin is loaded), `SELECT`, `EXAMINE`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`, `LIST`, `LSUB`, `STATUS`, `APPEND`, `CHECK`, `CLOSE`, `EXPUNGE`, `SEARCH`, `FETCH`, `STORE`, `COPY` and the `UID` variants of `COPY`, `FETCH`, `STORE` and `SEARCH`. `STARTTLS` is a plugin.
+Without any plugin, ImapKit supports every RFC 3501 command: `CAPABILITY`, `NOOP`, `LOGOUT`, `LOGIN`, `AUTHENTICATE` (no mechanism is built in, so it answers `NO Unsupported authentication mechanism` until an AUTH plugin is loaded, and `BAD` after login), `SELECT`, `EXAMINE`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`, `LIST`, `LSUB`, `STATUS`, `APPEND`, `CHECK`, `CLOSE`, `EXPUNGE`, `SEARCH`, `FETCH`, `STORE`, `COPY` and the `UID` variants of `COPY`, `FETCH`, `STORE` and `SEARCH`. `STARTTLS` is a plugin.
 
 Some choices that the RFCs leave to the server:
 

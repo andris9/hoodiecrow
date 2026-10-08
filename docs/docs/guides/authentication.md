@@ -49,7 +49,20 @@ LOGIN takes exactly two strings (atoms, quoted strings or literals). 8-bit user 
 
 ## Mechanisms
 
-AUTHENTICATE mechanisms come from plugins. AUTHENTICATE with a mechanism that no loaded plugin provides is answered with NO.
+AUTHENTICATE mechanisms come from plugins. AUTHENTICATE with a mechanism that no loaded plugin provides is answered with NO ([RFC 3501 section 6.2.2](https://www.rfc-editor.org/rfc/rfc3501#section-6.2.2)). After login every AUTHENTICATE is BAD, whatever the mechanism, as the command is only valid in the Not Authenticated state ([RFC 3501 section 6.2](https://www.rfc-editor.org/rfc/rfc3501#section-6.2)). With AUTH-PLAIN loaded:
+
+```text
+C: A1 AUTHENTICATE FOO
+S: A1 NO Unsupported authentication mechanism
+C: A2 LOGIN testuser testpass
+S: A2 OK User logged in
+C: A3 AUTHENTICATE FOO
+S: A3 BAD AUTHENTICATE FOO is not allowed in the Authenticated state
+C: A4 AUTHENTICATE PLAIN
+S: A4 BAD AUTHENTICATE PLAIN is not allowed in the Authenticated state
+```
+
+The mechanism plugins:
 
 | Plugin      | Capability         | Notes                                                                                                                                   |
 | ----------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |

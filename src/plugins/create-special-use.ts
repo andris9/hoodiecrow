@@ -6,6 +6,10 @@ import type { Attribute, Callback, CommandHandler, IMAPConnection, IMAPResponse,
  * @help option "special-use"
  */
 
+// use-attr-ext = "\" atom (RFC 6154 section 6), ATOM-CHAR is any CHAR except atom-specials (RFC 3501 section 9)
+// eslint-disable-next-line no-control-regex
+const USE_ATTR = /^\\[^\x00-\x20\x7f-\xff(){%*"\\\]]+$/;
+
 export default function createSpecialUsePlugin(server: IMAPServer) {
     // Register capability
     server.registerCapability('CREATE-SPECIAL-USE');
@@ -40,7 +44,10 @@ export default function createSpecialUsePlugin(server: IMAPServer) {
 
         if (specialUseList) {
             for (i = 0, len = specialUseList.length; i < len; i++) {
-                if (['ATOM', 'STRING', 'LITERAL'].indexOf(specialUseList[i].type) < 0) {
+                // RFC 6154 section 6: use-attr-ext = "\" atom, so every entry is an atom that starts with a backslash,
+                // not NIL, a string, a literal, a number or a list
+                const entry = specialUseList[i];
+                if (!entry || Array.isArray(entry) || entry.type !== 'ATOM' || typeof entry.value !== 'string' || !USE_ATTR.test(entry.value)) {
                     connection.send(
                         {
                             tag: parsed.tag,

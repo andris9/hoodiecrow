@@ -25,6 +25,36 @@ describe('storage validation', () => {
         ['a UID of 0', { INBOX: { messages: [{ raw: 'x', uid: 0 }] } }, /messages\[0\]\.uid: must be an integer/],
         ['flags that are not strings', { INBOX: { messages: [{ raw: 'x', flags: [1] }] } }, /\.flags: must be a flag or a list of flags/],
         ['a numeric internal date', { INBOX: { messages: [{ raw: 'x', internaldate: 5 }] } }, /\.internaldate: must be a date-time string or a Date/],
+        // RFC 3501 section 9: date-time = DQUOTE date-day-fixed "-" date-month "-" date-year SP time SP zone DQUOTE
+        [
+            'an RFC 5322 date as the internal date',
+            { INBOX: { messages: [{ raw: 'x', internaldate: 'Thu, 1 Jan 2026 10:00:00 +0000' }] } },
+            /"INBOX"\.messages\[0\]\.internaldate: must be a date-time string like "14-Sep-2013 21:22:28 -0300" or a Date/
+        ],
+        [
+            'an internal date without a zone',
+            { INBOX: { messages: [{ raw: 'x', internaldate: '01-Jan-2026 10:00:00' }] } },
+            /\.internaldate: must be a date-time/
+        ],
+        [
+            'an internal date that does not exist',
+            { INBOX: { messages: [{ raw: 'x', internaldate: '31-Feb-2026 10:00:00 +0000' }] } },
+            /\.internaldate: must be a date-time/
+        ],
+        [
+            'an internal date with a time out of range',
+            { INBOX: { messages: [{ raw: 'x', internaldate: '01-Jan-2026 24:00:00 +0000' }] } },
+            /\.internaldate: must be a date-time/
+        ],
+        ['an empty internal date', { INBOX: { messages: [{ raw: 'x', internaldate: '' }] } }, /\.internaldate: must be a date-time/],
+        ['an invalid Date as the internal date', { INBOX: { messages: [{ raw: 'x', internaldate: new Date('x') }] } }, /\.internaldate: must be a date-time/],
+        // RFC 8514 section 4.2: the save date is a date-time too
+        [
+            'an RFC 5322 date as the save date',
+            { '': { folders: { A: { messages: [{ raw: 'x', SAVEDATE: 'Thu, 1 Jan 2026 10:00:00 +0000' }] } } } },
+            /""\.folders\["A"\]\.messages\[0\]\.SAVEDATE: must be a date-time string like "14-Sep-2013 21:22:28 -0300" or a Date/
+        ],
+        ['a numeric save date', { INBOX: { messages: [{ raw: 'x', SAVEDATE: 5 }] } }, /\.SAVEDATE: must be a date-time/],
         ['a raw source that is a number', { INBOX: { messages: [{ raw: 5 }] } }, /\.raw: must be a string/],
         ['recent that is not a boolean', { INBOX: { messages: [{ raw: 'x', recent: 'yes' }] } }, /\.recent: must be true or false/],
         ['a UIDVALIDITY above 32 bits', { INBOX: { uidvalidity: 2 ** 32 } }, /"INBOX"\.uidvalidity: must be an integer/],
@@ -44,6 +74,25 @@ describe('storage validation', () => {
 
     it('fails when the server is built', () => {
         assert.throws(() => imapkit({ storage: { INBOX: { message: [] } } as never }), /Invalid storage at "INBOX"/);
+        assert.throws(
+            () => imapkit({ storage: { INBOX: { messages: [{ raw: 'x', internaldate: 'Thu, 1 Jan 2026 10:00:00 +0000' }] } } }),
+            /Invalid storage at "INBOX"\.messages\[0\]\.internaldate/
+        );
+    });
+
+    it('accepts date-time strings in any month case, Dates and no internal date', () => {
+        validateStorage({
+            INBOX: {
+                messages: [
+                    { raw: 'x', internaldate: '14-Sep-2013 21:22:28 -0300' },
+                    { raw: 'x', internaldate: ' 1-jan-2026 00:00:60 +0000' },
+                    { raw: 'x', internaldate: new Date(0) as never },
+                    { raw: 'x', internaldate: false },
+                    { raw: 'x', SAVEDATE: '29-Feb-2024 23:59:59 +1400' } as never,
+                    { raw: 'x' }
+                ]
+            }
+        });
     });
 
     it('allows the data of plugins and raw sources as strings or Buffers', () => {
