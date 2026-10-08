@@ -210,7 +210,19 @@ S: A4 OK FETCH Completed
 
 The same message in a normal `{96}` literal is `BAD`, as NUL octets are not allowed there.
 
-Refused with `BAD`: `BINARY[]`, BINARY of multipart or message/rfc822 parts (RFC 9051 section 6.4.5 allows leaf body parts only), `HEADER`, `TEXT` or `MIME` sections, and a partial range on `BINARY.SIZE`. A literal8 is refused without a continuation request anywhere but in an APPEND or REPLACE message (and a SETMETADATA value with METADATA).
+Refused with `BAD`: `BINARY[]`, BINARY of multipart or message/rfc822 parts (RFC 9051 section 6.4.5 allows leaf body parts only), `HEADER`, `TEXT` or `MIME` sections, and a partial range on `BINARY.SIZE`.
+
+A part number that does not exist is not an error: `BINARY` returns an empty string and `BINARY.SIZE` 0, the same as `BODY[<part>]` and the same as Dovecot. RFC 3516 and RFC 9051 section 6.4.5 define no error for it, and RFC 3516 section 4.2 gives BINARY the semantics of BODY. For a single part `text/plain` message:
+
+```
+C: A2 FETCH 1 (BODY.PEEK[1.1] BINARY.PEEK[1.1] BINARY.SIZE[1.1])
+S: * 1 FETCH (BODY[1.1] {0}
+S:  BINARY[1.1] {0}
+S:  BINARY.SIZE[1.1] 0)
+S: A2 OK FETCH Completed
+```
+
+A literal8 is refused without a continuation request anywhere but in an APPEND or REPLACE message (and a SETMETADATA value with METADATA).
 
 ## PREVIEW
 
