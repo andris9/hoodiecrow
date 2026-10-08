@@ -130,12 +130,13 @@ export function resolveQuirks(names: string[] | string | null | undefined): { ru
     const rules: ScriptRule[] = [];
     const removePlugins = new Map<string, string>();
     ([] as string[]).concat(names || []).forEach(name => {
-        const quirk = Object.hasOwn(quirks, String(name).toLowerCase()) ? quirks[String(name).toLowerCase()] : null;
+        const key = String(name).toLowerCase();
+        const quirk = Object.hasOwn(quirks, key) ? quirks[key] : null;
         if (!quirk) {
             throw new Error('Unknown quirk "' + name + '". Available quirks: ' + Object.keys(quirks).join(', '));
         }
         rules.push(...(quirk.rules || []));
-        (quirk.removePlugins || []).forEach(plugin => removePlugins.set(plugin, String(name).toLowerCase()));
+        (quirk.removePlugins || []).forEach(plugin => removePlugins.set(plugin, key));
     });
     return { rules, removePlugins };
 }

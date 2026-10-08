@@ -35,19 +35,16 @@ export default function listCommand(connection: IMAPConnection, parsed: ParsedCo
         // MAY be the empty string if the reference is non-rooted or is an empty string."
         const server = connection.server;
         const reference: string = parsed.attributes[0].value || '';
-        // the namespace of the reference, the one with the longest matching prefix
+        // the namespace of the reference, the personal one for a reference that is not a valid name
         let key = server.referenceNamespace;
-        let prefix = '';
-        for (const name of Object.keys(server.storage)) {
-            const exported = connection.exportMailboxName(name);
-            if (name !== 'INBOX' && exported.length > prefix.length && reference.substr(0, exported.length) === exported) {
-                key = name;
-                prefix = exported;
-            }
+        try {
+            key = server.getNamespace(connection.importMailboxName(reference)) || key;
+        } catch {
+            // not a mailbox name, so not in another namespace
         }
-        const namespace = key !== false ? server.storage[key] : null;
+        const namespace = key !== false ? server.storage[key] : undefined;
         // the root of a name in another namespace is the prefix of that namespace, like "#news." in the RFC example
-        const root = key !== server.referenceNamespace ? prefix : '';
+        const root = key !== false && key !== server.referenceNamespace ? connection.exportMailboxName(key) : '';
         if (namespace) {
             connection.send(
                 {

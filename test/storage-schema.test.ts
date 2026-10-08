@@ -24,7 +24,11 @@ describe('storage validation', () => {
         ['a message that is a number', { INBOX: { messages: [5] } }, /messages\[0\]: a message is a string or an object/],
         ['a UID of 0', { INBOX: { messages: [{ raw: 'x', uid: 0 }] } }, /messages\[0\]\.uid: must be an integer/],
         ['flags that are not strings', { INBOX: { messages: [{ raw: 'x', flags: [1] }] } }, /\.flags: must be a flag or a list of flags/],
-        ['a numeric internal date', { INBOX: { messages: [{ raw: 'x', internaldate: 5 }] } }, /\.internaldate: must be a date-time string or a Date/],
+        [
+            'a numeric internal date',
+            { INBOX: { messages: [{ raw: 'x', internaldate: 5 }] } },
+            /\.internaldate: must be a date-time string like "14-Sep-2013 21:22:28 -0300" or a Date, not 5/
+        ],
         // RFC 3501 section 9: date-time = DQUOTE date-day-fixed "-" date-month "-" date-year SP time SP zone DQUOTE
         [
             'an RFC 5322 date as the internal date',

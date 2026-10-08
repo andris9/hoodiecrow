@@ -165,9 +165,6 @@ export function validateStorage(storage: unknown): void {
             if (value === undefined || value === false || (key === 'SAVEDATE' && value === null)) {
                 continue;
             }
-            if (typeof value !== 'string' && !(value instanceof Date)) {
-                fail(path + '.' + key, 'must be a date-time string or a Date');
-            }
             if (value instanceof Date ? isNaN(value.getTime()) : !isDateTime(value)) {
                 fail(path + '.' + key, 'must be a date-time string like "14-Sep-2013 21:22:28 -0300" or a Date, not ' + JSON.stringify(value));
             }

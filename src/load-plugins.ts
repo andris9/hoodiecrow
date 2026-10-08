@@ -65,7 +65,8 @@ function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string |
         }
     });
 
-    const load = (entry: string | Plugin) => {
+    // `requiredBy` names the plugin whose `requires` lists this one
+    const load = (entry: string | Plugin, requiredBy?: string) => {
         let plugin = entry;
         if (typeof plugin === 'string') {
             const name = resolvePlugin(plugin);
@@ -84,27 +85,27 @@ function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string |
             throw new TypeError('Invalid plugin, expecting a plugin name or a function');
         }
 
-        if (loaded.has(plugin) || excluded.has(plugin)) {
+        const quirk = excluded.get(plugin);
+        if (quirk) {
+            if (requiredBy) {
+                // the plugin can not work without it (IMAP4rev2 folds in MOVE and UIDPLUS, RFC 9051 Appendix E), so
+                // advertising it without the required plugin would break its RFC
+                throw new Error(requiredBy + ' requires ' + entry + ', which the "' + quirk + '" quirk removes');
+            }
+            return;
+        }
+        if (loaded.has(plugin)) {
             return;
         }
         loaded.add(plugin);
 
-        const requires = ([] as string[]).concat(plugin.requires || []);
-        requires.forEach(name => {
-            const required = resolvePlugin(name);
-            const quirk = required && excluded.get(builtinPlugins[required]);
-            if (quirk) {
-                // the plugin can not work without it (IMAP4rev2 folds in MOVE and UIDPLUS, RFC 9051 Appendix E), so
-                // advertising it without the required plugin would break its RFC
-                throw new Error((typeof entry === 'string' ? entry.trim() : plugin.name) + ' requires ' + name + ', which the "' + quirk + '" quirk removes');
-            }
-        });
-        requires.forEach(load);
+        const name = typeof entry === 'string' ? entry.trim() : plugin.name;
+        ([] as string[]).concat(plugin.requires || []).forEach(required => load(required, name));
 
         plugin(server);
     };
 
-    ([] as (string | Plugin)[]).concat(plugins || []).forEach(load);
+    ([] as (string | Plugin)[]).concat(plugins || []).forEach(entry => load(entry));
 
     server.emit('pluginsLoaded');
 }
