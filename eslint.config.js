@@ -5,7 +5,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
     {
-        ignores: ['dist/**', 'node_modules/**', '.claude/**']
+        // docs/ is the Docusaurus site of imapkit.com, a project of its own (docs/package.json)
+        ignores: ['dist/**', 'node_modules/**', '.claude/**', 'docs/**']
     },
     js.configs.recommended,
     {

@@ -27,6 +27,10 @@ ESLint (`eslint.config.js`, with typescript-eslint) enforces `const`/`let` (no `
 - Shared types live in `src/types.ts` (`Message`, `Mailbox`, `ParsedCommand`, `CommandHandler`, `Plugin`, the hook types ...). `IMAPServer` and `IMAPConnection` have an index signature for the state plugins keep on them, plus `declare`d fields for everything the core uses. IMAP attribute trees (parsed commands, responses) use the open `Attribute` alias.
 - The package root (`src/index.ts`) default-exports the `imapkit(options)` factory, which also carries `TAG_REGEX`, `IMAPServer` and `IMAPConnection` as properties, and exports the types. `package.json` `exports` maps `.`, `./lib/server` and `./lib/*` to both builds, so the old deep imports (`imapkit/lib/plugins/idle`) keep working; `test/package.test.ts` checks the shapes.
 
+## Documentation site
+
+`docs/` is the Docusaurus site published at https://imapkit.com/ (GitHub Pages, site root, `baseUrl: '/'`), a project of its own with its own `package.json` and lockfile: run `npm install`, `npm start`, `npm run build` and `npm run typecheck` inside `docs/`. The pages are in `docs/docs/` (served under `/docs/`), the homepage is `docs/src/pages/index.tsx`, `docs/static/CNAME` holds the domain. `.github/workflows/docs.yml` builds the site for pull requests that touch `docs/` (broken links fail the build) and deploys it from master. The npm package only ships `bin`, `cert` and `dist` (the `files` field), so `docs/` never reaches npm; root ESLint ignores `docs/`, Prettier formats its sources, and release-please excludes it (`exclude-paths`), so use `docs:` commits for documentation changes. Verify every claim in the docs against `src/` and the README.
+
 ## Releases
 
 Releases are automated with release-please (`release-please-config.json`, `.release-please-manifest.json`): use Conventional Commit messages (`fix:`, `feat:`, `chore:` ...) on master, merge the release PR it opens, and `.github/workflows/release.yaml` waits for the `test.yml` run on that commit and then publishes to npm through trusted publishing (OIDC, no token). Do not bump `version` in package.json by hand.

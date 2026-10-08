@@ -3,7 +3,8 @@
     "packages": {
         ".": {
             "release-type": "node",
-            "include-component-in-tag": false
+            "include-component-in-tag": false,
+            "exclude-paths": ["docs"]
         }
     }
 }
