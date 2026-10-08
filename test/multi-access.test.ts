@@ -91,7 +91,11 @@ describe('RFC 2180 multi-accessed mailbox practice', () => {
             assert.deepStrictEqual(fetches(output), []);
             assert.match(tagged(output), /^T\d+ OK \[EXPUNGEISSUED\] /);
 
+            // the flag changes of A go out before the responses of the FETCH (RFC 3501 section 5.2)
             assert.deepStrictEqual(fetches(await b.cmd('FETCH 1:* FLAGS')), [
+                '* 1 FETCH (UID 1 FLAGS (\\Seen))',
+                '* 2 FETCH (UID 2 FLAGS (\\Seen))',
+                '* 3 FETCH (UID 3 FLAGS (\\Seen))',
                 '* 1 FETCH (FLAGS (\\Seen))',
                 '* 2 FETCH (FLAGS (\\Seen))',
                 '* 3 FETCH (FLAGS (\\Seen))'
@@ -270,7 +274,8 @@ describe('RFC 2180 multi-accessed mailbox practice', () => {
             const output = await a.cmd('STORE 1:7 (UNCHANGEDSINCE ' + highest + ') +FLAGS (\\Seen)');
             assert.deepStrictEqual(
                 fetches(output).map(line => line.replace(/MODSEQ \(\d+\)/, 'MODSEQ (n)')),
-                ['* 1 FETCH (FLAGS (\\Seen) MODSEQ (n) UID 1)', '* 3 FETCH (FLAGS (\\Seen) MODSEQ (n) UID 3)']
+                // the flag change of B is reported first (RFC 3501 section 5.2), the EXPUNGE waits (section 7.4.1)
+                ['* 2 FETCH (UID 2 FLAGS (\\Flagged) MODSEQ (n))', '* 1 FETCH (FLAGS (\\Seen) MODSEQ (n) UID 1)', '* 3 FETCH (FLAGS (\\Seen) MODSEQ (n) UID 3)']
             );
             assert.match(tagged(output), /^T\d+ NO \[MODIFIED 2\] /);
         });

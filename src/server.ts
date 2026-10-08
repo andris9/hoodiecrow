@@ -143,6 +143,17 @@ function stateError(command: string, state: string): string {
 }
 
 /**
+ * Checks if a queued notification changes message sequence numbers by removing messages: an EXPUNGE response, or the
+ * EXISTS that follows the EXPUNGE responses of another session (it carries the snapshot of the old message list)
+ *
+ * @param {Object} notification Queued notification
+ * @return {Boolean} true if the notification must wait while EXPUNGE responses are not allowed
+ */
+function isPendingExpunge(notification: Notification): boolean {
+    return !!notification.mailboxCopy || (!!notification.attributes && (notification.attributes[1] || {}).value === 'EXPUNGE');
+}
+
+/**
  * Creates a new IMAP server, call `listen()` on it to start accepting connections
  *
  * @param options Server options, the mailbox tree comes from `options.storage`
@@ -2627,7 +2638,7 @@ class IMAPConnection {
      * @return {Boolean} true if an EXPUNGE response is pending
      */
     hasPendingExpunge(): boolean {
-        return this.notificationQueue.some(notification => notification.attributes && (notification.attributes[1] || {}).value === 'EXPUNGE');
+        return this.notificationQueue.some(isPendingExpunge);
     }
 
     /**
@@ -2864,24 +2875,56 @@ class IMAPConnection {
         return queue;
     }
 
-    processNotifications(data?: CommandContext | null): void {
-        const options = data && this.server.getCommandOptions(data.command);
-        if (options && (options.noExpunge || (options.searchCriteria !== false && this.usesSequenceNumbers(data)))) {
-            // EXPUNGE responses are not allowed during FETCH, STORE and SEARCH (RFC 3501 section 7.4.1), during
-            // the commands that extensions add to this list (see the noExpunge command option), nor during UID
-            // SEARCH with message numbers in the search criteria (RFC 7162 section 3.2.10.2 for VANISHED, EXPUNGE
-            // may wait as well, RFC 3501 only allows it during UID commands)
-            return;
-        }
+    /**
+     * Checks if EXPUNGE responses must wait while a command runs: during FETCH, STORE and SEARCH (RFC 3501 section
+     * 7.4.1), during the commands that extensions add to this list (see the noExpunge command option), and during UID
+     * SEARCH with message numbers in the search criteria (RFC 7162 section 3.2.10.2 for VANISHED, EXPUNGE may wait as
+     * well, RFC 3501 only allows it during UID commands)
+     *
+     * @param {Object} data Parsed command
+     * @return {Boolean} true if the command holds back EXPUNGE responses
+     */
+    holdsExpunge(data: CommandContext): boolean {
+        const options = this.server.getCommandOptions(data.command);
+        return options.noExpunge || (options.searchCriteria !== false && this.usesSequenceNumbers(data));
+    }
 
+    /**
+     * Sends the queued notifications. During a command that holds back EXPUNGE responses (see holdsExpunge), or with
+     * `beforeCommand` before a command that refers to messages by sequence number, only the notifications queued before
+     * the first pending EXPUNGE go out: new messages (EXISTS) and flag changes. RFC 3501 section 5.2: "A server MUST send
+     * mailbox size updates automatically if a mailbox size change is observed during the processing of a command",
+     * section 7.4.1 forbids only EXPUNGE during FETCH, STORE and SEARCH. What was queued after the EXPUNGE waits with it,
+     * an EXISTS sent before it would describe a list that the client can not know yet
+     *
+     * @param {Object} [data] Parsed command that runs, or null between commands
+     * @param {Boolean} [beforeCommand] true when the command has not run yet, then a command with message sequence
+     *     numbers (COPY, MOVE) also waits with the EXPUNGE responses, its numbers refer to the messages before them
+     */
+    processNotifications(data?: CommandContext | null, beforeCommand?: boolean): void {
         if (!this.notificationQueue.length) {
             return;
         }
-        const queue = this.prepareNotifications(this.notificationQueue);
-        this.notificationQueue = [];
+
+        let queue = this.notificationQueue;
+        let held: Notification[] = [];
+        if (data && (this.holdsExpunge(data) || (beforeCommand && this.usesSequenceNumbers(data)))) {
+            const first = queue.findIndex(isPendingExpunge);
+            if (first >= 0) {
+                held = queue.slice(first);
+                queue = queue.slice(0, first);
+            }
+            if (!queue.length) {
+                return;
+            }
+        }
 
         // Flag updates use the sequence numbers this session knows: before the EXPUNGE responses of
         // the snapshot are sent, the snapshot, afterwards the current message list
+        const snapshot = queue.concat(held).find(notification => notification.mailboxCopy);
+        this.notificationQueue = held;
+        queue = this.prepareNotifications(queue);
+
         const snapshotIndex = queue.findIndex(notification => notification.mailboxCopy);
         const sequenceMaps = new Map<Message[], Map<Message, number>>();
         const getSequence = (messages: Message[]) => {
@@ -2898,10 +2941,10 @@ class IMAPConnection {
 
         queue.forEach((notification, i) => {
             if (notification.flagUpdate) {
-                // i < snapshotIndex only when there is a snapshot
+                // before the snapshot (or with all of it still held back) the session knows the old list
                 this.sendFlagUpdate(
                     notification.flagUpdate,
-                    getSequence(i < snapshotIndex ? (queue[snapshotIndex].mailboxCopy as Message[]) : current),
+                    getSequence(snapshot && (snapshotIndex < 0 || i < snapshotIndex) ? (snapshot.mailboxCopy as Message[]) : current),
                     reported
                 );
             } else {
@@ -3586,13 +3629,20 @@ class IMAPConnection {
             }
         }
 
-        if (command.substr(0, 4) === 'UID ' && this.hasPendingExpunge()) {
-            // EXPUNGE responses may be sent during UID commands (RFC 3501 section 7.4.1). The expunges of other sessions
-            // are reported first, then the command runs on the current mailbox, where the UIDs of the expunged messages
-            // do not exist and are ignored (RFC 3501 section 6.4.8), so the ghost handling of STORE, COPY and MOVE (RFC 2180
-            // section 4) only applies to their sequence number forms. Not for UID SEARCH with message numbers in the
-            // criteria, processNotifications knows when EXPUNGE must wait
-            this.processNotifications(element.parsed);
+        if (
+            this.state === 'Selected' &&
+            (command.startsWith('UID ') || options.noExpunge || options.sequenceSet !== false || options.searchCriteria !== false)
+        ) {
+            // A command that refers to messages runs on the message list the client was told about. RFC 3501 section 5.2:
+            // "A server MUST send mailbox size updates automatically if a mailbox size change is observed during the
+            // processing of a command", so the new messages and flag changes of other sessions are reported first,
+            // before the command resolves its sequence set or search criteria.
+            // EXPUNGE responses may be sent during UID commands (RFC 3501 section 7.4.1), so these report the expunges of
+            // other sessions first as well, then the command runs on the current mailbox, where the UIDs of the expunged
+            // messages do not exist and are ignored (RFC 3501 section 6.4.8). The ghost handling of STORE, COPY and MOVE
+            // (RFC 2180 section 4) only applies to their sequence number forms, these and UID SEARCH with message numbers
+            // in the criteria keep the EXPUNGE responses for later, see processNotifications
+            this.processNotifications(element.parsed, true);
         }
 
         // changes made while the handler runs are attributed to this session (the `origin` of notifications)
