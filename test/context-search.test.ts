@@ -129,7 +129,7 @@ describe('CONTEXT=SEARCH', () => {
         it('sends ADDTO after EXISTS for appended messages', (t, done) => {
             ctx.run([...LOGIN, 'A1 SEARCH RETURN (UPDATE) UNSEEN', 'A2 APPEND INBOX {12}\r\nSubject: x\r\n', 'ZZ LOGOUT'], resp => {
                 resp = resp.toString();
-                assert.match(resp, /^\* 5 EXISTS\r\n\* ESEARCH \(TAG "A1"\) ADDTO \(0 5\)\r\nA2 OK /m);
+                assert.match(resp, /^\* 5 EXISTS\r\n\* 1 RECENT\r\n\* ESEARCH \(TAG "A1"\) ADDTO \(0 5\)\r\nA2 OK /m);
                 done();
             });
         });
@@ -147,7 +147,7 @@ describe('CONTEXT=SEARCH', () => {
                 let output = await first.cmd('A3 NOOP');
                 assert.match(
                     output,
-                    /^\* 1 FETCH \(UID 10 FLAGS \(\)\)\r\n\* 2 FETCH \(UID 20 FLAGS \(\\Seen \\Deleted\)\)\r\n\* 5 EXISTS\r\n\* ESEARCH \(TAG "A1"\) UID REMOVEFROM \(0 20\) ADDTO \(0 10,41\)\r\n\* ESEARCH \(TAG "A2"\) REMOVEFROM \(0 2\) ADDTO \(0 1,5\)\r\nA3 OK /m
+                    /^\* 1 FETCH \(UID 10 FLAGS \(\)\)\r\n\* 2 FETCH \(UID 20 FLAGS \(\\Seen \\Deleted\)\)\r\n\* 5 EXISTS\r\n\* 1 RECENT\r\n\* ESEARCH \(TAG "A1"\) UID REMOVEFROM \(0 20\) ADDTO \(0 10,41\)\r\n\* ESEARCH \(TAG "A2"\) REMOVEFROM \(0 2\) ADDTO \(0 1,5\)\r\nA3 OK /m
                 );
 
                 await second.cmd('B4 STORE 1 +FLAGS (\\Deleted)');

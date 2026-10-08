@@ -27,15 +27,15 @@ The same operations are available over HTTP through the [REST API](../rest-api/o
 
 The control API changes the shared store the same way an IMAP command from another session would, so the connected sessions learn about it through the normal protocol:
 
-| Change                                    | What a session that has the mailbox selected sees                              |
-| ----------------------------------------- | ------------------------------------------------------------------------------ |
-| a new message (`addMessage`, copy, move)  | `* n EXISTS`, and the message is `\Recent` for the first read-write session    |
-| removed messages (expunge, move, replace) | `* n EXPUNGE` and a new `EXISTS`, or `* VANISHED` after `ENABLE QRESYNC`       |
-| changed flags (`setFlags`)                | `* n FETCH (UID u FLAGS (...))`, with `MODSEQ` after `ENABLE CONDSTORE`        |
-| the mailbox is deleted                    | `* BYE Selected mailbox was deleted`, and the connection closes                |
-| new UIDVALIDITY (`resetUidValidity`)      | `* BYE UIDVALIDITY of the selected mailbox changed`, and the connection closes |
+| Change                                    | What a session that has the mailbox selected sees                                        |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| a new message (`addMessage`, copy, move)  | `* n EXISTS` and `* n RECENT`, the message is `\Recent` for the first read-write session |
+| removed messages (expunge, move, replace) | `* n EXPUNGE` and a new `EXISTS`, or `* VANISHED` after `ENABLE QRESYNC`                 |
+| changed flags (`setFlags`)                | `* n FETCH (UID u FLAGS (...))`, with `MODSEQ` after `ENABLE CONDSTORE`                  |
+| the mailbox is deleted                    | `* BYE Selected mailbox was deleted`, and the connection closes                          |
+| new UIDVALIDITY (`resetUidValidity`)      | `* BYE UIDVALIDITY of the selected mailbox changed`, and the connection closes           |
 
-A session in IDLE gets these responses right away. Any other session gets them before the tagged response of its next command (`NOOP` is the usual way to ask), following the same rules as changes from a real second session: FETCH, STORE, SEARCH, SORT and THREAD hold back EXPUNGE responses (RFC 3501 section 7.4.1), and messages expunged while a session can not be told stay in its view until it can. See [Multiple sessions](../guides/multiple-sessions.md) for the details. Sessions that use NOTIFY or CONTEXT=SEARCH get their updates too.
+A session in IDLE gets these responses right away. Any other session gets them before the tagged response of its next command (`NOOP` is the usual way to ask), following the same rules as changes from a real second session: a command that refers to messages (FETCH, STORE, SEARCH ...) reports new messages and flag changes before its own responses (RFC 3501 section 5.2), FETCH, STORE, SEARCH, SORT and THREAD hold back EXPUNGE responses (RFC 3501 section 7.4.1), and messages expunged while a session can not be told stay in its view until it can. IMAP4rev1 sessions get a RECENT response after the EXISTS of new messages (RFC 3501 section 7.3.2). See [Multiple sessions](../guides/multiple-sessions.md) for the details. Sessions that use NOTIFY or CONTEXT=SEARCH get their updates too.
 
 Every change has no session as its **origin**. Inside the server, a change made by a command carries the session that ran it, so that, for example, NOTIFY does not report a session's own changes back to it. A control API change has `origin: null`, which means every session is told, including one that is running a command at that moment. The `mailbox`, `expunge` and `flags` [events](./events.md) carry the same `origin` value, `null` for the control API. This also holds when you call the control API from inside an event listener that fires during a command.
 
@@ -48,11 +48,11 @@ sequenceDiagram
     participant B as Session 2 (INBOX selected)
     T->>C: addMessage('INBOX', { raw })
     C->>S: append, origin null
-    S-->>A: * 1 EXISTS (right away)
+    S-->>A: * 1 EXISTS, * 1 RECENT (right away)
     S-->>B: queued
     C-->>T: { uid: 1, uidvalidity: 1 }
     B->>S: A5 NOOP
-    S-->>B: * 1 EXISTS
+    S-->>B: * 1 EXISTS, * 0 RECENT
     S-->>B: A5 OK
 ```
 

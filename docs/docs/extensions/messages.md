@@ -118,7 +118,7 @@ With ACL loaded, URLs of mailboxes the user can not read are refused with `NO [B
 Adds `REPLACE` and `UID REPLACE`: append a new version of a message and expunge the old one in one step (RFC 8508). The target can be the selected mailbox or another one.
 
 - Only the replaced message is expunged, not every `\Deleted` message. If the new message can not be appended, nothing changes.
-- With UIDPLUS, `APPENDUID` comes in an untagged OK before the EXPUNGE. When the target is the selected mailbox, EXISTS comes before EXPUNGE, like the RFC 8508 section 3.2 example.
+- With UIDPLUS, `APPENDUID` comes in an untagged OK before the EXPUNGE. When the target is the selected mailbox, EXISTS (and RECENT in IMAP4rev1) comes before EXPUNGE, like the RFC 8508 section 3.2 example.
 - REPLACE takes a single message even with MULTIAPPEND. It works with CATENATE and, with BINARY, with a literal8 message.
 - A message number past the end is `BAD`, a UID that does not exist is `NO`, and REPLACE in a read-only mailbox is `NO`. When the message to replace is known to be invalid, the literal is refused before the client sends it.
 - With QUOTA only the net usage counts.
@@ -131,6 +131,7 @@ C:
 C: hello
 S: * OK [APPENDUID 1 5] Replacement message saved
 S: * 5 EXISTS
+S: * 1 RECENT
 S: * 2 EXPUNGE
 S: A3 OK UID REPLACE completed
 C: A4 REPLACE 9 INBOX {20}
@@ -210,7 +211,19 @@ S: A4 OK FETCH Completed
 
 The same message in a normal `{96}` literal is `BAD`, as NUL octets are not allowed there.
 
-Refused with `BAD`: `BINARY[]`, BINARY of multipart or message/rfc822 parts (RFC 9051 section 6.4.5 allows leaf body parts only), `HEADER`, `TEXT` or `MIME` sections, and a partial range on `BINARY.SIZE`. A literal8 is refused without a continuation request anywhere but in an APPEND or REPLACE message (and a SETMETADATA value with METADATA).
+Refused with `BAD`: `BINARY[]`, BINARY of multipart or message/rfc822 parts (RFC 9051 section 6.4.5 allows leaf body parts only), `HEADER`, `TEXT` or `MIME` sections, and a partial range on `BINARY.SIZE`.
+
+A part number that does not exist is not an error: `BINARY` returns an empty string and `BINARY.SIZE` 0, the same as `BODY[<part>]` and the same as Dovecot. RFC 3516 and RFC 9051 section 6.4.5 define no error for it, and RFC 3516 section 4.2 gives BINARY the semantics of BODY. For a single part `text/plain` message:
+
+```
+C: A2 FETCH 1 (BODY.PEEK[1.1] BINARY.PEEK[1.1] BINARY.SIZE[1.1])
+S: * 1 FETCH (BODY[1.1] {0}
+S:  BINARY[1.1] {0}
+S:  BINARY.SIZE[1.1] 0)
+S: A2 OK FETCH Completed
+```
+
+A literal8 is refused without a continuation request anywhere but in an APPEND or REPLACE message (and a SETMETADATA value with METADATA).
 
 ## PREVIEW
 

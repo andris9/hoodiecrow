@@ -155,6 +155,11 @@ export default function imap4rev2Plugin(server: IMAPServer) {
     };
 
     server.outputHandlers.push((connection: IMAPConnection, response: IMAPResponse, description: string, parsed: ParsedCommand, data: string) => {
+        if (description === 'RECENT NOTIFICATION' && isRev2(connection)) {
+            // Appendix E item 12: no RECENT response after the EXISTS of new messages either
+            response.skipResponse = true;
+            return;
+        }
         if (!parsed || !response || !isRev2(connection)) {
             return;
         }

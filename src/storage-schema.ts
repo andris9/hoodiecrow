@@ -6,6 +6,7 @@
  */
 
 import { MAX_NUMBER } from './numbers.js';
+import { isDateTime } from './dates.js';
 
 // keys of plugins, an unknown key that looks like a typo of a known key is refused unless a plugin uses it
 const PLUGIN_KEYS = [
@@ -156,13 +157,17 @@ export function validateStorage(storage: unknown): void {
         if (message.flags !== undefined && typeof message.flags !== 'string' && !isFlagList(message.flags)) {
             fail(path + '.flags', 'must be a flag or a list of flags');
         }
-        if (
-            message.internaldate !== undefined &&
-            message.internaldate !== false &&
-            typeof message.internaldate !== 'string' &&
-            !(message.internaldate instanceof Date)
-        ) {
-            fail(path + '.internaldate', 'must be a date-time string or a Date');
+        // FETCH sends the internal date as it is and SORT ARRIVAL reads it, so it must be a date-time of RFC 3501
+        // section 9 (month names in any case, they are sent as "Jan", "Feb", ...) or a valid Date. The save date
+        // of the SAVEDATE plugin is a date-time too (RFC 8514 section 4.2)
+        for (const key of ['internaldate', 'SAVEDATE'] as const) {
+            const value = message[key];
+            if (value === undefined || value === false || (key === 'SAVEDATE' && value === null)) {
+                continue;
+            }
+            if (value instanceof Date ? isNaN(value.getTime()) : !isDateTime(value)) {
+                fail(path + '.' + key, 'must be a date-time string like "14-Sep-2013 21:22:28 -0300" or a Date, not ' + JSON.stringify(value));
+            }
         }
         if (message.recent !== undefined && typeof message.recent !== 'boolean') {
             fail(path + '.recent', 'must be true or false');

@@ -20,6 +20,7 @@ interface MetadataHolder {
  * @help default 65536), "metadataMaxEntries" (per mailbox and for the
  * @help server, default 100). "metadataPrivate": false turns /private
  * @help entries off. ENABLE METADATA turns on unsolicited METADATA responses
+ * @help (loads the ENABLE plugin, RFC 5464 section 4.1)
  */
 
 // Default limits, RFC 5464 section 4.1 requires at least 1024 octets and 10 entries
@@ -572,5 +573,8 @@ function setup(server: IMAPServer, mailboxes: boolean) {
 export default function metadataPlugin(server: IMAPServer) {
     setup(server, true);
 }
+
+// RFC 5464 section 4.1: a server that sends unsolicited METADATA responses "MUST support the ENABLE command"
+metadataPlugin.requires = ['ENABLE'];
 
 export { setup };

@@ -123,19 +123,20 @@ export const quirks: Record<string, Quirk> = {
  * Resolves the `quirks` option
  *
  * @param {Array|String} names Quirk names
- * @return {Object} `{ rules, removePlugins }` of all of them
+ * @return {Object} `{ rules, removePlugins }` of all of them, removePlugins maps a plugin name to the quirk that removes it
  * @throws {Error} for an unknown name
  */
-export function resolveQuirks(names: string[] | string | null | undefined): { rules: ScriptRule[]; removePlugins: Set<string> } {
+export function resolveQuirks(names: string[] | string | null | undefined): { rules: ScriptRule[]; removePlugins: Map<string, string> } {
     const rules: ScriptRule[] = [];
-    const removePlugins = new Set<string>();
+    const removePlugins = new Map<string, string>();
     ([] as string[]).concat(names || []).forEach(name => {
-        const quirk = Object.hasOwn(quirks, String(name).toLowerCase()) ? quirks[String(name).toLowerCase()] : null;
+        const key = String(name).toLowerCase();
+        const quirk = Object.hasOwn(quirks, key) ? quirks[key] : null;
         if (!quirk) {
             throw new Error('Unknown quirk "' + name + '". Available quirks: ' + Object.keys(quirks).join(', '));
         }
         rules.push(...(quirk.rules || []));
-        (quirk.removePlugins || []).forEach(plugin => removePlugins.add(plugin));
+        (quirk.removePlugins || []).forEach(plugin => removePlugins.set(plugin, key));
     });
     return { rules, removePlugins };
 }

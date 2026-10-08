@@ -41,7 +41,7 @@ Without plugins, LIST and LSUB follow RFC 3501. `\HasChildren` and `\HasNoChildr
 - DELETE does not unsubscribe, so LSUB keeps listing the name until UNSUBSCRIBE, and a mailbox created again under that name is subscribed. RENAME leaves the subscription with the old name.
 - SUBSCRIBE refuses names that are not mailboxes, UNSUBSCRIBE accepts any name.
 - LSUB sends the LIST attributes of an existing mailbox, without `\Noselect`, and `()` for a subscribed name that is no longer a mailbox.
-- LIST concatenates the reference and the pattern as they are, without inserting a hierarchy delimiter (RFC 9051 section 6.3.9).
+- LIST concatenates the reference and the pattern as they are, without inserting a hierarchy delimiter (RFC 9051 section 6.3.9). A pattern that starts with `#` is a break out character of the namespace convention and ignores the reference: `LIST "Work/" "#news.*"` lists the `#news.` namespace.
 
 ```text
 C: A2 LIST "" "*"
@@ -220,16 +220,18 @@ const server = imapkit({
 });
 ```
 
-An attribute that is not allowed gets `NO [USEATTR]`, and an attribute that is not an atom or a string gets `BAD`. Load SPECIAL-USE as well so that LIST shows the attributes.
+An attribute that is not allowed gets `NO [USEATTR]` ([RFC 6154 section 3](https://www.rfc-editor.org/rfc/rfc6154#section-3)). An entry that is not an atom starting with a backslash (`use-attr-ext = "\" atom`, [RFC 6154 section 6](https://www.rfc-editor.org/rfc/rfc6154#section-6)), such as `NIL`, a quoted string, a literal or `Sent`, gets `BAD`. Load SPECIAL-USE as well so that LIST shows the attributes.
 
 ```text
 C: A2 CREATE Drafts (USE (\Drafts))
 S: A2 OK CREATE completed
 C: A3 CREATE Stuff (USE (\Important))
 S: A3 NO [USEATTR] \Important not supported
-C: A4 LIST "" "Drafts"
+C: A4 CREATE Stuff (USE ("\\Sent"))
+S: A4 BAD Invalid syntax for special use flag #1
+C: A5 LIST "" "Drafts"
 S: * LIST (\HasNoChildren \Drafts) "/" "Drafts"
-S: A4 OK Completed
+S: A5 OK Completed
 ```
 
 ## STATUS=SIZE

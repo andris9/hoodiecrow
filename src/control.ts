@@ -86,10 +86,8 @@ interface NewMessage {
     internaldate?: Date | string | undefined;
 }
 
-interface UserOptions {
-    password?: string | undefined;
-    xoauth2?: { accessToken?: string | undefined; sessionTimeout?: number | undefined } | undefined;
-}
+/** The credentials of a user, see UserData */
+type UserOptions = Pick<UserData, 'password' | 'xoauth2'>;
 
 /** What a REST route handler gets, see src/rest.ts */
 interface RouteRequest {

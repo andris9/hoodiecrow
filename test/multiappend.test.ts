@@ -65,7 +65,7 @@ describe('MULTIAPPEND', () => {
     it('sends EXISTS to the session that has the mailbox selected', (t, done) => {
         ctx.run(['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 APPEND INBOX ' + literal(msg(2)) + ' ' + literal(msg(3)), 'ZZ LOGOUT'], resp => {
             resp = resp.toString();
-            assert.match(resp, /^\* 3 EXISTS\r\nA3 OK \[APPENDUID 1 2:3\] /m);
+            assert.match(resp, /^\* 2 EXISTS\r\n\* 3 EXISTS\r\n\* 2 RECENT\r\nA3 OK \[APPENDUID 1 2:3\] /m);
             done();
         });
     });

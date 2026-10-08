@@ -9,11 +9,11 @@ import { commands as builtinCommands } from './commands/index.js';
 import { getCommandOptions, commandOptions } from './command-states.js';
 import type { ResolvedCommandOptions } from './command-states.js';
 import validateMailboxName from './mailbox-name.js';
-import { MONTHS, monthIndex, isRealDate } from './dates.js';
+import { MONTHS, monthIndex, isDateTime } from './dates.js';
 import fetchHandlers from './commands/handlers/fetch.js';
 import { hasSequenceSetKey } from './commands/handlers/search.js';
 import { isSequenceSet } from './numbers.js';
-import { restoreNilAtoms } from './arguments.js';
+import { restoreNilAtoms, isAtom } from './arguments.js';
 import { refuseMissingTarget } from './commands/append.js';
 import { DEFAULT_SESSION_TIMEOUT, storeError, expungeMessages, notifyFlagChanges } from './store-operations.js';
 import { Control } from './control.js';
@@ -141,6 +141,40 @@ interface CommandStart {
 function stateError(command: string, state: string): string {
     return command + ' is not allowed in the ' + state + ' state';
 }
+
+/**
+ * Checks if a queued notification changes message sequence numbers by removing messages: an EXPUNGE response, or the
+ * EXISTS that follows the EXPUNGE responses of another session (it carries the snapshot of the old message list)
+ *
+ * @param {Object} notification Queued notification
+ * @return {Boolean} true if the notification must wait while EXPUNGE responses are not allowed
+ */
+function isPendingExpunge(notification: Notification): boolean {
+    return !!notification.mailboxCopy || isAtom(notification.attributes && notification.attributes[1], 'EXPUNGE');
+}
+
+/**
+ * Checks if a notification is an untagged EXISTS response
+ *
+ * @param {Object} [notification] Notification to send
+ * @return {Boolean} true for an EXISTS response
+ */
+function isExists(notification?: Notification): boolean {
+    return !!notification && !notification.command && isAtom(notification.attributes && notification.attributes[1], 'EXISTS');
+}
+
+/**
+ * Answers AUTHENTICATE with a mechanism no plugin supports: NO, not a syntax error (RFC 3501 section 6.2.2). It runs
+ * through the command queue, so the state check comes first (AUTHENTICATE is only valid in the Not Authenticated
+ * state, RFC 3501 section 6.2)
+ */
+// usesSequenceNumbers() of each running command
+const sequenceNumberUse = new WeakMap<CommandContext, boolean>();
+
+const unsupportedMechanism: CommandHandler = (connection, parsed, data, callback) => {
+    connection.sendStatus(parsed, data, 'NO', 'Unsupported authentication mechanism', false, 'UNKNOWN COMMAND');
+    callback();
+};
 
 /**
  * Creates a new IMAP server, call `listen()` on it to start accepting connections
@@ -307,7 +341,7 @@ class IMAPServer extends Stream {
         this.control = new Control(this);
 
         // a quirk preset can leave plugins out (no-move, no-uidplus)
-        loadPlugins(this, this.options.plugins, [...quirks.removePlugins]);
+        loadPlugins(this, this.options.plugins, quirks.removePlugins);
 
         if (this.options.storage) {
             // a typo in a fixture fails here with the path of the problem
@@ -670,8 +704,7 @@ class IMAPServer extends Stream {
         let seen = 0;
         let unseen = 0;
         // flags stay defined in the mailbox once a message had them, see rememberFlags
-        const permanentFlags = ([] as string[]).concat(mailbox.permanentFlags || []);
-        (mailbox.knownFlags || []).forEach(flag => this.ensureFlag(permanentFlags, flag));
+        const permanentFlags = this.permanentFlagList(mailbox);
 
         let recent = 0;
         // \Recent sets of the sessions that have this mailbox selected
@@ -722,23 +755,8 @@ class IMAPServer extends Stream {
      * @return {Boolean} Returns true if the date string is in IMAP date-time format
      */
     validateInternalDate(date: unknown): boolean {
-        if (!date || typeof date !== 'string') {
-            return false;
-        }
-        // date-time from RFC 3501 section 9, month names are case-insensitive like all ABNF strings
-        const match = date.match(/^( \d|\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4}) (\d{2}):(\d{2}):(\d{2}) [-+](\d{2})(\d{2})$/i);
-        if (!match) {
-            return false;
-        }
-
-        // the values must also make a real date and time
-        return (
-            isRealDate(match[1], monthIndex(match[2]), match[3]) &&
-            Number(match[4]) < 24 &&
-            Number(match[5]) < 60 &&
-            Number(match[6]) < 61 &&
-            Number(match[8]) < 60
-        );
+        // date-time from RFC 3501 section 9
+        return isDateTime(date);
     }
 
     /**
@@ -1231,6 +1249,36 @@ class IMAPServer extends Stream {
     }
 
     /**
+     * Checks if a flag can be stored on messages of a mailbox: any flag when the mailbox allows new keywords
+     * (PERMANENTFLAGS has `\*`), otherwise only a flag in the PERMANENTFLAGS list that getStatus() builds, the
+     * `permanentFlags` of the mailbox and every flag its messages had. RFC 3501 section 7.1 (RFC 9051 section 7.1):
+     * PERMANENTFLAGS "indicates which of the known flags the client can change permanently", STORE ignores the others
+     *
+     * @param {Object} mailbox Mailbox object
+     * @param {String} flag Normalized flag
+     * @return {Boolean} true if the flag is a permanent flag of the mailbox
+     */
+    isPermanentFlag(mailbox: Mailbox, flag: string): boolean {
+        // the lists of permanentFlagList(), without building it: this runs for every flag STORE and APPEND set
+        return (
+            mailbox.allowPermanentFlags || (mailbox.permanentFlags || []).indexOf(flag) >= 0 || (!!mailbox.knownFlags && mailbox.knownFlags.indexOf(flag) >= 0)
+        );
+    }
+
+    /**
+     * The flags of the PERMANENTFLAGS list (without `\*`): the `permanentFlags` of the mailbox and every flag its
+     * messages have or had (`knownFlags`, see rememberFlags)
+     *
+     * @param {Object} mailbox Mailbox object
+     * @return {Array} flags, a new list
+     */
+    permanentFlagList(mailbox: Mailbox): string[] {
+        const list = ([] as string[]).concat(mailbox.permanentFlags || []);
+        (mailbox.knownFlags || []).forEach(flag => this.ensureFlag(list, flag));
+        return list;
+    }
+
+    /**
      * The current time for dates the server sets itself (INTERNALDATE of a message without one, SAVEDATE). The `now`
      * option fixes it for repeatable tests: a Date, a timestamp, or a function that returns one
      *
@@ -1321,9 +1369,10 @@ class IMAPServer extends Stream {
     ): { mailbox: Mailbox; message: Message } {
         const mailbox = typeof path === 'string' ? (this.getMailbox(path) as Mailbox) : path;
 
-        // processMessage() below sets the UID
+        // processMessage() below sets the UID. Flags the mailbox can not store are left out (APPEND, COPY: the flags
+        // SHOULD be set, RFC 3501 sections 6.3.11 and 6.4.7), as STORE ignores them (RFC 3501 section 7.1, PERMANENTFLAGS)
         const message = Object.assign({}, properties, {
-            flags: flags,
+            flags: flags.filter(flag => this.isPermanentFlag(mailbox, flag)),
             internaldate: internaldate,
             raw: raw,
             recent: true
@@ -1569,58 +1618,58 @@ class IMAPServer extends Stream {
         exportName?: ((name: string) => string) | null,
         folders?: Record<string, ListedMailbox> | null
     ): ListedMailbox[] {
-        let includeINBOX = false;
-
         const source = folders || this.folderCache;
-
         const toName = exportName || ((name: string) => name);
-        let reference = referenceName || '';
-        if (reference === '' && this.referenceNamespace !== false) {
-            reference = toName(this.referenceNamespace);
-            includeINBOX = true;
-        }
 
-        // the reference does not have to be a namespace, use the namespace it belongs to
-        let nsKey: string | false = false;
-        let nsName = '';
-        for (const key of Object.keys(this.storage)) {
+        // RFC 3501 section 6.3.8 (RFC 9051 section 6.3.9): "An empty ("" string) reference name argument
+        // indicates that the mailbox name is interpreted as by SELECT", and without break out characters
+        // "the canonical form is normally the reference name appended with the mailbox name". The pattern
+        // matches full mailbox names, also in a personal namespace with a prefix such as "INBOX.". With the
+        // namespace convention "#" is a break out character "and must be treated as such" (RFC 3501 section 6.3.8,
+        // RFC 9051 section 6.3.9): a pattern that starts with it is a name of its own, the reference is ignored
+        const lookup = match.charAt(0) === '#' ? match : (referenceName || '') + match;
+
+        // "%" does not match the hierarchy delimiter, which is the one of the namespace a name belongs to
+        const toRegExp = (separator: string, flags = '') =>
+            new RegExp(
+                '^' +
+                    lookup
+                        // escape regex symbols
+                        .replace(/([\\^$+?!.():=[\]{}|,-])/g, '\\$1')
+                        .replace(/[*]/g, '.*')
+                        .replace(/[%]/g, '[^' + separator.replace(/([\\^$+*?!.():=[\]{}|,-])/g, '\\$1') + ']*') +
+                    '$',
+                flags
+            );
+
+        // RFC 3501 section 6.3.8 allows to "hide" otherwise accessible mailboxes from the wildcards: the
+        // mailboxes of namespaces other than the personal one are only matched when the pattern names
+        // the prefix of the namespace before any wildcard (LIST "" "user.%", LIST "#news." "*"). The pattern
+        // of every namespace that is matched, null for a hidden one
+        const fixedPrefix = lookup.replace(/[*%].*$/, '');
+        const queries = new Map<string, RegExp | null>();
+        Object.keys(this.storage).forEach(key => {
             const name = toName(key);
-            if (key !== 'INBOX' && reference.substr(0, name.length) === name && (nsKey === false || name.length > nsName.length)) {
-                nsKey = key;
-                nsName = name;
-            }
-        }
+            const visible = key === this.referenceNamespace || fixedPrefix.substr(0, name.length) === name;
+            queries.set(key, visible ? toRegExp(this.storage[key].separator) : null);
+        });
 
-        if (nsKey === false) {
-            return [];
-        }
-
-        const namespace = this.storage[nsKey];
-        const lookup = reference + match;
         const result: ListedMailbox[] = [];
 
-        const pattern =
-            '^' +
-            lookup
-                // escape regex symbols
-                .replace(/([\\^$+?!.():=[\]{}|,-])/g, '\\$1')
-                .replace(/[*]/g, '.*')
-                .replace(/[%]/g, '[^' + namespace.separator.replace(/([\\^$+*?!.():=[\]{}|,-])/g, '\\$1') + ']*') +
-            '$';
-        const query = new RegExp(pattern, '');
-
-        // INBOX is case-insensitive
-        if (includeINBOX && source.INBOX && ((reference ? reference + namespace.separator : '') + 'INBOX').match(new RegExp(pattern, 'i'))) {
+        // "The special name INBOX is included in the output from LIST, if [...] the uppercase string "INBOX"
+        // matches the interpreted reference and mailbox name arguments", INBOX is case-insensitive
+        if (source.INBOX && toRegExp((this.storage.INBOX && this.storage.INBOX.separator) || '/', 'i').test('INBOX')) {
             result.push(source.INBOX);
         }
 
         Object.keys(source).forEach(path => {
             const folder = source[path];
-            if (folder.namespace !== nsKey) {
+            const query = path !== 'INBOX' && folder.namespace !== false && folder.namespace !== 'INBOX' ? queries.get(folder.namespace) : null;
+            if (!query) {
                 return;
             }
             const name = toName(path);
-            if (name.match(query) && (folder.flags.indexOf('\\NonExistent') < 0 || name === match)) {
+            if (query.test(name) && (folder.flags.indexOf('\\NonExistent') < 0 || name === lookup)) {
                 result.push(folder);
             }
         });
@@ -1715,6 +1764,8 @@ interface QueuedCommand {
     data: string;
     /** a command line that a script rule handles instead of the parser and the command handler */
     script?: { rule: ScriptRule; context: ScriptContext } | undefined;
+    /** handler for a command that has no registered one (AUTHENTICATE with an unknown mechanism) */
+    handler?: CommandHandler | undefined;
 }
 
 class IMAPConnection {
@@ -2627,7 +2678,7 @@ class IMAPConnection {
      * @return {Boolean} true if an EXPUNGE response is pending
      */
     hasPendingExpunge(): boolean {
-        return this.notificationQueue.some(notification => notification.attributes && (notification.attributes[1] || {}).value === 'EXPUNGE');
+        return this.notificationQueue.some(isPendingExpunge);
     }
 
     /**
@@ -2864,24 +2915,56 @@ class IMAPConnection {
         return queue;
     }
 
-    processNotifications(data?: CommandContext | null): void {
-        const options = data && this.server.getCommandOptions(data.command);
-        if (options && (options.noExpunge || (options.searchCriteria !== false && this.usesSequenceNumbers(data)))) {
-            // EXPUNGE responses are not allowed during FETCH, STORE and SEARCH (RFC 3501 section 7.4.1), during
-            // the commands that extensions add to this list (see the noExpunge command option), nor during UID
-            // SEARCH with message numbers in the search criteria (RFC 7162 section 3.2.10.2 for VANISHED, EXPUNGE
-            // may wait as well, RFC 3501 only allows it during UID commands)
-            return;
-        }
+    /**
+     * Checks if EXPUNGE responses must wait while a command runs: during FETCH, STORE and SEARCH (RFC 3501 section
+     * 7.4.1), during the commands that extensions add to this list (see the noExpunge command option), and during UID
+     * SEARCH with message numbers in the search criteria (RFC 7162 section 3.2.10.2 for VANISHED, EXPUNGE may wait as
+     * well, RFC 3501 only allows it during UID commands)
+     *
+     * @param {Object} data Parsed command
+     * @return {Boolean} true if the command holds back EXPUNGE responses
+     */
+    holdsExpunge(data: CommandContext): boolean {
+        const options = this.server.getCommandOptions(data.command);
+        return options.noExpunge || (options.searchCriteria !== false && this.usesSequenceNumbers(data));
+    }
 
+    /**
+     * Sends the queued notifications. During a command that holds back EXPUNGE responses (see holdsExpunge), or with
+     * `beforeCommand` before a command that refers to messages by sequence number, only the notifications queued before
+     * the first pending EXPUNGE go out: new messages (EXISTS) and flag changes. RFC 3501 section 5.2: "A server MUST send
+     * mailbox size updates automatically if a mailbox size change is observed during the processing of a command",
+     * section 7.4.1 forbids only EXPUNGE during FETCH, STORE and SEARCH. What was queued after the EXPUNGE waits with it,
+     * an EXISTS sent before it would describe a list that the client can not know yet
+     *
+     * @param {Object} [data] Parsed command that runs, or null between commands
+     * @param {Boolean} [beforeCommand] true when the command has not run yet, then a command with message sequence
+     *     numbers (COPY, MOVE) also waits with the EXPUNGE responses, its numbers refer to the messages before them
+     */
+    processNotifications(data?: CommandContext | null, beforeCommand?: boolean): void {
         if (!this.notificationQueue.length) {
             return;
         }
-        const queue = this.prepareNotifications(this.notificationQueue);
-        this.notificationQueue = [];
 
+        let queue = this.notificationQueue;
         // Flag updates use the sequence numbers this session knows: before the EXPUNGE responses of
         // the snapshot are sent, the snapshot, afterwards the current message list
+        const snapshot = queue.find(notification => notification.mailboxCopy);
+        let held: Notification[] = [];
+        if (data && (this.holdsExpunge(data) || (beforeCommand && this.usesSequenceNumbers(data)))) {
+            const first = queue.findIndex(isPendingExpunge);
+            if (first >= 0) {
+                held = queue.slice(first);
+                queue = queue.slice(0, first);
+            }
+            if (!queue.length) {
+                return;
+            }
+        }
+
+        this.notificationQueue = held;
+        queue = this.prepareNotifications(queue);
+
         const snapshotIndex = queue.findIndex(notification => notification.mailboxCopy);
         const sequenceMaps = new Map<Message[], Map<Message, number>>();
         const getSequence = (messages: Message[]) => {
@@ -2896,18 +2979,58 @@ class IMAPConnection {
         // a message changed several times is reported once, its FETCH response carries the current flags
         const reported = new Set<Message>();
 
+        // before the snapshot (or with all of it still held back, then the split at the first pending expunge leaves
+        // no snapshot in the queue) the session knows the old list
+        const sessionList = (i: number) => (snapshot && (snapshotIndex < 0 || i < snapshotIndex) ? (snapshot.mailboxCopy as Message[]) : current);
+
+        // the last EXISTS response of a run of EXISTS responses, and if the run announces new messages
+        let lastExists = -1;
+        let newMessages = false;
         queue.forEach((notification, i) => {
             if (notification.flagUpdate) {
-                // i < snapshotIndex only when there is a snapshot
-                this.sendFlagUpdate(
-                    notification.flagUpdate,
-                    getSequence(i < snapshotIndex ? (queue[snapshotIndex].mailboxCopy as Message[]) : current),
-                    reported
-                );
+                this.sendFlagUpdate(notification.flagUpdate, getSequence(sessionList(i)), reported);
             } else {
                 this.send(notification);
             }
+            if (isExists(notification)) {
+                lastExists = i;
+                // the EXISTS after the EXPUNGE responses of another session carries the snapshot instead of a message
+                newMessages = newMessages || !!notification.message;
+            }
+            const next = queue[i + 1];
+            if (lastExists < 0 || isExists(next) || (next && next.fetchedMessage)) {
+                // not the end of a run of EXISTS responses (and the FETCH responses NOTIFY sends after them)
+                return;
+            }
+            // RFC 3501 section 7.3.2: the RECENT response "occurs as a result of a SELECT or EXAMINE command, and if the
+            // size of the mailbox changes (e.g., new messages)". One for consecutive EXISTS responses that announce new
+            // messages, with the number of \Recent messages among those the client was told about. After expunges the
+            // EXPUNGE responses report the change (RFC 3501 section 7.4.1). It goes after the FETCH responses that NOTIFY
+            // sends for new messages, RFC 5465 section 5.2: "an unsolicited EXISTS response, followed by an unsolicited
+            // FETCH response [...] The server MAY also send a RECENT response"
+            if (newMessages) {
+                this.sendRecent(Number(queue[lastExists].attributes[0]), getSequence(sessionList(lastExists)));
+            }
+            lastExists = -1;
+            newMessages = false;
         });
+    }
+
+    /**
+     * Sends an untagged RECENT response with the number of \Recent messages among the first `count` messages
+     *
+     * @param {Number} count Number of messages the client was told about
+     * @param {Map} sequence Message to the sequence number this session knows it by
+     */
+    sendRecent(count: number, sequence: Map<Message, number>): void {
+        let recent = 0;
+        (this.recent || new Set<Message>()).forEach(message => {
+            const seq = sequence.get(message);
+            if (seq && seq <= count) {
+                recent++;
+            }
+        });
+        this.send({ tag: '*', notification: true, attributes: [recent, { type: 'ATOM', value: 'RECENT' }] }, 'RECENT NOTIFICATION');
     }
 
     /**
@@ -2958,11 +3081,12 @@ class IMAPConnection {
             response.tag === parsed.tag &&
             response.command === 'OK' &&
             this.hasPendingExpunge() &&
-            this.server.getCommandOptions(parsed.command).noExpunge &&
+            this.holdsExpunge(parsed) &&
             !(Array.isArray(response.attributes) && response.attributes.some(attr => attr && attr.type === 'SECTION'))
         ) {
             // After the output handlers, they might add a response code of their own (MODIFIED of CONDSTORE).
-            // FETCH, STORE, SEARCH and the like can not report the EXPUNGE of another session (RFC 3501 section 7.4.1),
+            // FETCH, STORE, SEARCH and the like can not report the EXPUNGE of another session (RFC 3501 section 7.4.1), nor
+            // can UID SEARCH with message numbers in the criteria (see holdsExpunge),
             // EXPUNGEISSUED tells the client to issue NOOP soon (RFC 5530 section 3, RFC 9051 section 7.1)
             response.attributes = [{ type: 'SECTION', section: [{ type: 'ATOM', value: 'EXPUNGEISSUED' }] }].concat(response.attributes || []);
         }
@@ -3141,6 +3265,16 @@ class IMAPConnection {
      * @return {Boolean} true if the command uses message sequence numbers
      */
     usesSequenceNumbers(parsed: CommandContext): boolean {
+        // the notification checks ask several times per command, the answer does not change
+        let cached = sequenceNumberUse.get(parsed);
+        if (cached === undefined) {
+            cached = this.findSequenceNumbers(parsed);
+            sequenceNumberUse.set(parsed, cached);
+        }
+        return cached;
+    }
+
+    findSequenceNumbers(parsed: CommandContext): boolean {
         const { sequenceSet, searchCriteria } = this.server.getCommandOptions(parsed.command);
         if (sequenceSet !== false) {
             // other forms of sequence sets, like "$" of SEARCHRES (RFC 5182 section 2.3), do not use numbers
@@ -3363,12 +3497,14 @@ class IMAPConnection {
             return;
         }
 
-        if (this.server.getCommandHandler(parsed.command)) {
+        // an unknown SASL mechanism is answered by its own handler, after the central checks (state, script rules)
+        const fallback = /^AUTHENTICATE /i.test(parsed.command) && !this.server.getCommandHandler(parsed.command) ? unsupportedMechanism : undefined;
+        if (fallback || this.server.getCommandHandler(parsed.command)) {
             if (this.isAmbiguous(parsed)) {
                 this.sendStatus(parsed, data, 'BAD', 'Commands with message sequence numbers must wait for the completion of earlier commands');
                 return;
             }
-            const element = { parsed, data };
+            const element: QueuedCommand = { parsed, data, handler: fallback };
             if (scripted) {
                 // processQueue runs it once the script rule released the queue
                 this._commandQueue.unshift(element);
@@ -3376,23 +3512,6 @@ class IMAPConnection {
                 this._commandQueue.push(element);
             }
             this.processQueue();
-        } else if (/^AUTHENTICATE /i.test(parsed.command)) {
-            // an unsupported mechanism is a NO, not a syntax error (RFC 3501 section 6.2.2)
-            this.send(
-                {
-                    tag: parsed.tag,
-                    command: 'NO',
-                    attributes: [
-                        {
-                            type: 'TEXT',
-                            value: 'Unsupported authentication mechanism'
-                        }
-                    ]
-                },
-                'UNKNOWN COMMAND',
-                parsed,
-                data
-            );
         } else {
             this.send(
                 {
@@ -3586,20 +3705,28 @@ class IMAPConnection {
             }
         }
 
-        if (command.substr(0, 4) === 'UID ' && this.hasPendingExpunge()) {
-            // EXPUNGE responses may be sent during UID commands (RFC 3501 section 7.4.1). The expunges of other sessions
-            // are reported first, then the command runs on the current mailbox, where the UIDs of the expunged messages
-            // do not exist and are ignored (RFC 3501 section 6.4.8), so the ghost handling of STORE, COPY and MOVE (RFC 2180
-            // section 4) only applies to their sequence number forms. Not for UID SEARCH with message numbers in the
-            // criteria, processNotifications knows when EXPUNGE must wait
-            this.processNotifications(element.parsed);
+        if (
+            this.state === 'Selected' &&
+            (command.startsWith('UID ') || options.noExpunge || options.sequenceSet !== false || options.searchCriteria !== false)
+        ) {
+            // A command that refers to messages runs on the message list the client was told about. Only these: CLOSE
+            // must not send pending EXPUNGE responses (RFC 3501 section 6.4.2) and SELECT leaves the old mailbox. RFC 3501 section 5.2:
+            // "A server MUST send mailbox size updates automatically if a mailbox size change is observed during the
+            // processing of a command", so the new messages and flag changes of other sessions are reported first,
+            // before the command resolves its sequence set or search criteria.
+            // EXPUNGE responses may be sent during UID commands (RFC 3501 section 7.4.1), so these report the expunges of
+            // other sessions first as well, then the command runs on the current mailbox, where the UIDs of the expunged
+            // messages do not exist and are ignored (RFC 3501 section 6.4.8). The ghost handling of STORE, COPY and MOVE
+            // (RFC 2180 section 4) only applies to their sequence number forms, these and UID SEARCH with message numbers
+            // in the criteria keep the EXPUNGE responses for later, see processNotifications
+            this.processNotifications(element.parsed, true);
         }
 
         // changes made while the handler runs are attributed to this session (the `origin` of notifications)
         this.server.withOrigin(this, () => {
             try {
                 const inputHandler = this.inputHandler;
-                (this.server.getCommandHandler(element.parsed.command) as CommandHandler)(this, element.parsed, element.data, next);
+                (element.handler || (this.server.getCommandHandler(element.parsed.command) as CommandHandler))(this, element.parsed, element.data, next);
                 if (this.inputHandler && this.inputHandler !== inputHandler) {
                     // the command reads the lines that follow (IDLE, AUTHENTICATE), script rules match them with it
                     this.inputCommand = { tag: element.parsed.tag, command: element.parsed.command };

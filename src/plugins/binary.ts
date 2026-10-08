@@ -116,7 +116,8 @@ function getDecodedSection(connection: IMAPConnection, message: Message, query: 
 
     const node = resolveNode(getMessageData(message).tree, section[0].value, connection.messageGlobal);
     if (!node) {
-        // like BODY[<section>], a part that does not exist is empty
+        // like BODY[<section>], a part that does not exist is empty: RFC 3516 and RFC 9051 section 6.4.5 define no
+        // error for it, and BINARY follows the semantics of BODY (RFC 3516 section 4.2)
         return '';
     }
     if (!isLeaf(node, connection.messageGlobal)) {

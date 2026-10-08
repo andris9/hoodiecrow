@@ -11,7 +11,10 @@ import { seededRandom } from './random.js';
 import { MAX_NUMBER } from './numbers.js';
 import type { IMAPConnection, IMAPServer, Mailbox, Message } from './types.js';
 
-/** the XOAUTH2 session timeout of the default user, and of a user the control API adds without one */
+/**
+ * the deprecated XOAUTH2 session timeout of the default user, and of a user the control API adds without one. It is
+ * stored and listed but never used, access tokens do not expire
+ */
 const DEFAULT_SESSION_TIMEOUT = 3600 * 1000;
 
 /** An error of a failed store operation or control API call, `code` is a RFC 5530 response code or INVALID */
@@ -186,7 +189,7 @@ function checkFlags(server: IMAPServer, mailbox: Mailbox, flags: unknown, stored
         } catch (err) {
             throw storeError((err as Error).message, 'INVALID');
         }
-        if (stored && mailbox.permanentFlags.indexOf(flag) < 0 && !mailbox.allowPermanentFlags) {
+        if (stored && !server.isPermanentFlag(mailbox, flag)) {
             throw storeError('Flag ' + flag + ' is not a permanent flag of ' + mailbox.path, 'INVALID');
         }
         if (list.indexOf(flag) < 0) {

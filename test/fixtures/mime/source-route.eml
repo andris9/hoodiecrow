@@ -1,0 +1,9 @@
+Date: Thu, 08 Oct 2026 12:00:00 +0000
+From: <@route.example:a@b.c>
+Sender: Sender <@one.example,@two.example:sender@example.com>
+To: Bob <@r1.example, @r2.example:bob@d.e>, plain@x.y
+Cc: "Group" <@[192.0.2.1]:carol@f.g>
+Subject: Source routes
+Message-ID: <route@example.com>
+
+Obsolete source routes in angle addresses (RFC 5322 section 4.4).

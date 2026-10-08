@@ -86,6 +86,20 @@ describe('ImapKit tests', () => {
         });
     });
 
+    // RFC 3501 section 6.3.8: an empty mailbox name returns "the hierarchy delimiter and the root name of the
+    // name given in the reference", the example answers LIST #news.comp.mail.misc "" with "." #news.
+    it('LIST separator of the reference namespace', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "#news.comp.mail.misc" ""', 'A3 LIST "#juke?" ""', 'A4 LIST "Test" ""', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* LIST \(\\Noselect\) "\." "?#news\."?\r\nA2 OK/m);
+            assert.match(resp, /^\* LIST \(\\Noselect\) "\?" "#juke\?"\r\nA3 OK/m);
+            assert.match(resp, /^\* LIST \(\\Noselect\) "\/" ""\r\nA4 OK/m);
+            done();
+        });
+    });
+
     it('LIST default namespace', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 CAPABILITY', 'A3 LIST "" "*"', 'ZZ LOGOUT'];
 
@@ -94,6 +108,21 @@ describe('ImapKit tests', () => {
             assert.equal((resp.match(/^\* LIST\b/gm) || []).length, 2);
             assert.ok(resp.indexOf('\n* LIST (\\HasNoChildren) "/" "INBOX"\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+
+    // RFC 3501 section 6.3.8: with the namespace convention "#" is a break out character "and must be treated as
+    // such", a mailbox name that starts with it overrides the reference
+    it('LIST ignores the reference for a name that starts with #', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "Test/" "#news.*"', 'A3 LIST "Test/" "%"', 'ZZ LOGOUT'];
+
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.match(resp, /^\* LIST \(\\HasNoChildren\) "\." "#news\.world"\r\n/m);
+            assert.match(resp, /^A2 OK/m);
+            // without a break out character the reference still applies
+            assert.doesNotMatch(resp.slice(resp.indexOf('A2 OK')), /#news/);
             done();
         });
     });
@@ -118,6 +147,136 @@ describe('ImapKit tests', () => {
             assert.equal((resp.match(/^\* LSUB\b/gm) || []).length, 1);
             assert.ok(resp.indexOf('\n* LSUB (\\HasNoChildren) "/" "INBOX"\r\n') >= 0);
             assert.ok(resp.indexOf('\nA3 OK') >= 0);
+            done();
+        });
+    });
+});
+
+// RFC 3501 section 6.3.8 / RFC 9051 section 6.3.9: "An empty ("" string) reference name argument indicates
+// that the mailbox name is interpreted as by SELECT", so a pattern matches the full mailbox name, also
+// when the personal namespace has a prefix like "INBOX." (Cyrus layout)
+describe('LIST with a prefixed personal namespace', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['LIST-EXTENDED'],
+        storage: {
+            INBOX: {},
+            'INBOX.': {
+                folders: {
+                    Drafts: {},
+                    Sent: { subscribed: false },
+                    Work: { subscribed: false, folders: { Done: { subscribed: false } } }
+                }
+            },
+            'user.': {
+                type: 'user',
+                folders: { other: {} }
+            },
+            '': {
+                type: 'shared',
+                folders: { Public: {} }
+            }
+        }
+    }));
+
+    // the mailbox names of the LIST (or LSUB) responses in a transcript
+    const listed = (resp: string, command = 'LIST') =>
+        (resp.match(new RegExp('^\\* ' + command + ' .*$', 'gm')) || []).map(line =>
+            line
+                .replace(/^\* \w+ \([^)]*\) "[^"]*" /, '')
+                .replace(/\r$/, '')
+                .replace(/^"(.*)"$/, '$1')
+        );
+
+    it('matches full names with an empty reference', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "" "INBOX.%"', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.deepStrictEqual(listed(resp), ['INBOX.Drafts', 'INBOX.Sent', 'INBOX.Work']);
+            assert.match(resp, /^\* LIST \(\\HasChildren\) "\." "?INBOX\.Work"?\r$/m);
+            assert.match(resp, /^A2 OK/m);
+            done();
+        });
+    });
+
+    it('"*" after the prefix matches every level', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "" "INBOX.*"', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.deepStrictEqual(listed(resp), ['INBOX.Drafts', 'INBOX.Sent', 'INBOX.Work', 'INBOX.Work.Done']);
+            done();
+        });
+    });
+
+    it('"%" lists the top level, INBOX but not its children', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "" "%"', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            // the shared namespace "" has no prefix, its mailboxes are top level names too
+            assert.deepStrictEqual(listed(resp).sort(), ['INBOX', 'Public']);
+            assert.match(resp, /^\* LIST \(\\HasChildren\) "\." "?INBOX"?\r$/m);
+            done();
+        });
+    });
+
+    it('INBOX matches case-insensitively, its children do not', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "" "inbox"', 'A3 LIST "" "inbox.%"', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.deepStrictEqual(listed(resp), ['INBOX']);
+            assert.match(resp, /^A3 OK/m);
+            done();
+        });
+    });
+
+    it('the reference is a level of hierarchy', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "INBOX." "%"', 'A3 LIST "INBOX.Work." "*"', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.deepStrictEqual(listed(resp), ['INBOX.Drafts', 'INBOX.Sent', 'INBOX.Work', 'INBOX.Work.Done']);
+            done();
+        });
+    });
+
+    it('other users are listed when the pattern names their namespace', (t, done) => {
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 LIST "" "*"', 'A3 LIST "" "user.%"', 'A4 LIST "user." "*"', 'ZZ LOGOUT'];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            const a2 = resp.slice(0, resp.indexOf('A2 OK'));
+            assert.deepStrictEqual(listed(a2).sort(), ['INBOX', 'INBOX.Drafts', 'INBOX.Sent', 'INBOX.Work', 'INBOX.Work.Done', 'Public']);
+            assert.deepStrictEqual(listed(resp.slice(resp.indexOf('A2 OK'))), ['user.other', 'user.other']);
+            done();
+        });
+    });
+
+    it('LSUB and extended LIST match full names', (t, done) => {
+        const cmds = [
+            'A1 LOGIN testuser testpass',
+            'A2 LSUB "" "INBOX.%"',
+            'A3 LIST (SUBSCRIBED) "" "INBOX.*"',
+            'A4 LIST "" ("INBOX" "INBOX.W%")',
+            'ZZ LOGOUT'
+        ];
+        ctx.run(cmds, resp => {
+            resp = resp.toString();
+            assert.deepStrictEqual(listed(resp, 'LSUB'), ['INBOX.Drafts']);
+            assert.match(resp, /^\* LIST \(\\Subscribed \\HasNoChildren\) "\." "?INBOX\.Drafts"?\r$/m);
+            assert.deepStrictEqual(listed(resp.slice(resp.indexOf('A3 OK'))), ['INBOX', 'INBOX.Work']);
+            done();
+        });
+    });
+});
+
+describe('LIST with child mailboxes of INBOX', () => {
+    const ctx = setupServer(() => ({ storage: { INBOX: { folders: { Child: {} } }, '': { folders: { Other: {} } } } }));
+
+    it('lists them with "*" and with "INBOX/%"', (t, done) => {
+        ctx.run(['A1 LOGIN testuser testpass', 'A2 LIST "" "*"', 'A3 LIST "" "INBOX/%"', 'ZZ LOGOUT'], resp => {
+            resp = resp.toString();
+            const a2 = resp.slice(resp.indexOf('A1 OK'), resp.indexOf('A2 OK'));
+            assert.match(a2, /^\* LIST \(\\HasChildren\) "\/" "?INBOX"?\r$/m);
+            assert.match(a2, /^\* LIST \(\\HasNoChildren\) "\/" "INBOX\/Child"\r$/m);
+            assert.match(a2, /^\* LIST \(\\HasNoChildren\) "\/" "?Other"?\r$/m);
+            assert.match(resp.slice(resp.indexOf('A2 OK')), /^\* LIST \(\\HasNoChildren\) "\/" "INBOX\/Child"\r\nA3 OK/m);
             done();
         });
     });

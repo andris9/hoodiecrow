@@ -51,13 +51,22 @@ function resolvePlugin(name: string): string | false {
  *
  * @param {Object} server IMAPServer instance
  * @param {Array|String|Function} plugins List of plugins to load
+ * @param {Map} [exclude] Plugins a quirk preset leaves out, plugin name to quirk name
+ * @throws {Error} when a loaded plugin requires an excluded one
  */
-function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string | Plugin | null | undefined, exclude?: string[]): void {
+function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string | Plugin | null | undefined, exclude?: Map<string, string>): void {
     const loaded = new Set<Plugin>();
-    // plugins a quirk preset leaves out (no-move), they are not loaded even when listed
-    const excluded = new Set<Plugin>((exclude || []).map(name => resolvePlugin(name)).flatMap(name => (name ? [builtinPlugins[name]] : [])));
+    // plugins a quirk preset leaves out (no-move), they are not loaded even when listed, and the quirk that removes them
+    const excluded = new Map<Plugin, string>();
+    (exclude || new Map<string, string>()).forEach((quirk, name) => {
+        const resolved = resolvePlugin(name);
+        if (resolved) {
+            excluded.set(builtinPlugins[resolved], quirk);
+        }
+    });
 
-    const load = (entry: string | Plugin) => {
+    // `requiredBy` names the plugin whose `requires` lists this one
+    const load = (entry: string | Plugin, requiredBy?: string) => {
         let plugin = entry;
         if (typeof plugin === 'string') {
             const name = resolvePlugin(plugin);
@@ -76,17 +85,27 @@ function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string |
             throw new TypeError('Invalid plugin, expecting a plugin name or a function');
         }
 
-        if (loaded.has(plugin) || excluded.has(plugin)) {
+        const quirk = excluded.get(plugin);
+        if (quirk) {
+            if (requiredBy) {
+                // the plugin can not work without it (IMAP4rev2 folds in MOVE and UIDPLUS, RFC 9051 Appendix E), so
+                // advertising it without the required plugin would break its RFC
+                throw new Error(requiredBy + ' requires ' + entry + ', which the "' + quirk + '" quirk removes');
+            }
+            return;
+        }
+        if (loaded.has(plugin)) {
             return;
         }
         loaded.add(plugin);
 
-        ([] as string[]).concat(plugin.requires || []).forEach(load);
+        const name = typeof entry === 'string' ? entry.trim() : plugin.name;
+        ([] as string[]).concat(plugin.requires || []).forEach(required => load(required, name));
 
         plugin(server);
     };
 
-    ([] as (string | Plugin)[]).concat(plugins || []).forEach(load);
+    ([] as (string | Plugin)[]).concat(plugins || []).forEach(entry => load(entry));
 
     server.emit('pluginsLoaded');
 }

@@ -163,7 +163,10 @@ describe('SAVEDATE', () => {
     });
 
     it('refuses invalid save dates in storage', () => {
-        assert.throws(() => imapkit({ plugins: ['SAVEDATE'], storage: { INBOX: { messages: [{ raw: 'x', SAVEDATE: 'yesterday' }] } } }), /Invalid SAVEDATE/);
+        assert.throws(
+            () => imapkit({ plugins: ['SAVEDATE'], storage: { INBOX: { messages: [{ raw: 'x', SAVEDATE: 'yesterday' }] } } }),
+            /Invalid storage at "INBOX"\.messages\[0\]\.SAVEDATE: must be a date-time/
+        );
     });
 });
 

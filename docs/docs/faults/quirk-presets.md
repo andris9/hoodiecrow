@@ -30,7 +30,7 @@ imapkit -p 1143 --plugin=IDLE,MOVE --quirk=no-move --quirk=m365-throttle --scrip
 - An unknown name fails the server constructor with the list of known ones: `Unknown quirk "james". Available quirks: james-fetchgroup, james-late-fetch, yahoo-quoted-sections, m365-throttle, no-uidplus, no-move`.
 - The rules of the presets are added after the rules of the `script` option, in the order the presets are listed. Rules you add later with `server.script.add()` come after them. As the first matching rule handles an event, a rule of your own in `script` can take an event before a preset sees it.
 - The rules of a preset are ordinary script rules: they show up in `server.script.rules`, count `hits`, emit the `script` event, and `server.script.clear()` removes them too.
-- `removePlugins` of a preset keeps the plugins out even when the `plugins` option lists them, and also when another plugin requires them. With `IMAP4rev2`, `no-move` and `no-uidplus` still remove MOVE and UIDPLUS, which gives a server that [RFC 9051](https://www.rfc-editor.org/rfc/rfc9051) does not allow. Use them with IMAP4rev1 servers.
+- `removePlugins` of a preset keeps the plugins out even when the `plugins` option lists them. When another loaded plugin requires one of them, the server constructor throws instead. IMAP4rev2 folds in MOVE and UIDPLUS ([RFC 9051 Appendix E](https://www.rfc-editor.org/rfc/rfc9051#appendix-E), sections 6.3.12, 6.4.7, 6.4.8 and 6.4.9), so a server can not advertise IMAP4rev2 without them: `plugins: ['IMAP4rev2'], quirks: ['no-move']` throws `IMAP4rev2 requires MOVE, which the "no-move" quirk removes`, and `no-uidplus` throws the same for UIDPLUS. Use these presets with IMAP4rev1 servers.
 
 ## The presets
 

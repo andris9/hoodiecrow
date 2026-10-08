@@ -94,7 +94,8 @@ function getSection(data: { raw: string; tree: MimeNode }, query: Attribute, glo
         throw new Error((key || 'Part number') + ' does not take any arguments');
     }
 
-    // RFC 3501 6.4.5: a part that does not exist is returned as an empty string
+    // a part that does not exist is returned as an empty string, like Dovecot does: RFC 3501 and RFC 9051 section
+    // 6.4.5 define no error for it, only an empty string for a partial range that starts beyond the end of the text
     const node = path ? resolveNode(data.tree, path, global) : data.tree;
     if (!node) {
         return '';

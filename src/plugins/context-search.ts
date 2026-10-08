@@ -307,8 +307,8 @@ export default function contextSearchPlugin(server: IMAPServer) {
         // knows the current message list, so new matches can be reported after their EXISTS and FETCH responses
         // (RFC 5267 section 4.3.2). A command that closes the mailbox gets no updates, its tagged response ends them
         const processNotifications = connection.processNotifications;
-        connection.processNotifications = function (this: IMAPConnection, data?: CommandContext | null) {
-            processNotifications.call(this, data);
+        connection.processNotifications = function (this: IMAPConnection, data?: CommandContext | null, beforeCommand?: boolean) {
+            processNotifications.call(this, data, beforeCommand);
             const command = ((data && data.command) || '').toUpperCase();
             if (this.searchContexts && this.searchContexts.size && !this.notificationQueue.length && !CLOSING_COMMANDS.has(command)) {
                 checkContexts(this);

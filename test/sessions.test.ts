@@ -242,6 +242,73 @@ describe('Multiple sessions', () => {
             assert.ok(/(^|\r\n)\* 5 EXISTS\r\n/.test(output), output);
         });
 
+        // RFC 3501 5.2: "A server MUST send mailbox size updates automatically if a mailbox size change is observed during
+        // the processing of a command". Section 7.4.1 forbids only EXPUNGE during FETCH, STORE and SEARCH, so the EXISTS
+        // goes out before the responses of these commands and the new message has a sequence number the client knows
+        it('FETCH, STORE and SEARCH send the EXISTS of a new message before their own responses (RFC 3501 5.2, 7.4.1)', async () => {
+            const a = await open('INBOX');
+            const b = await open();
+            await b.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+
+            let output = await a.cmd('FETCH 5 (UID)');
+            assert.match(output, /^\* 5 EXISTS\r\n(?:\* \d+ RECENT\r\n)?\* 5 FETCH \(UID 5\)\r\nT\d+ OK /);
+
+            await b.cmd('APPEND INBOX {' + message(6).length + '}\r\n' + message(6));
+            output = await a.cmd('STORE 6 +FLAGS (\\Flagged)');
+            assert.match(output, /^\* 6 EXISTS\r\n(?:\* \d+ RECENT\r\n)?\* 6 FETCH \(FLAGS \(\\Flagged( \\Recent)?\)\)\r\nT\d+ OK /);
+
+            await b.cmd('APPEND INBOX {' + message(7).length + '}\r\n' + message(7));
+            output = await a.cmd('SEARCH ALL');
+            assert.match(output, /^\* 7 EXISTS\r\n(?:\* \d+ RECENT\r\n)?\* SEARCH 1 2 3 4 5 6 7\r\nT\d+ OK /);
+
+            await b.cmd('APPEND INBOX {' + message(8).length + '}\r\n' + message(8));
+            output = await a.cmd('UID FETCH 8 (UID)');
+            assert.match(output, /^\* 8 EXISTS\r\n(?:\* \d+ RECENT\r\n)?\* 8 FETCH \(UID 8\)\r\nT\d+ OK /);
+        });
+
+        it('a new message that arrives after a pending expunge waits for it, its number is not valid yet (RFC 3501 9)', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            await b.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+
+            // the EXISTS of the new message can not be sent before the EXPUNGE, which FETCH can not send (RFC 3501 5.2:
+            // "it is NOT permitted to send an EXISTS response that would reduce the number of messages")
+            let output = await a.cmd('FETCH 1:* (UID)');
+            assert.deepStrictEqual(countResponses(output), []);
+            assert.deepStrictEqual(
+                fetchedUids(output).map(pair => pair[1]),
+                [1, 2, 3, 4]
+            );
+            assert.match(output, /^T\d+ OK \[EXPUNGEISSUED\] /m);
+            output = await a.cmd('FETCH 5 (UID)');
+            assert.match(output, /^T\d+ BAD /m);
+
+            output = await a.cmd('NOOP');
+            assert.deepStrictEqual(applyCountResponses([1, 2, 3, 4], output), [2, 3, 4, '?']);
+        });
+
+        it('a new message that arrives before a pending expunge is announced first, the expunge waits (RFC 3501 7.4.1)', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+            await b.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+
+            let output = await a.cmd('FETCH 1:* (UID)');
+            assert.deepStrictEqual(countResponses(output), ['5 EXISTS']);
+            assert.match(output, /^\* 5 EXISTS\r\n/);
+            assert.deepStrictEqual(
+                fetchedUids(output).map(pair => pair[1]),
+                [1, 2, 3, 4, 5]
+            );
+            assert.match(output, /^T\d+ OK \[EXPUNGEISSUED\] /m);
+
+            output = await a.cmd('NOOP');
+            assert.deepStrictEqual(applyCountResponses([1, 2, 3, 4, 5], output), [2, 3, 4, 5]);
+        });
+
         it('is not sent while no command is in progress (RFC 3501 5.3)', async () => {
             const a = await open('INBOX');
             const b = await open();
@@ -296,23 +363,45 @@ describe('Multiple sessions', () => {
             assert.ok(flagged >= 0 && expunge > flagged && answered > expunge, output);
         });
 
-        it('reports each message once per flush, with its current flags, after changes held back during FETCH', async () => {
+        it('FETCH reports flag changes of other sessions before its own responses (RFC 3501 5.2, 7.4.1)', async () => {
             const a = await open('INBOX');
             const b = await open('INBOX');
 
             await b.cmd('STORE 2 +FLAGS (\\Flagged)');
-            // flag updates wait while A runs FETCH (RFC 3501 7.4.1 holds back EXPUNGE, flag updates go with it)
-            let output = await a.cmd('FETCH 1 (UID)');
-            assert.ok(!/^\* 2 FETCH/m.test(output), output);
+            // RFC 3501 7.4.1 holds back only EXPUNGE during FETCH, STORE and SEARCH, flag updates are sent (5.2: SHOULD)
+            const output = await a.cmd('FETCH 1 (UID)');
+            assert.match(output, /^\* 2 FETCH \(UID 2 FLAGS \(\\Flagged\)\)\r\n\* 1 FETCH \(UID 1\)\r\nT\d+ OK /);
+        });
+
+        it('reports each message once per flush, with its current flags', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+
+            await b.cmd('STORE 2 +FLAGS (\\Flagged)');
             await b.cmd('STORE 2 +FLAGS (\\Answered)');
             await b.cmd('STORE 3 +FLAGS (\\Draft)');
             await b.cmd('STORE 2 -FLAGS (\\Flagged)');
-            output = await a.cmd('NOOP');
+            let output = await a.cmd('NOOP');
             const fetched = lines(output).filter(line => /^\* \d+ FETCH /.test(line));
             assert.deepStrictEqual(fetched, ['* 2 FETCH (UID 2 FLAGS (\\Answered))', '* 3 FETCH (UID 3 FLAGS (\\Draft))'], output);
             // nothing is reported again later
             output = await a.cmd('NOOP');
             assert.ok(!/^\* \d+ FETCH /m.test(output), output);
+        });
+
+        it('flag changes queued after a pending expunge wait for it during FETCH (RFC 3501 7.4.1)', async () => {
+            const a = await open('INBOX');
+            const b = await open('INBOX');
+
+            await b.cmd('STORE 2 +FLAGS (\\Flagged)');
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            await b.cmd('STORE 3 +FLAGS (\\Answered)');
+            // the change before the expunge goes out with the sequence number A knows, the one after it waits
+            let output = await a.cmd('FETCH 4 (UID)');
+            assert.match(output, /^\* 2 FETCH \(UID 2 FLAGS \(\\Flagged\)\)\r\n\* 4 FETCH \(UID 4\)\r\nT\d+ OK \[EXPUNGEISSUED\] /);
+            output = await a.cmd('NOOP');
+            assert.match(output, /^\* 1 EXPUNGE\r\n\* 3 EXISTS\r\n(?:\* \d+ RECENT\r\n)?\* 3 FETCH \(UID 4 FLAGS \(\\Answered\)\)\r\nT\d+ OK /);
         });
 
         it('the session that changes flags gets them in the STORE response', async () => {
@@ -404,6 +493,14 @@ describe('Multiple sessions', () => {
             ]);
         });
 
+        it('delivers RECENT after the EXISTS of a new message while idling (RFC 3501 7.3.2)', async () => {
+            const watcher = await startIdle('INBOX');
+            const c = await open();
+            await c.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+            const output = await watcher.waitFor('RECENT\r\n');
+            assert.match(output, /^\* 5 EXISTS\r\n\* 1 RECENT\r\n$/m);
+        });
+
         it('delivers flag changes while idling', async () => {
             const watcher = await startIdle('INBOX');
             const b = await open('INBOX');
@@ -479,6 +576,49 @@ describe('Multiple sessions', () => {
             };
             const seen = [await recentIn(a), await recentIn(b)];
             assert.strictEqual(seen.filter(Boolean).length, 1, JSON.stringify(seen));
+        });
+
+        // RFC 3501 7.3.2: the RECENT response "occurs as a result of a SELECT or EXAMINE command, and if the size of the
+        // mailbox changes (e.g., new messages)", and "The update from the RECENT response MUST be recorded by the client"
+        it('a RECENT response with the new count follows the EXISTS of new messages (RFC 3501 7.3.2)', async () => {
+            const a = await open('INBOX');
+            const b = await open('Fresh', true);
+            const c = await open();
+
+            await c.cmd('APPEND INBOX {' + message(5).length + '}\r\n' + message(5));
+            await c.cmd('APPEND INBOX {' + message(6).length + '}\r\n' + message(6));
+            // A is the only session with INBOX selected, both new messages are recent in A
+            let output = await a.cmd('NOOP');
+            assert.match(output, /^\* 5 EXISTS\r\n\* 6 EXISTS\r\n\* 2 RECENT\r\nT\d+ OK /);
+            output = await a.cmd('SEARCH RECENT');
+            assert.match(output, /^\* SEARCH 5 6\r\n/);
+
+            // the session that appends to its selected mailbox gets them as well (RFC 3501 6.3.11)
+            output = await a.cmd('APPEND INBOX {' + message(7).length + '}\r\n' + message(7));
+            assert.match(output, /^\* 7 EXISTS\r\n\* 3 RECENT\r\nT\d+ OK \[APPENDUID /);
+
+            // B examined Fresh and sees its 2 recent messages, a new message there stays recent for the next session
+            // that selects the mailbox read-write (RFC 3501 6.3.2), so the count of B stays the same
+            await c.cmd('APPEND Fresh {' + message(8).length + '}\r\n' + message(8));
+            output = await b.cmd('FETCH 4 (UID)');
+            assert.match(output, /^\* 4 EXISTS\r\n\* 2 RECENT\r\n\* 4 FETCH \(UID 4\)\r\n/);
+        });
+
+        it('expunges by another session are reported without RECENT, new messages after them with it (RFC 3501 7.3.2)', async () => {
+            const a = await open('Fresh');
+            const b = await open('Fresh');
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            // the EXPUNGE response reports the new size (RFC 3501 7.4.1), the EXISTS after it is not needed
+            let output = await a.cmd('NOOP');
+            assert.match(output, /^\* 1 EXPUNGE\r\n\* 2 EXISTS\r\nT\d+ OK /);
+
+            await b.cmd('STORE 1 +FLAGS.SILENT (\\Deleted)');
+            await b.cmd('EXPUNGE');
+            await b.cmd('APPEND Fresh {' + message(5).length + '}\r\n' + message(5));
+            // both messages that were recent in A are gone, the new message is recent in A
+            output = await a.cmd('NOOP');
+            assert.match(output, /^\* 1 EXPUNGE\r\n\* 1 EXISTS\r\n\* 2 EXISTS\r\n\* 1 RECENT\r\nT\d+ OK /);
         });
     });
 });

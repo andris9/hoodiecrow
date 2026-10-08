@@ -179,6 +179,28 @@ describe('MIME parser', () => {
         ]);
     });
 
+    it('puts an obsolete source route in addr-adl, not in the mailbox name', () => {
+        // RFC 9051 section 7.5.2: the second field is the "[SMTP] at-domain-list (source route and obs-route ABNF
+        // production from [RFC5322])", the third the "mailbox name (local-part ABNF production from [RFC5322])".
+        // RFC 5322 section 4.4: obs-domain-list = *(CFWS / ",") "@" domain *("," [CFWS] ["@" domain])
+        const env = envelope(
+            mimeParser(
+                'From: <@route.example:a@b.c>\r\n' +
+                    'To: Bob <@r1.example, @r2.example:bob@d.e>, Leading <,@one.example,,@two.example:lead@example.com>\r\n' +
+                    'Cc: <@[192.0.2.1]:carol@f.g>, "Not a route" <x@y.z>\r\n\r\nbody'
+            ).parsedHeader
+        );
+        assert.deepStrictEqual(env[2], [[null, '@route.example', 'a', 'b.c']]);
+        assert.deepStrictEqual(env[5], [
+            ['Bob', '@r1.example,@r2.example', 'bob', 'd.e'],
+            ['Leading', '@one.example,@two.example', 'lead', 'example.com']
+        ]);
+        assert.deepStrictEqual(env[6], [
+            [null, '@[192.0.2.1]', 'carol', 'f.g'],
+            ['Not a route', null, 'x', 'y.z']
+        ]);
+    });
+
     it('parses deeply nested groups in linear time', () => {
         const start = Date.now();
         const result = addressparser('g:'.repeat(50000) + 'a@b;');
