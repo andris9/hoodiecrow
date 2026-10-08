@@ -29,6 +29,16 @@ describe('Plugin loading', () => {
         assert.strictEqual(server.literalPlus, true);
     });
 
+    it('loads ENABLE with METADATA and METADATA-SERVER', () => {
+        // RFC 5464 section 4.1: a server that sends unsolicited METADATA responses "MUST support the ENABLE
+        // command", they go only to sessions that used ENABLE METADATA (or METADATA-SERVER)
+        for (const plugin of ['METADATA', 'METADATA-SERVER']) {
+            const server = imapkit({ plugins: [plugin] });
+            assert.ok(server.capabilities.ENABLE, plugin);
+            assert.ok(server.capabilities[plugin], plugin);
+        }
+    });
+
     it('loads repeated plugins only once', () => {
         let calls = 0;
         const custom = () => {

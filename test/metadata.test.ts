@@ -477,8 +477,8 @@ describe('METADATA-SERVER', () => {
             ],
             resp => {
                 const capability = resp.match(/^\* CAPABILITY .*$/m)![0];
-                assert.match(capability, / METADATA-SERVER(?: |\r)/);
-                assert.doesNotMatch(capability, / METADATA(?: |\r)/);
+                assert.match(capability, / METADATA-SERVER(?: |$)/);
+                assert.doesNotMatch(capability, / METADATA(?: |$)/);
                 assert.match(resp, /^\* METADATA "" \(\/shared\/comment "x"\)\r$/m);
                 assert.match(resp, /^A4 NO /m);
                 assert.match(resp, /^A5 NO /m);
