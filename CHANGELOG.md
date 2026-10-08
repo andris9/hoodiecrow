@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.0.1](https://github.com/postalsys/imapkit/compare/v5.0.0...v5.0.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* AUTHENTICATE checks the connection state before the mechanism ([0747678](https://github.com/postalsys/imapkit/commit/0747678d007dbee1a0d247041d24d149dc8a72b1))
+* CLI startup errors and port, event streams end on graceful shutdown ([d1e4d1f](https://github.com/postalsys/imapkit/commit/d1e4d1f33115277c890f398390ef1add29deb8e6))
+* CREATE-SPECIAL-USE answers BAD for USE entries that are not use-attr ([1d7d7e7](https://github.com/postalsys/imapkit/commit/1d7d7e77cb660b204c99eafb4bba60125a1b9421))
+* deprecate the ignored xoauth2.sessionTimeout user option ([953e965](https://github.com/postalsys/imapkit/commit/953e9652874fbd8bc9d983579fe1a7004b5c1c28))
+* end UID SEARCH with OK [EXPUNGEISSUED] when it holds back an EXPUNGE ([ed82da8](https://github.com/postalsys/imapkit/commit/ed82da84e24b93cc151183ae4d948104351e5398))
+* ENVELOPE sends an obsolete source route as addr-adl ([6363543](https://github.com/postalsys/imapkit/commit/636354387f58b94c82655cec567cbaf5562b648f))
+* LIST patterns match full names with a prefixed personal namespace ([371f99a](https://github.com/postalsys/imapkit/commit/371f99aba307e4e042b76b5b9a484fbc4da434b8))
+* LIST treats # as a break out character that overrides the reference ([99d50c2](https://github.com/postalsys/imapkit/commit/99d50c28b6fb0a22a8c29b3d77f29f4437a1a8f9))
+* METADATA and METADATA-SERVER load ENABLE ([e25c9a8](https://github.com/postalsys/imapkit/commit/e25c9a8971b4566ede897dfef67a8199bb08ed5a))
+* protocol bugs found in the documentation review ([a986f7b](https://github.com/postalsys/imapkit/commit/a986f7bc4aab9cb9260c7810a663715ad25f9fd5))
+* refuse quirk presets that remove a plugin IMAP4rev2 requires ([a8b13c1](https://github.com/postalsys/imapkit/commit/a8b13c1444a54f3fe0afc25e32e51f17503a39ce))
+* refuse storage internal dates that are not RFC 3501 date-time values ([04babcd](https://github.com/postalsys/imapkit/commit/04babcde6a073ed7f703c16767f1f0efb332db3c))
+* report new messages and flag changes before FETCH, STORE and SEARCH responses ([41c6856](https://github.com/postalsys/imapkit/commit/41c68564afe6d3aff0b3eb28ee4f63edadf76a53))
+* send RECENT after the EXISTS of new messages to IMAP4rev1 sessions ([172d6be](https://github.com/postalsys/imapkit/commit/172d6becf6e7f9e32975ed075b1febf6d92687fc))
+* STORE accepts exactly the flags PERMANENTFLAGS lists ([d48a48d](https://github.com/postalsys/imapkit/commit/d48a48d1ff256fe99dd1f66180c1d2429020f6c9))
+
 ## [5.0.0](https://github.com/postalsys/imapkit/compare/v4.3.1...v5.0.0) (2026-10-08)
 
 
