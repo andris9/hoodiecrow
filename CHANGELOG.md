@@ -14,7 +14,6 @@
 * LIST patterns match full names with a prefixed personal namespace ([371f99a](https://github.com/postalsys/imapkit/commit/371f99aba307e4e042b76b5b9a484fbc4da434b8))
 * LIST treats # as a break out character that overrides the reference ([99d50c2](https://github.com/postalsys/imapkit/commit/99d50c28b6fb0a22a8c29b3d77f29f4437a1a8f9))
 * METADATA and METADATA-SERVER load ENABLE ([e25c9a8](https://github.com/postalsys/imapkit/commit/e25c9a8971b4566ede897dfef67a8199bb08ed5a))
-* protocol bugs found in the documentation review ([a986f7b](https://github.com/postalsys/imapkit/commit/a986f7bc4aab9cb9260c7810a663715ad25f9fd5))
 * refuse quirk presets that remove a plugin IMAP4rev2 requires ([a8b13c1](https://github.com/postalsys/imapkit/commit/a8b13c1444a54f3fe0afc25e32e51f17503a39ce))
 * refuse storage internal dates that are not RFC 3501 date-time values ([04babcd](https://github.com/postalsys/imapkit/commit/04babcde6a073ed7f703c16767f1f0efb332db3c))
 * report new messages and flag changes before FETCH, STORE and SEARCH responses ([41c6856](https://github.com/postalsys/imapkit/commit/41c68564afe6d3aff0b3eb28ee4f63edadf76a53))
