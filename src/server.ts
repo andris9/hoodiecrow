@@ -3380,6 +3380,13 @@ class IMAPConnection {
             }
             this.processQueue();
         } else if (/^AUTHENTICATE /i.test(parsed.command)) {
+            // AUTHENTICATE is only valid in the not authenticated state (RFC 3501 section 6.2), which is checked
+            // first, as for a supported mechanism (processQueue), so the answer does not depend on the mechanism
+            const states = this.server.getCommandOptions(parsed.command).states;
+            if (states && states.indexOf(this.state) < 0) {
+                this.sendStatus(parsed, data, 'BAD', stateError(parsed.command.toUpperCase(), this.state));
+                return;
+            }
             // an unsupported mechanism is a NO, not a syntax error (RFC 3501 section 6.2.2)
             this.send(
                 {

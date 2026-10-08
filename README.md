@@ -71,7 +71,7 @@ ImapKit is extendable: any command can be overridden and plugins can be added (s
 
 ImapKit is meant for developing standards compliant IMAP clients, so it follows the RFCs strictly instead of accepting whatever clients send. Most production servers are lenient, which hides client bugs until the client meets a stricter server. ImapKit answers these with `BAD` (or `NO` where the RFC requires it):
 
-- commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` after login
+- commands sent in the wrong state (RFC 3501 section 3), for example `FETCH` before `SELECT` or `LOGIN` and `AUTHENTICATE` (with any mechanism, known or not) after login
 - arguments to commands that take none (`NOOP x`, `CLOSE x`), missing or extra arguments, and values that break the RFC 3501 grammar
 - command lines that end with a bare LF instead of CRLF
 - literal data sent before the server's `+` continuation request (RFC 3501 section 4.3); `{n+}` is only accepted when LITERAL+ or LITERAL- is enabled, and with LITERAL- only up to 4096 octets, a larger one is answered with `BAD [TOOBIG]` (RFC 7888 section 5)

@@ -826,6 +826,17 @@ describe('Strict SASL handling', () => {
     );
     // RFC 3501 section 6.2.2: an unsupported mechanism is NO
     it('AUTHENTICATE with an unknown mechanism', run(['A1 AUTHENTICATE FOO'], { A1: 'NO' }));
+    // RFC 3501 section 6.2: AUTHENTICATE is only valid in the not authenticated state, "Once authenticated
+    // (including as anonymous), it is not possible to re-enter not authenticated state". The state is checked
+    // before the mechanism, so a known and an unknown mechanism get the same BAD
+    it(
+        'AUTHENTICATE with an unknown mechanism after login',
+        run(['A1 LOGIN testuser testpass', 'A2 AUTHENTICATE FOO', 'A3 AUTHENTICATE PLAIN', 'A4 SELECT INBOX', 'A5 AUTHENTICATE FOO'], {
+            A2: 'BAD',
+            A3: 'BAD',
+            A5: 'BAD'
+        })
+    );
     // RFC 2177 section 3: IDLE is ended by "DONE" only
     it('IDLE ended by something else than DONE', run(['A1 LOGIN testuser testpass', 'A2 IDLE', 'NOOP'], { A2: 'BAD' }));
 });
