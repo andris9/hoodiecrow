@@ -3001,11 +3001,12 @@ class IMAPConnection {
             response.tag === parsed.tag &&
             response.command === 'OK' &&
             this.hasPendingExpunge() &&
-            this.server.getCommandOptions(parsed.command).noExpunge &&
+            this.holdsExpunge(parsed) &&
             !(Array.isArray(response.attributes) && response.attributes.some(attr => attr && attr.type === 'SECTION'))
         ) {
             // After the output handlers, they might add a response code of their own (MODIFIED of CONDSTORE).
-            // FETCH, STORE, SEARCH and the like can not report the EXPUNGE of another session (RFC 3501 section 7.4.1),
+            // FETCH, STORE, SEARCH and the like can not report the EXPUNGE of another session (RFC 3501 section 7.4.1), nor
+            // can UID SEARCH with message numbers in the criteria (see holdsExpunge),
             // EXPUNGEISSUED tells the client to issue NOOP soon (RFC 5530 section 3, RFC 9051 section 7.1)
             response.attributes = [{ type: 'SECTION', section: [{ type: 'ATOM', value: 'EXPUNGEISSUED' }] }].concat(response.attributes || []);
         }
