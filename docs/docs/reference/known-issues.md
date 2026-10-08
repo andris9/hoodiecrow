@@ -19,21 +19,6 @@ ImapKit implements IMAP4rev1, IMAP4rev2 and more than 50 extensions, but not eve
 | Case folding         | SEARCH matches strings case-insensitively in the ASCII range only. SORT advertises no `I18NLEVEL`.                                                                                                                                                                                                                                                                                                                          |
 | Single user          | All users share the same mailbox tree. The ACL plugin limits what users other than the owner can do, but there are no per-user mailboxes.                                                                                                                                                                                                                                                                                   |
 
-### LIST with a prefixed personal namespace
-
-With a personal namespace that has a prefix, such as `"INBOX."` in the [Cyrus layout](../guides/storage.md#cyrus), LIST with an empty reference matches the pattern relative to the prefix instead of interpreting the name as SELECT does ([RFC 9051 section 6.3.9](https://www.rfc-editor.org/rfc/rfc9051#section-6.3.9)). With mailboxes `INBOX.Drafts` and `INBOX.Sent`:
-
-```text
-C: A6 LIST "" "INBOX.%"
-S: A6 OK Completed
-C: B1 LIST "" "%"
-S: * LIST (\HasNoChildren) "." "INBOX.Drafts"
-S: * LIST (\HasNoChildren) "." "INBOX.Sent"
-S: B1 OK Completed
-```
-
-`LIST "" "INBOX.%"` should list both mailboxes, and `LIST "" "%"` should list `INBOX` and not the mailboxes below it. `LIST "" "*"` and `LIST "INBOX." "%"` work. The default storage and the Gmail layout, where the personal namespace is `""`, are not affected.
-
 ## Extensions
 
 | Extension      | Limitation                                                                                                                                                                                                                                                                                                                                                                               |

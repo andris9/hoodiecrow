@@ -105,13 +105,9 @@ A namespace object takes these keys, plus the [mailbox keys](#mailboxes):
 | `type`      | `"personal"`                                                                    | `"personal"`, `"user"` (other users' mailboxes) or `"shared"`. The NAMESPACE plugin lists the namespaces in these three groups ([RFC 2342](https://www.rfc-editor.org/rfc/rfc2342)). |
 | `folders`   | `{}`                                                                            | The mailboxes of the namespace, by name.                                                                                                                                             |
 
-The first personal namespace is where a LIST with an empty reference looks. If the storage has no personal namespace, ImapKit adds `""` as one. INBOX takes the separator of that namespace unless it sets its own `separator`.
+LIST patterns match full mailbox names: with an empty reference the name is interpreted as SELECT would interpret it ([RFC 9051 section 6.3.9](https://www.rfc-editor.org/rfc/rfc9051#section-6.3.9)), so with a prefixed personal namespace like `"INBOX."` the pattern includes the prefix (`LIST "" "INBOX.%"`). The wildcards match the mailboxes of the first personal namespace, INBOX and namespaces without a prefix. The mailboxes of other namespaces are only matched when the pattern names the namespace prefix before any wildcard (`LIST "" "user.%"`, `LIST "#shared/" "*"`), which RFC 9051 allows ("Server implementations are permitted to "hide" otherwise accessible mailboxes from the wildcard characters"). If the storage has no personal namespace, ImapKit adds `""` as one. INBOX takes the separator of the first personal namespace unless it sets its own `separator`.
 
 New mailboxes can only be created in personal namespaces. CREATE of a name in a `user` or `shared` namespace is answered with `NO [NOPERM]`.
-
-:::note
-With a prefixed personal namespace like `"INBOX."`, LIST with an empty reference currently matches the pattern relative to the prefix, see [Known issues](../reference/known-issues.md#list-with-a-prefixed-personal-namespace).
-:::
 
 ### Cyrus
 
@@ -136,6 +132,18 @@ With the NAMESPACE plugin loaded the server answers:
 C: A2 NAMESPACE
 S: * NAMESPACE (("INBOX." ".")) (("user." ".")) (("" "/"))
 S: A2 OK Completed
+```
+
+LIST patterns include the `INBOX.` prefix. With the mailboxes `INBOX.Drafts` and `INBOX.Sent`, `%` lists INBOX itself, and `INBOX.%` the mailboxes below it:
+
+```text
+C: A3 LIST "" "%"
+S: * LIST (\HasChildren) "." "INBOX"
+S: A3 OK Completed
+C: A4 LIST "" "INBOX.%"
+S: * LIST (\HasNoChildren) "." "INBOX.Drafts"
+S: * LIST (\HasNoChildren) "." "INBOX.Sent"
+S: A4 OK Completed
 ```
 
 ### Gmail
