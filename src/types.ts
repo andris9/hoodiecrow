@@ -77,6 +77,8 @@ export interface MailboxChangeEvent {
     oldPath: string | null;
     mailbox: Mailbox | null;
     origin: IMAPConnection | null;
+    /** "create": every mailbox the change created, superior hierarchy levels first */
+    created?: string[] | undefined;
 }
 
 export type Callback = (err?: any, ...args: any[]) => void;
@@ -242,6 +244,11 @@ export interface IMAPServerOptions {
     plugins?: (string | Plugin)[] | string | Plugin | undefined;
     users?: Record<string, UserData> | undefined;
     secureConnection?: boolean | undefined;
+    /** starts an SMTP server with `server.start()` that appends every received message to INBOX, needs the optional
+     * smtp-server package */
+    smtp?: { port?: number | undefined; host?: string | undefined } | undefined;
+    /** starts the REST API with `server.start()`, see src/rest.ts. A host other than a loopback address needs a token */
+    rest?: { port?: number | undefined; host?: string | undefined; token?: string | undefined } | undefined;
     credentials?: { key: string | Buffer; cert: string | Buffer } | undefined;
     debug?: boolean | undefined;
     systemFlags?: string[] | undefined;
@@ -249,6 +256,12 @@ export interface IMAPServerOptions {
     maxLiteralSize?: number | undefined;
     /** script rules that make the server misbehave on purpose, see src/script.ts and README "Scripted faults" */
     script?: ScriptRule | ScriptRule[] | undefined;
+    /** the current time for the dates the server sets (INTERNALDATE, SAVEDATE): a Date, a timestamp or a function */
+    now?: Date | number | (() => Date | number) | undefined;
+    /** quirk presets that make the server behave like a known real server, see src/quirks.ts */
+    quirks?: string[] | string | undefined;
+    /** seed of the random numbers of script rules with `chance`, so that a run can be repeated */
+    scriptSeed?: number | undefined;
     [key: string]: any;
 }
 
@@ -358,8 +371,9 @@ export type MessageHandler = (server: IMAPServer, message: Message, mailbox: Mai
 export type MailboxHandler = (server: IMAPServer, mailbox: Mailbox) => void;
 export type CopyHandler = (server: IMAPServer, source: Message, properties: Record<string, any>, mailbox: Mailbox) => void;
 export type NotifyFilter = (connection: IMAPConnection, event: NotifyEvent) => boolean;
+/** `server.appendChecks`, `connection` is null for the control API (`addMessage` with `checks`) */
 export type AppendCheck = (
-    connection: IMAPConnection,
+    connection: IMAPConnection | null,
     mailbox: Mailbox,
     messages: AppendMessage[],
     options: AppendCheckOptions

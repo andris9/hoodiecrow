@@ -1,4 +1,4 @@
-import type { IMAPConnection } from '../../types.js';
+import type { IMAPServer } from '../../types.js';
 
 // RFC 3501 9: flag-keyword = atom = 1*ATOM-CHAR, so a keyword can not contain atom-specials:
 // "(" / ")" / "{" / SP / CTL / list-wildcards / quoted-specials / resp-specials. 8-bit octets are
@@ -22,12 +22,12 @@ function normalizeSystemFlag(flag: string) {
 /**
  * Throws if a flag can not be stored: an unknown system flag (including \Recent) or an invalid keyword
  *
- * @param {Object} connection IMAP connection
+ * @param {Object} server IMAP server, its systemFlags are the system flags that can be stored
  * @param {String} flag Normalized flag value
  */
-function checkSystemFlags(connection: IMAPConnection, flag: string) {
+function checkSystemFlags(server: IMAPServer, flag: string) {
     if (flag.charAt(0) === '\\') {
-        if (connection.server.systemFlags.indexOf(flag) < 0) {
+        if (server.systemFlags.indexOf(flag) < 0) {
             throw new Error('Invalid system flag ' + flag);
         }
     } else if (!flag || INVALID_KEYWORD_CHAR.test(flag)) {

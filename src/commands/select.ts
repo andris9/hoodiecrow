@@ -77,6 +77,7 @@ function selectMailbox(connection: IMAPConnection, parsed: ParsedCommand, data: 
     connection.state = 'Selected';
     connection.selectedMailbox = mailbox;
     connection.readOnly = readOnly;
+    connection.emitSession('select');
 
     connection.notificationQueue = [];
 

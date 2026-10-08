@@ -1,5 +1,6 @@
 import { Stream } from 'node:stream';
 import net from 'node:net';
+import http from 'node:http';
 import tls from 'node:tls';
 import imapHandler from 'imap-handler';
 import type { CompilerOptions, ParserOptions } from 'imap-handler';
@@ -15,8 +16,14 @@ import { hasSequenceSetKey } from './commands/handlers/search.js';
 import { isSequenceSet } from './numbers.js';
 import { restoreNilAtoms } from './arguments.js';
 import { refuseMissingTarget } from './commands/append.js';
+import { DEFAULT_SESSION_TIMEOUT, storeError, expungeMessages, notifyFlagChanges } from './store-operations.js';
+import { Control } from './control.js';
+import { resolveQuirks } from './quirks.js';
+import { validateStorage } from './storage-schema.js';
+import { createRestServer } from './rest.js';
+import type { SessionInfo } from './control.js';
 import * as bundledCert from './cert.js';
-import { ServerScript, sendOutput, handleLine, literalResponse, releaseDeferred } from './script.js';
+import { ServerScript, sendOutput, handleLine, handleQuiet, literalResponse, releaseDeferred } from './script.js';
 import type { DeferredOutput, OutputOperation, ScriptContext, ScriptEvent, ScriptRule } from './script.js';
 import type {
     AppendCheck,
@@ -109,6 +116,21 @@ function getResponseTag(line: string): string {
     return tag && TAG_REGEX.test(tag) ? tag : '*';
 }
 
+/** The parts of a smtp-server SMTPServer that the server uses, smtp-server is an optional dependency */
+interface SMTPListener {
+    close(callback: () => void): void;
+    once(event: 'error', listener: (err: Error) => void): unknown;
+    removeListener(event: 'error', listener: (err: Error) => void): unknown;
+    server: net.Server;
+}
+
+/** The command whose tagged response is pending, and the session state before it ran */
+interface CommandStart {
+    tag: string;
+    command: string;
+    state: ConnectionState;
+}
+
 /**
  * Text for a command that is not valid in the current connection state
  *
@@ -118,19 +140,6 @@ function getResponseTag(line: string): string {
  */
 function stateError(command: string, state: string): string {
     return command + ' is not allowed in the ' + state + ' state';
-}
-
-/**
- * Creates an error for a failed mailbox operation, with a RFC 5530 response code
- *
- * @param {String} message Error message
- * @param {String} code Response code, e.g. "ALREADYEXISTS"
- * @return {Error} Error object
- */
-function mailboxError(message: string, code: string): IMAPError {
-    const err: IMAPError = new Error(message);
-    err.code = code;
-    return err;
 }
 
 /**
@@ -196,6 +205,12 @@ class IMAPServer extends Stream {
     declare script: ServerScript;
     /** connections accepted so far, the number of a connection is `connection.sessionNumber` */
     declare sessionCounter: number;
+    /** the control API, see src/control.ts */
+    declare control: Control;
+    /** the SMTP server that `start()` runs for the `smtp` option */
+    declare smtpServer: SMTPListener | null;
+    /** the HTTP server of the REST API that `start()` runs for the `rest` option */
+    declare restServer: http.Server | null;
 
     constructor(options?: IMAPServerOptions) {
         super();
@@ -278,12 +293,38 @@ class IMAPServer extends Stream {
         // the session whose command is running, see IMAPServer#notify
         this.activeConnection = null;
         this.sessionCounter = 0;
-        // rules that make the server misbehave on purpose, from the script option or server.script.add()
+        // rules that make the server misbehave on purpose, from the script option or server.script.add(), and the rules
+        // of the quirk presets after them
         this.script = new ServerScript(this, this.options.script);
+        const quirks = resolveQuirks(this.options.quirks);
+        if (quirks.rules.length) {
+            this.script.add(quirks.rules);
+        }
 
-        // users and storage are deep copied, so that runtime changes never leak into
-        // the caller's objects or into other servers built from the same fixture.
-        // Without a prototype, user names like "__proto__" or "toString" are plain keys
+        this.loadUsers();
+
+        // plugins register their control operations
+        this.control = new Control(this);
+
+        // a quirk preset can leave plugins out (no-move, no-uidplus)
+        loadPlugins(this, this.options.plugins, [...quirks.removePlugins]);
+
+        if (this.options.storage) {
+            // a typo in a fixture fails here with the path of the problem
+            validateStorage(this.options.storage);
+        }
+        this.systemFlags = ([] as string[]).concat(this.options.systemFlags || ['\\Answered', '\\Flagged', '\\Draft', '\\Deleted', '\\Seen']);
+        this.loadStorage();
+        this.smtpServer = null;
+        this.restServer = null;
+    }
+
+    /**
+     * Sets the users from the `users` option, or the default user. The users are deep copied, so that runtime changes
+     * never leak into the caller's objects or into other servers built from the same fixture. Without a prototype,
+     * user names like "__proto__" or "toString" are plain keys
+     */
+    loadUsers(): void {
         this.users = Object.assign(
             Object.create(null),
             this.options.users
@@ -293,15 +334,18 @@ class IMAPServer extends Stream {
                           password: 'testpass',
                           xoauth2: {
                               accessToken: 'testtoken',
-                              sessionTimeout: 3600 * 1000
+                              sessionTimeout: DEFAULT_SESSION_TIMEOUT
                           }
                       }
                   }
         );
+    }
 
-        loadPlugins(this, this.options.plugins);
-
-        this.systemFlags = ([] as string[]).concat(this.options.systemFlags || ['\\Answered', '\\Flagged', '\\Draft', '\\Deleted', '\\Seen']);
+    /**
+     * Builds the mailboxes from the `storage` option, a deep copy of it. Message and mailbox handlers of plugins run
+     * on every message and mailbox
+     */
+    loadStorage(): void {
         // indexFolders() below turns the storage option into namespaces and mailboxes in place
         this.storage = (
             this.options.storage
@@ -311,12 +355,84 @@ class IMAPServer extends Stream {
                       '': {}
                   }
         ) as ServerStorage;
+        this.referenceNamespace = false;
         this.uidvalidityCounter = 0; // highest UIDVALIDITY in use, new mailboxes get a higher one
         // subscribed mailbox names (RFC 3501 section 6.3.6). Names, not mailboxes: a subscription outlives
         // DELETE and stays with the old name on RENAME (RFC 9051 section 6.3.6), see trackSubscription
         this.subscriptions = new Set();
         this.folderCache = Object.create(null);
         this.indexFolders(true);
+    }
+
+    /**
+     * Starts accepting connections
+     *
+     * @param {Number} [port] Port to listen on, a free port if not set
+     * @param {String} [host] Address to listen on, all addresses if not set
+     * @return {Promise<Number>} resolves with the port the server listens on
+     */
+    async start(port?: number, host?: string): Promise<number> {
+        const imapPort = await listenOn(this.server, port, host);
+        await Promise.all([this.options.smtp ? this.startSmtp() : null, this.options.rest ? this.startRest() : null]);
+        return imapPort;
+    }
+
+    /**
+     * Starts the REST API of the `rest` option, see src/rest.ts
+     *
+     * @return {Promise<Number>} resolves with the HTTP port
+     */
+    async startRest(): Promise<number> {
+        const { port, host, token } = this.options.rest || {};
+        this.restServer = createRestServer(this, { host, token });
+        return listenOn(this.restServer, port, host || '127.0.0.1');
+    }
+
+    /**
+     * Starts the SMTP server of the `smtp` option. smtp-server is an optional dependency, loaded only here
+     *
+     * @return {Promise<Number>} resolves with the SMTP port
+     */
+    startSmtp(): Promise<number> {
+        const { port, host } = this.options.smtp || {};
+        return this.loadSmtpListener().then(
+            ({ startSMTPServer }) =>
+                new Promise<number>((resolve, reject) => {
+                    const smtp = startSMTPServer(
+                        port || 0,
+                        this,
+                        smtpPort => {
+                            smtp.removeListener('error', reject);
+                            resolve(smtpPort);
+                        },
+                        host
+                    );
+                    smtp.once('error', reject);
+                    this.smtpServer = smtp;
+                })
+        );
+    }
+
+    /**
+     * Loads the SMTP listener, which needs the smtp-server package
+     *
+     * @return {Promise<Object>} the smtp-listener module
+     */
+    loadSmtpListener(): Promise<{
+        startSMTPServer(port: number, server: IMAPServer, callback: (port: number) => void, host?: string): SMTPListener;
+    }> {
+        return import('./smtp-listener.js').catch((err: Error) => {
+            throw new Error('The smtp option needs the smtp-server package, install it with: npm install smtp-server (' + err.message + ')');
+        });
+    }
+
+    /**
+     * Stops the server and closes every connection
+     *
+     * @return {Promise} resolves when the server is closed
+     */
+    stop(): Promise<void> {
+        return this.control.shutdown({ graceful: false });
     }
 
     /**
@@ -330,6 +446,7 @@ class IMAPServer extends Stream {
     }
 
     close(callback?: (err?: Error) => void): void {
+        this.closeListeners(true);
         this.server.close(callback);
         // close() only completes once all connections are gone
         this.connections.forEach((connection: IMAPConnection) => {
@@ -337,6 +454,29 @@ class IMAPServer extends Stream {
                 connection.socket.destroy();
             }
         });
+    }
+
+    /**
+     * Stops the SMTP and REST listeners of `start()`
+     *
+     * @param {Boolean} force true closes the open REST connections too, otherwise only the idle ones (a request that
+     *   is answered, like POST /v1/shutdown, finishes first)
+     */
+    closeListeners(force: boolean): void {
+        if (this.smtpServer) {
+            this.smtpServer.close(() => false);
+            this.smtpServer = null;
+        }
+        if (this.restServer) {
+            this.restServer.close();
+            // keep-alive connections would hold the server open
+            if (force) {
+                this.restServer.closeAllConnections?.();
+            } else {
+                this.restServer.closeIdleConnections?.();
+            }
+            this.restServer = null;
+        }
     }
 
     /**
@@ -473,12 +613,34 @@ class IMAPServer extends Stream {
      *
      * @param {String} type Kind of change
      * @param {String} path Storage name of the mailbox
-     * @param {Object} [details] `{ oldPath, mailbox }`: the earlier name of a renamed mailbox, the mailbox
-     *   object that a DELETE removed
+     * @param {Object} [details] `{ oldPath, mailbox, created }`: the earlier name of a renamed mailbox, the mailbox
+     *   object that a DELETE removed, the mailboxes a CREATE made (superior levels first)
      */
-    mailboxChanged(type: string, path: string, details?: { oldPath?: string | undefined; mailbox?: Mailbox | undefined }): void {
+    mailboxChanged(
+        type: string,
+        path: string,
+        details?: { oldPath?: string | undefined; mailbox?: Mailbox | undefined; created?: string[] | undefined }
+    ): void {
         const event: MailboxChangeEvent = Object.assign({ type, path, oldPath: null, mailbox: null }, details, { origin: this.activeConnection });
         this.emit('mailbox', event);
+    }
+
+    /**
+     * Runs a change with `origin` as the session that caused it, the `origin` of the notifications and events it
+     * makes. Commands run with their session, the control API with null
+     *
+     * @param {Object|null} origin Session, or null for a change from outside
+     * @param {Function} fn Change
+     * @return {*} the result of fn
+     */
+    withOrigin<T>(origin: IMAPConnection | null, fn: () => T): T {
+        const previous = this.activeConnection;
+        this.activeConnection = origin;
+        try {
+            return fn();
+        } finally {
+            this.activeConnection = previous;
+        }
     }
 
     /**
@@ -628,26 +790,26 @@ class IMAPServer extends Stream {
      */
     createMailbox(path: string, defaultMailbox?: StorageMailbox | null): Mailbox {
         if (!path) {
-            throw mailboxError('Invalid mailbox name', 'CANNOT');
+            throw storeError('Invalid mailbox name', 'CANNOT');
         }
 
         // Ensure case insensitive INBOX
         if (path.toUpperCase() === 'INBOX') {
-            throw mailboxError('INBOX can not be modified', 'ALREADYEXISTS');
+            throw storeError('INBOX can not be modified', 'ALREADYEXISTS');
         }
 
         const { namespace, storage } = this.getPersonalNamespace(path);
         path = this.stripSeparator(path, storage.separator);
 
         if (this.folderCache[path] && this.folderCache[path].flags.indexOf('\\Noselect') < 0) {
-            throw mailboxError('Mailbox already exists', 'ALREADYEXISTS');
+            throw storeError('Mailbox already exists', 'ALREADYEXISTS');
         }
 
         const folderPath = path.substr(namespace.length).split(storage.separator);
         if (folderPath.some(name => !name)) {
             // an empty hierarchy level ("foo//bar", "/foo", "foo//"). RFC 5530 section 3 has this very case as the
             // example of CANNOT, Dovecot refuses it too
-            throw mailboxError('Mailbox names can not have empty hierarchy levels', 'CANNOT');
+            throw storeError('Mailbox names can not have empty hierarchy levels', 'CANNOT');
         }
 
         let parent: Namespace | Mailbox = storage;
@@ -663,7 +825,7 @@ class IMAPServer extends Stream {
             let folder = this.getMailbox(curPath) || false;
 
             if (folder && folder.flags && folder.flags.indexOf('\\Noinferiors') >= 0) {
-                throw mailboxError('Can not create subfolders for ' + folder.path, 'CANNOT');
+                throw storeError('Can not create subfolders for ' + folder.path, 'CANNOT');
             }
 
             // a \Noselect placeholder that is created again is replaced with a new mailbox that only keeps
@@ -709,20 +871,20 @@ class IMAPServer extends Stream {
     deleteMailbox(path: string, keepContents?: boolean): void {
         // Ensure case insensitive INBOX
         if (path.toUpperCase() === 'INBOX') {
-            throw mailboxError('INBOX can not be modified', 'CANNOT');
+            throw storeError('INBOX can not be modified', 'CANNOT');
         }
 
         const { namespace, storage } = this.getPersonalNamespace(path);
         const mailbox = this.folderCache[this.stripSeparator(path, storage.separator)];
 
         if (!mailbox) {
-            throw mailboxError('Mailbox does not exist', 'NONEXISTENT');
+            throw storeError('Mailbox does not exist', 'NONEXISTENT');
         }
 
         if (mailbox.flags.indexOf('\\Noselect') >= 0 && Object.keys(mailbox.folders || {}).length) {
             // RFC 9051 section 6.3.5: deleting a \Noselect name that has inferior names is an error, the RFC 5530
             // section 3 HASCHILDREN response code tells the client to delete the children first
-            throw mailboxError('Mailbox has children, delete them first', 'HASCHILDREN');
+            throw storeError('Mailbox has children, delete them first', 'HASCHILDREN');
         }
 
         const levels = mailbox.path.split(storage.separator);
@@ -775,7 +937,7 @@ class IMAPServer extends Stream {
             const prefix = key.length ? key.substr(0, key.length - this.storage[key].separator.length) : key;
             if (key.length && (path === prefix || path.substr(0, key.length) === key)) {
                 if (path === prefix) {
-                    throw mailboxError('Used mailbox name is a namespace value', 'CANNOT');
+                    throw storeError('Used mailbox name is a namespace value', 'CANNOT');
                 }
                 namespace = key;
             } else if (!namespace && !key && this.storage[key].type === 'personal') {
@@ -785,10 +947,10 @@ class IMAPServer extends Stream {
 
         const storage = this.storage[namespace];
         if (!storage) {
-            throw mailboxError('Unknown namespace', 'CANNOT');
+            throw storeError('Unknown namespace', 'CANNOT');
         }
         if (storage.type !== 'personal') {
-            throw mailboxError('Permission denied', 'NOPERM');
+            throw storeError('Permission denied', 'NOPERM');
         }
         return { namespace, storage };
     }
@@ -1067,6 +1229,18 @@ class IMAPServer extends Stream {
     }
 
     /**
+     * The current time for dates the server sets itself (INTERNALDATE of a message without one, SAVEDATE). The `now`
+     * option fixes it for repeatable tests: a Date, a timestamp, or a function that returns one
+     *
+     * @return {Date} current time
+     */
+    now(): Date {
+        const now = this.options.now;
+        const value = typeof now === 'function' ? now() : now;
+        return value === undefined || value === null ? new Date() : new Date(value);
+    }
+
+    /**
      * Converts a date-time value from storage or a client to the form it is sent in
      *
      * @param {Date|String} value Date object or date-time string
@@ -1093,7 +1267,7 @@ class IMAPServer extends Stream {
      * @param mailbox Mailbox of the message
      */
     processMessage(message: StorageMessage, mailbox: Mailbox): asserts message is Message {
-        message.internaldate = this.normalizeDateTime(message.internaldate || new Date());
+        message.internaldate = this.normalizeDateTime(message.internaldate || this.now());
         message.flags = ([] as string[]).concat(message.flags || []);
         if (message.flags.indexOf('\\Recent') >= 0) {
             // \Recent is not a stored flag, it belongs to the first session that selects the mailbox
@@ -1590,11 +1764,18 @@ class IMAPConnection {
     declare _pipelinedAfter: { command: string; read: number | undefined } | undefined;
     /** output that waits behind a delay of a script rule, null when output is written right away */
     declare _outputQueue: OutputOperation[] | null;
-    declare _outputTimer: ReturnType<typeof setTimeout> | null;
+    declare _outputTimer: ReturnType<typeof setTimeout> | ReturnType<typeof setImmediate> | null;
+    /** a piece of a chunked write with chunkDelay 0 or "tick" waits until it was handed to the system */
+    declare _outputWaiting: boolean | undefined;
     /** untagged responses that `defer` rules hold back, see releaseDeferred in src/script.ts */
     declare _deferredOutput: DeferredOutput[] | null;
     /** a script rule closes the connection with a RST, see closeNow */
     declare _resetting: boolean | undefined;
+    /** time of the last input or output, and the timer of the quiet events of script rules, see watchQuiet */
+    declare _lastActivity: number | undefined;
+    declare _quietTimer: ReturnType<typeof setTimeout> | null | undefined;
+    /** the command whose tagged response is pending and the session before it ran, see commandCompleted */
+    declare _commandStart: CommandStart | null | undefined;
 
     constructor(server: IMAPServer, socket: net.Socket) {
         this.server = server;
@@ -1645,6 +1826,7 @@ class IMAPConnection {
         this.notificationQueue = [];
         this.server.on('notify', this._notificationCallback);
         this.server.connections.add(this);
+        this.emitSession('open');
 
         this.scriptOutput('greeting', '* OK ImapKit ready for rumble\r\n', {});
     }
@@ -1681,7 +1863,7 @@ class IMAPConnection {
         }
         this._outputQueue = this._outputQueue || [];
         this._outputQueue.push(Object.assign({}, operation, { transport: this.transport }));
-        if (!this._outputTimer) {
+        if (!this._outputTimer && !this._outputWaiting) {
             this.flushOutput();
         }
     }
@@ -1703,10 +1885,28 @@ class IMAPConnection {
                 return;
             }
             if (operation.data && operation.chunk && operation.data.length > operation.chunk) {
-                // the rest waits for chunkDelay, like a delay of its own
-                this.writeLayer(operation.data.subarray(0, operation.chunk), operation.transport || null);
+                // the rest waits for chunkDelay, like a delay of its own. Without a delay each piece waits for the next
+                // event loop turn, and Nagle's algorithm must not hold it back to merge it with the next one
+                const piece = operation.data.subarray(0, operation.chunk);
                 operation.data = operation.data.subarray(operation.chunk);
+                if (!operation.chunkDelay || operation.chunkDelay === 'tick') {
+                    // the next piece waits until this one was handed to the system, and one more event loop turn, so
+                    // the pieces leave as separate segments without a wall clock delay (#89)
+                    this.socket?.setNoDelay?.(true);
+                    this._outputWaiting = true;
+                    this.writeLayer(piece, operation.transport || null, () => {
+                        if (this._outputWaiting && this._outputQueue === queue) {
+                            this._outputTimer = nextTurn(() => {
+                                this._outputTimer = null;
+                                this._outputWaiting = false;
+                                this.flushOutput();
+                            });
+                        }
+                    });
+                    return;
+                }
                 operation.delay = operation.chunkDelay;
+                this.writeLayer(piece, operation.transport || null);
                 continue;
             }
             if (operation.data) {
@@ -1726,9 +1926,11 @@ class IMAPConnection {
      */
     clearOutputQueue(): void {
         if (this._outputTimer) {
-            clearTimeout(this._outputTimer);
+            clearTimeout(this._outputTimer as ReturnType<typeof setTimeout>);
+            clearImmediate(this._outputTimer as ReturnType<typeof setImmediate>);
             this._outputTimer = null;
         }
+        this._outputWaiting = false;
         this._outputQueue = null;
         this._deferredOutput = null;
     }
@@ -1738,12 +1940,16 @@ class IMAPConnection {
      *
      * @param {Buffer} data Output
      * @param {Object|null} transport Transport layer
+     * @param {Function} [callback] Called once the data was handed to the system (a transport: on the next turn)
      */
-    writeLayer(data: Buffer, transport: Transport | null): void {
+    writeLayer(data: Buffer, transport: Transport | null, callback?: () => void): void {
         if (transport) {
             transport.write(data);
+            if (callback) {
+                setImmediate(callback);
+            }
         } else {
-            this.writeRaw(data);
+            this.writeRaw(data, callback);
         }
     }
 
@@ -1800,10 +2006,67 @@ class IMAPConnection {
      *
      * @param {Buffer} data Data to send
      */
-    writeRaw(data: Buffer | string): void {
+    writeRaw(data: Buffer | string, callback?: () => void): void {
         if (this.socket && !this.socket.destroyed) {
-            this.socket.write(data);
+            this.socket.write(data, callback);
+            this.touch();
         }
+    }
+
+    /**
+     * Notes input or output for the quiet events of script rules (#88)
+     */
+    touch(): void {
+        if (!this.server.script.watches('quiet')) {
+            // nothing waits for quiet sessions, a rule added later counts from then on
+            this._lastActivity = undefined;
+            return;
+        }
+        this._lastActivity = Date.now();
+        if (!this._quietTimer) {
+            this.watchQuiet();
+        }
+    }
+
+    /**
+     * Starts waiting for the next quiet event, if a rule waits for one and the session is not waiting already. When
+     * the time is up, the first rule that matches handles the event (`send`, `close`), the output it sends starts
+     * the next quiet time
+     *
+     * @param {Number} [checked] Quiet time the rules were checked for already, only longer ones are waited for
+     */
+    watchQuiet(checked = 0): void {
+        if (this._quietTimer || !this.socket || this._closing) {
+            return;
+        }
+        const last = this._lastActivity || Date.now();
+        this._lastActivity = last;
+        // the time is measured from the last activity, a rule whose time is up already fires right away
+        const next = this.server.script.nextQuiet(checked);
+        if (next === null) {
+            return;
+        }
+        this._quietTimer = setTimeout(
+            () => {
+                this._quietTimer = null;
+                if (!this.isOpen() || this._lastActivity !== last) {
+                    // there was activity in between, it started a new wait
+                    return this.watchQuiet();
+                }
+                // a timer can fire a millisecond before Date.now() says the time is up
+                const quiet = Math.max(Date.now() - last, next);
+                const found = this.server.script.check(this, 'quiet', { data: '', quiet });
+                if (found) {
+                    handleQuiet(this, found.rule, found.context);
+                }
+                if (this._lastActivity === last) {
+                    // nothing was sent, wait for the rules with a longer quiet time
+                    this.watchQuiet(quiet);
+                }
+            },
+            Math.max(0, next - (Date.now() - last))
+        );
+        this._quietTimer.unref();
     }
 
     /**
@@ -1812,6 +2075,7 @@ class IMAPConnection {
      * @param {Buffer} chunk Received data
      */
     receive(chunk: Buffer): void {
+        this.touch();
         if (this.transport) {
             this.transport.receive(chunk);
         } else {
@@ -1951,11 +2215,15 @@ class IMAPConnection {
      * notifications that were not sent yet are dropped. Sends nothing, the caller answers the command
      */
     closeMailbox(): void {
+        const wasSelected = !!this.selectedMailbox;
         this.state = 'Authenticated';
         this.selectedMailbox = false;
         this.readOnly = false;
         this.recent = null;
         this.notificationQueue = [];
+        if (wasSelected) {
+            this.emitSession('unselect');
+        }
     }
 
     onClose(): void {
@@ -1968,8 +2236,14 @@ class IMAPConnection {
             this.transport = null;
         }
         this.clearOutputQueue();
+        if (this._quietTimer) {
+            clearTimeout(this._quietTimer);
+            this._quietTimer = null;
+        }
         this.server.removeListener('notify', this._notificationCallback);
-        this.server.connections.delete(this);
+        if (this.server.connections.delete(this)) {
+            this.emitSession('close');
+        }
     }
 
     onError(err: Error): void {
@@ -2361,8 +2635,8 @@ class IMAPConnection {
      * @param {Array} messages Messages with changed flags
      */
     notifyFlagChanges(messages: Message[]): void {
-        if (messages.length && this.selectedMailbox) {
-            this.server.notify({ tag: '*', flagUpdate: messages }, this.selectedMailbox, this);
+        if (this.selectedMailbox) {
+            notifyFlagChanges(this.server, this.selectedMailbox, messages, this);
         }
     }
 
@@ -2654,7 +2928,7 @@ class IMAPConnection {
      */
     send(response: IMAPResponse, description?: string, parsed?: CommandContext | null, data?: string | null, ...extra: any[]): void {
         // nothing goes out once the connection is closing (RFC 3501 section 7.1.5)
-        if (!this.socket || this.socket.destroyed || this._closing) {
+        if (!this.isOpen()) {
             return;
         }
 
@@ -2666,6 +2940,10 @@ class IMAPConnection {
         this.server.outputHandlers.forEach(handler => {
             handler(this, response, description, parsed, data, ...extra);
         });
+
+        if (this._commandStart && parsed && response.tag === this._commandStart.tag && parsed.tag === response.tag) {
+            this.commandCompleted(String(response.command || '').toUpperCase());
+        }
 
         // No need to display this response to user
         if (response.skipResponse) {
@@ -3133,6 +3411,69 @@ class IMAPConnection {
     }
 
     /**
+     * Emits the `command` event when the tagged response of a command goes out, and the `session` events "login"
+     * (the command authenticated the session) and "logout" (back to Not Authenticated, UNAUTHENTICATE). Every command
+     * that changes these does so before its tagged response. "select" and "unselect" come from SELECT and
+     * closeMailbox(). Tests wait for these instead of polling
+     *
+     * @param {String} status OK, NO or BAD
+     */
+    commandCompleted(status: string): void {
+        const start = this._commandStart as CommandStart;
+        this._commandStart = null;
+        const server = this.server;
+        if (!server.listenerCount('command') && !server.listenerCount('session')) {
+            return;
+        }
+        server.emit('command', { session: this.sessionNumber, tag: start.tag, command: start.command, status, user: this.username || null });
+
+        const authenticated = (state: ConnectionState) => state === 'Authenticated' || state === 'Selected';
+        if (authenticated(start.state) !== authenticated(this.state) && this.state !== 'Logout') {
+            this.emitSession(authenticated(this.state) ? 'login' : 'logout');
+        }
+    }
+
+    /**
+     * Emits a `session` event, `{ type, session, ...fields }`
+     *
+     * @param {String} type Event type
+     * @param {Object} [fields] More fields of the event
+     */
+    emitSession(type: string, fields?: Record<string, unknown>): void {
+        if (this.server.listenerCount('session')) {
+            this.server.emit('session', Object.assign({ type, session: this.describe() }, fields));
+        }
+    }
+
+    /**
+     * Describes the session without credentials or sockets, for the control API and the `session` events
+     *
+     * @return {Object} `{ session, user, state, mailbox, readOnly, enabled, secure, compressed, remoteAddress }`
+     */
+    describe(): SessionInfo {
+        return {
+            session: this.sessionNumber,
+            user: this.username || null,
+            state: this.state,
+            mailbox: this.selectedMailbox ? this.selectedMailbox.path : null,
+            readOnly: !!this.selectedMailbox && !!this.readOnly,
+            enabled: Array.isArray(this.enabled) ? this.enabled.slice() : [],
+            secure: !!this.secureConnection,
+            compressed: !!this.transport,
+            remoteAddress: (this.socket && this.socket.remoteAddress) || null
+        };
+    }
+
+    /**
+     * Checks if output can still be sent: the socket is open and the connection is not closing (BYE, LOGOUT)
+     *
+     * @return {Boolean} true for a live session
+     */
+    isOpen(): boolean {
+        return !!this.socket && !this.socket.destroyed && !this._closing;
+    }
+
+    /**
      * Handles a command line with the script rule that matched it, after the rule's delay. With `run` the line
      * goes through the parser and the command handler as usual afterwards
      *
@@ -3175,6 +3516,8 @@ class IMAPConnection {
         const command = element.parsed.command.toUpperCase();
         this._runningCommand = element;
         const options = this.server.getCommandOptions(command);
+        // the session events of the command are worked out when its tagged response goes out, see commandCompleted
+        this._commandStart = { tag: element.parsed.tag, command, state: this.state };
         let done = false;
         const next = () => {
             if (done) {
@@ -3250,52 +3593,52 @@ class IMAPConnection {
             this.processNotifications(element.parsed);
         }
 
-        try {
-            // changes made while the handler runs are attributed to this session (the `origin` of notifications)
-            this.server.activeConnection = this;
-            const inputHandler = this.inputHandler;
-            (this.server.getCommandHandler(element.parsed.command) as CommandHandler)(this, element.parsed, element.data, next);
-            if (this.inputHandler && this.inputHandler !== inputHandler) {
-                // the command reads the lines that follow (IDLE, AUTHENTICATE), script rules match them with it
-                this.inputCommand = { tag: element.parsed.tag, command: element.parsed.command };
+        // changes made while the handler runs are attributed to this session (the `origin` of notifications)
+        this.server.withOrigin(this, () => {
+            try {
+                const inputHandler = this.inputHandler;
+                (this.server.getCommandHandler(element.parsed.command) as CommandHandler)(this, element.parsed, element.data, next);
+                if (this.inputHandler && this.inputHandler !== inputHandler) {
+                    // the command reads the lines that follow (IDLE, AUTHENTICATE), script rules match them with it
+                    this.inputCommand = { tag: element.parsed.tag, command: element.parsed.command };
+                    this.emitSession('waiting', { command });
+                }
+            } catch (E) {
+                const ex = E as IMAPError;
+                const badInput = ex.imapResponse === 'BAD';
+                if (!badInput && this.options.debug) {
+                    console.error('Error processing command:', ex, '\n', ex.stack);
+                }
+                this.send(
+                    {
+                        tag: element.parsed.tag,
+                        command: badInput ? 'BAD' : 'NO',
+                        attributes: ([] as Attribute[]).concat(
+                            badInput
+                                ? []
+                                : {
+                                      type: 'SECTION',
+                                      section: [
+                                          {
+                                              type: 'ATOM',
+                                              value: 'SERVERBUG'
+                                          }
+                                      ]
+                                  },
+                            {
+                                type: 'TEXT',
+                                value: badInput ? ex.message : 'Server error: ' + ex.message
+                            }
+                        )
+                    },
+                    badInput ? 'INVALID COMMAND' : 'SERVER ERROR',
+                    element.parsed,
+                    element.data
+                );
+                // keep the connection usable, otherwise every later command would hang
+                next();
             }
-        } catch (E) {
-            const ex = E as IMAPError;
-            const badInput = ex.imapResponse === 'BAD';
-            if (!badInput && this.options.debug) {
-                console.error('Error processing command:', ex, '\n', ex.stack);
-            }
-            this.send(
-                {
-                    tag: element.parsed.tag,
-                    command: badInput ? 'BAD' : 'NO',
-                    attributes: ([] as Attribute[]).concat(
-                        badInput
-                            ? []
-                            : {
-                                  type: 'SECTION',
-                                  section: [
-                                      {
-                                          type: 'ATOM',
-                                          value: 'SERVERBUG'
-                                      }
-                                  ]
-                              },
-                        {
-                            type: 'TEXT',
-                            value: badInput ? ex.message : 'Server error: ' + ex.message
-                        }
-                    )
-                },
-                badInput ? 'INVALID COMMAND' : 'SERVER ERROR',
-                element.parsed,
-                element.data
-            );
-            // keep the connection usable, otherwise every later command would hang
-            next();
-        } finally {
-            this.server.activeConnection = null;
-        }
+        });
     }
 
     /**
@@ -3303,7 +3646,7 @@ class IMAPConnection {
      *
      * @param {Object} mailbox Mailbox to check for
      * @param {Boolean} [ignoreSelf] If set to true, does not send any notices to itself
-     * @param {Boolean} [ignoreSelf] If set to true, does not send EXISTS notice to itself
+     * @param {Boolean} [ignoreExists] If set to true, does not send EXISTS notice to itself
      */
     expungeDeleted(mailbox: Mailbox, ignoreSelf?: boolean, ignoreExists?: boolean): void {
         this.expungeSpecificMessages(
@@ -3318,14 +3661,14 @@ class IMAPConnection {
 
     /**
      * Given a set of messages in a mailbox (possibly via getMessageRange), remove
-     * them from the mailbox and generate EXPUNGE notifications.
+     * them from the mailbox and generate EXPUNGE notifications, see expungeMessages() in store-operations.ts
      *
      * @param {Object} mailbox Mailbox to check for
      * @param {Function|Array} messagesOrFilterFunc An Array of messages in the
      *     folder that should be removed or a filtering function that indicates
      *     messages to be removed by returning true.
      * @param {Boolean} [ignoreSelf] If set to true, does not send any notices to itself
-     * @param {Boolean} [ignoreSelf] If set to true, does not send EXISTS notice to itself
+     * @param {Boolean} [ignoreExists] If set to true, does not send EXISTS notice to itself
      * @param {Boolean} [highestFirst] If set to true, the EXPUNGE responses go from the highest UID to the lowest
      *     (MESSAGELIMIT, RFC 9738 section 3.1), otherwise from the lowest
      */
@@ -3336,85 +3679,45 @@ class IMAPConnection {
         ignoreExists?: boolean,
         highestFirst?: boolean
     ): void {
-        let filterFunc: (message: Message) => unknown;
-        if (Array.isArray(messagesOrFilterFunc)) {
-            const messageSet = new Set(messagesOrFilterFunc);
-            filterFunc = (message: Message) => messageSet.has(message);
-        } else {
-            filterFunc = messagesOrFilterFunc;
-        }
-
-        // sequence numbers of the removed messages, each one as it is after the earlier EXPUNGE responses. From the
-        // highest message down, the earlier responses do not change the sequence numbers of the later ones
-        const expunged: { seq: number; message: Message }[] = [];
-        const kept: Message[] = [];
-        mailbox.messages.forEach((message, i) => {
-            if (filterFunc(message)) {
-                message.ghost = true;
-                expunged.push({ seq: highestFirst ? i + 1 : kept.length + 1, message });
-            } else {
-                kept.push(message);
-            }
+        expungeMessages(this.server, mailbox, messagesOrFilterFunc, {
+            origin: this,
+            skip: ignoreSelf ? this : null,
+            skipExists: ignoreExists ? this : null,
+            highestFirst: !!highestFirst
         });
-
-        if (!expunged.length) {
-            return;
-        }
-
-        // old copy is required for those sessions that run FETCH before
-        // displaying the EXPUNGE notice
-        const mailboxCopy = mailbox.messages.slice();
-
-        // update the list in place, other code might hold a reference to it
-        kept.forEach((message, i) => {
-            mailbox.messages[i] = message;
-        });
-        mailbox.messages.length = kept.length;
-
-        // lets plugins track the removal (e.g. mod-sequences of CONDSTORE and QRESYNC) before any notification
-        this.server.emit(
-            'expunge',
-            mailbox,
-            expunged.map(entry => entry.message),
-            this
-        );
-
-        (highestFirst ? expunged.slice().reverse() : expunged).forEach(entry => {
-            this.server.notify(
-                {
-                    tag: '*',
-                    attributes: [
-                        entry.seq,
-                        {
-                            type: 'ATOM',
-                            value: 'EXPUNGE'
-                        }
-                    ],
-                    // the removed message, for plugins that report it differently (e.g. VANISHED of QRESYNC)
-                    message: entry.message
-                },
-                mailbox,
-                ignoreSelf ? this : false
-            );
-        });
-
-        this.server.notify(
-            {
-                tag: '*',
-                attributes: [
-                    mailbox.messages.length,
-                    {
-                        type: 'ATOM',
-                        value: 'EXISTS'
-                    }
-                ],
-                // distribute the old mailbox data with the notification
-                mailboxCopy: mailboxCopy
-            },
-            mailbox,
-            ignoreSelf || ignoreExists ? this : false
-        );
     }
+}
+
+// setImmediate does not let Deno send what sockets were given, see nextTurn
+const IS_DENO = 'Deno' in globalThis;
+
+/**
+ * Runs a function on the next event loop turn that also handles network I/O: setImmediate on Node and Bun, a zero
+ * timer on Deno, where setImmediate runs before the sockets send what was written (#89)
+ *
+ * @param {Function} fn Function to run
+ * @return {Object} the timer, clearOutputQueue clears it
+ */
+function nextTurn(fn: () => void): ReturnType<typeof setTimeout> | ReturnType<typeof setImmediate> {
+    return IS_DENO ? setTimeout(fn, 0) : setImmediate(fn);
+}
+
+/**
+ * Starts listening, resolves with the port or rejects with the listen error (EADDRINUSE)
+ *
+ * @param {Object} server net, tls or http server
+ * @param {Number} [port] Port, a free one if not set
+ * @param {String} [host] Address, all addresses if not set
+ * @return {Promise<Number>} the port
+ */
+function listenOn(server: net.Server, port?: number, host?: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen({ port: port || 0, host }, () => {
+            server.removeListener('error', reject);
+            resolve((server.address() as net.AddressInfo).port);
+        });
+    });
 }
 
 /**

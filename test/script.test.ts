@@ -69,6 +69,13 @@ describe('Script rules', () => {
             ['run with close', { on: 'command', send: 'x', run: true, close: true }, /"run" can not be combined/],
             ['run with truncate', { on: 'command', send: 'x', run: true, truncate: 1 }, /"run" can not be combined/],
             ['chunkDelay without chunk', { on: 'response', chunkDelay: 5, drop: true }, /"chunkDelay" needs "chunk"/],
+            ['a quiet rule without quietFor', { on: 'quiet', send: 'x' }, /needs "quietFor"/],
+            ['quietFor of 0', { on: 'quiet', quietFor: 0, send: 'x' }, /needs "quietFor"/],
+            ['quietFor for a response', { on: 'response', quietFor: 5, drop: true }, /"quietFor" can not be used/],
+            ['drop for a quiet rule', { on: 'quiet', quietFor: 5, drop: true }, /"drop" can not be used/],
+            ['a chance above 1', { on: 'response', chance: 2, drop: true }, /"chance" must be a number from 0 to 1/],
+            ['a chance that is not a number', { on: 'response', chance: '0.5', drop: true }, /"chance" must be a number from 0 to 1/],
+            ['a chunkDelay that is a word', { on: 'response', chunk: 1, chunkDelay: 'later', drop: true }, /"chunkDelay" must be a non-negative integer/],
             ['chunk for a command without send', { on: 'command', chunk: 1 }, /need "send"/],
             ['truncate for an input line without send', { on: 'input', truncate: 1 }, /need "send"/],
             ['nth of 0', { on: 'response', nth: 0, drop: true }, /"nth" must be a positive integer/],
@@ -172,6 +179,20 @@ describe('Script rules', () => {
             assert.ok(client.reads.length >= 3, 'greeting arrived in ' + client.reads.length + ' reads');
             assert.strictEqual(client.reads[0].data, '* OK ');
         });
+
+        for (const chunkDelay of ['tick', 0] as const) {
+            it('splits the greeting on the wire without a delay with chunkDelay ' + JSON.stringify(chunkDelay) + ' (#89)', async () => {
+                ctx.server.script.add({ on: 'greeting', chunk: 1, chunkDelay });
+                const started = Date.now();
+                const client = await connectRaw(ctx.port);
+                const output = await client.waitFor(/rumble\r\n/);
+                assert.strictEqual(output, '* OK ImapKit ready for rumble\r\n');
+                // every octet its own segment, loopback may still merge a few
+                assert.ok(client.reads.length >= output.length / 2, 'greeting arrived in ' + client.reads.length + ' reads');
+                assert.ok(Date.now() - started < 300, 'took ' + (Date.now() - started) + 'ms');
+                client.close();
+            });
+        }
 
         it('truncates the greeting and closes the connection', async () => {
             ctx.server.script.add({ on: 'greeting', truncate: 7 });
@@ -930,6 +951,89 @@ describe('Script rules', () => {
                 await wait(10);
             }
             assert.strictEqual(connection._deferredOutput, null);
+        });
+    });
+
+    describe('quiet (#88)', () => {
+        const ctx = setupServer(() => ({ plugins: ['IDLE'] }));
+
+        it('sends an autologout BYE to a session that idles too long', async () => {
+            ctx.server.script.add({ on: 'quiet', command: 'IDLE', quietFor: 80, send: '* BYE Autologout; idle for too long\r\n', close: true });
+            const client = await connectRaw(ctx.port);
+            await client.waitFor(/^\* OK/);
+            client.send('A1 LOGIN testuser testpass\r\n');
+            await client.waitFor(/^A1 OK/m);
+            const started = Date.now();
+            client.send('A2 IDLE\r\n');
+            const { output } = await client.closed();
+            assert.match(output, /^\+ idling\r\n\* BYE Autologout; idle for too long\r\n$/m);
+            assert.ok(Date.now() - started >= 70, 'BYE after ' + (Date.now() - started) + 'ms');
+        });
+
+        it('sends an ALERT between commands, the next quiet time starts after it', async () => {
+            const handle = ctx.server.script.add({ on: 'quiet', state: 'Authenticated', quietFor: 40, times: 2, send: '* OK [ALERT] Maintenance soon\r\n' });
+            const client = await connectRaw(ctx.port);
+            await client.waitFor(/^\* OK ImapKit/);
+            // the greeting state does not match, nothing is sent before LOGIN
+            await new Promise(resolve => setTimeout(resolve, 60));
+            assert.strictEqual(handle.hits, 0);
+            client.send('A1 LOGIN testuser testpass\r\n');
+            const output = await client.waitFor(/(\* OK \[ALERT\] Maintenance soon\r\n[^]*){2}/);
+            assert.match(output, /^A1 OK/m);
+            assert.strictEqual(handle.hits, 2);
+            client.close();
+        });
+
+        it('starts counting for sessions that are open already when a rule is added', async () => {
+            const client = await connectRaw(ctx.port);
+            await client.waitFor(/^\* OK/);
+            ctx.server.script.add({ on: 'quiet', quietFor: 30, send: '* BYE quiet\r\n', close: true });
+            const { output } = await client.closed();
+            assert.match(output, /\* BYE quiet\r\n$/);
+        });
+
+        it('waits for the longer quiet time when the shorter rule does not match', async () => {
+            ctx.server.script.add([
+                { on: 'quiet', quietFor: 20, state: 'Selected', send: '* OK short\r\n' },
+                { on: 'quiet', quietFor: 60, send: '* BYE long\r\n', close: true }
+            ]);
+            const client = await connectRaw(ctx.port);
+            const { output } = await client.closed();
+            assert.match(output, /^\* OK ImapKit ready for rumble\r\n\* BYE long\r\n$/);
+        });
+    });
+
+    describe('chance', () => {
+        // which of 20 NOOPs a rule with chance answers, for a seed
+        const hits = async (seed: number, chance: number) => {
+            const server = imapkit({ scriptSeed: seed, script: { on: 'command', command: 'NOOP', chance, send: '$TAG NO scripted\r\n' } });
+            const port = await server.start();
+            const client = await connectRaw(port);
+            await client.waitFor(/^\* OK/);
+            const results: boolean[] = [];
+            for (let i = 1; i <= 20; i++) {
+                client.send('N' + i + ' NOOP\r\n');
+                const output = await client.waitFor(new RegExp('^N' + i + ' (OK|NO)', 'm'));
+                results.push(new RegExp('^N' + i + ' NO', 'm').test(output));
+            }
+            client.close();
+            await server.stop();
+            return results;
+        };
+
+        it('starts the same random sequence again after control.reset()', () => {
+            const server = imapkit({ scriptSeed: 5 });
+            const first = [server.script.random(), server.script.random(), server.script.random()];
+            server.control.reset();
+            assert.deepStrictEqual([server.script.random(), server.script.random(), server.script.random()], first);
+        });
+
+        it('fires with the given probability, repeatable with scriptSeed', async () => {
+            const first = await hits(42, 0.5);
+            assert.deepStrictEqual(await hits(42, 0.5), first);
+            assert.ok(first.includes(true) && first.includes(false), JSON.stringify(first));
+            assert.ok(!(await hits(1, 0)).includes(true));
+            assert.ok(!(await hits(1, 1)).includes(false));
         });
     });
 

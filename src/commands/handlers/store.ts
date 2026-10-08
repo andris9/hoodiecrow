@@ -14,7 +14,7 @@ function setFlags(connection: IMAPConnection, message: Message, flags: FlagValue
     const messageFlags: string[] = [];
     ([] as Attribute[]).concat(flags).forEach(flag => {
         flag = normalizeSystemFlag(typeof flag === 'string' ? flag : String(flag.value || ''));
-        checkSystemFlags(connection, flag);
+        checkSystemFlags(connection.server, flag);
 
         // Ignore if it is not in allowed list and only permament flags are allowed to use
         if (mailbox.permanentFlags.indexOf(flag) < 0 && !mailbox.allowPermanentFlags) {
@@ -33,7 +33,7 @@ function addFlags(connection: IMAPConnection, message: Message, flags: FlagValue
     const mailbox = connection.selectedMailbox as Mailbox;
     ([] as Attribute[]).concat(flags).forEach(flag => {
         flag = normalizeSystemFlag(typeof flag === 'string' ? flag : String(flag.value || ''));
-        checkSystemFlags(connection, flag);
+        checkSystemFlags(connection.server, flag);
 
         // Ignore if it is not in allowed list and only permament flags are allowed to use
         if (mailbox.permanentFlags.indexOf(flag) < 0 && !mailbox.allowPermanentFlags) {
@@ -50,7 +50,7 @@ function addFlags(connection: IMAPConnection, message: Message, flags: FlagValue
 function removeFlags(connection: IMAPConnection, message: Message, flags: FlagValues) {
     ([] as Attribute[]).concat(flags).forEach(flag => {
         flag = normalizeSystemFlag(typeof flag === 'string' ? flag : String(flag.value || ''));
-        checkSystemFlags(connection, flag);
+        checkSystemFlags(connection.server, flag);
 
         if (message.flags.indexOf(flag) >= 0) {
             for (let i = 0; i < message.flags.length; i++) {

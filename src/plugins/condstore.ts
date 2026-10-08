@@ -94,6 +94,14 @@ export default function condstorePlugin(server: IMAPServer) {
         bumpModseq(mailbox);
     });
 
+    // Flags changed outside of STORE (the control API, see changeFlags() in store-operations.ts): every changed
+    // message gets a new mod-sequence (RFC 7162 section 3.1.1), before the sessions are told
+    server.on('flags', (mailbox: Mailbox, messages: Message[]) => {
+        messages.forEach(message => {
+            message.MODSEQ = bumpModseq(mailbox);
+        });
+    });
+
     // RFC 7162 section 3.2.11: SELECT or EXAMINE closes the selected mailbox, a CONDSTORE server marks
     // where the responses for the new mailbox start
     server.closedChecks.push(() => true);

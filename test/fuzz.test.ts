@@ -52,8 +52,7 @@ const RECOVERY_TIMEOUT = 3000;
 // how long to wait for a "+" before sending literal data anyway
 const CONTINUATION_TIMEOUT = 100;
 
-// Every client facing plugin. STARTTLS and LOGINDISABLED would stop plain logins, and XTOYBIRD is a
-// test control channel that can delete the test user (its responses also echo raw user names).
+// Every client facing plugin. STARTTLS and LOGINDISABLED would stop plain logins.
 // COMPRESS is left out as the fuzzer does not speak DEFLATE, and LITERAL- can not be loaded with LITERAL+.
 const PLUGINS = [
     'ENABLE',

@@ -49,7 +49,7 @@ export default function appendlimitPlugin(server: IMAPServer) {
     server.registerCapability('APPENDLIMIT', () => serverLimit === null || hasMailboxLimits());
 
     // RFC 7889 section 4: a message over the limit is refused with TOOBIG
-    server.appendChecks.push((connection: IMAPConnection, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
+    server.appendChecks.push((connection: IMAPConnection | null, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
         // COPY and MOVE are not uploads (RFC 7889 section 1)
         if (!options.command) {
             return false;

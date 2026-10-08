@@ -4,7 +4,7 @@ import { setupServer } from './helpers/index.js';
 
 describe('Search tests', () => {
     const ctx = setupServer(() => ({
-        plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE', 'XTOYBIRD'],
+        plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE'],
         id: {
             name: 'imapkit',
             version: '0.1'

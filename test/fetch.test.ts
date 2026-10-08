@@ -4,7 +4,7 @@ import { setupServer } from './helpers/index.js';
 
 describe('ImapKit tests', () => {
     const ctx = setupServer(() => ({
-        plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE', 'XTOYBIRD'],
+        plugins: ['ID', 'STARTTLS' /*, "LOGINDISABLED"*/, 'AUTH-PLAIN', 'NAMESPACE', 'IDLE', 'ENABLE', 'CONDSTORE'],
         id: {
             name: 'imapkit',
             version: '0.1'
@@ -132,7 +132,7 @@ describe('ImapKit tests', () => {
     }));
 
     it('FETCH UID', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 2 (UID)', 'A4 XTOYBIRD STORAGE', 'ZZ LOGOUT'];
+        const cmds = ['A1 LOGIN testuser testpass', 'A2 EXAMINE INBOX', 'A3 FETCH 2 (UID)', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {
             resp = resp.toString();

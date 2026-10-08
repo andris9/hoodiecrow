@@ -1,4 +1,5 @@
-import type { Callback, IMAPConnection, ParsedCommand } from '../types.js';
+import { subscribeMailbox } from '../store-operations.js';
+import type { Callback, IMAPConnection, IMAPError, ParsedCommand } from '../types.js';
 
 export default function subscribeCommand(connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) {
     if (!parsed.attributes || parsed.attributes.length !== 1 || !parsed.attributes[0] || ['STRING', 'LITERAL', 'ATOM'].indexOf(parsed.attributes[0].type) < 0) {
@@ -20,18 +21,12 @@ export default function subscribeCommand(connection: IMAPConnection, parsed: Par
         return callback();
     }
 
-    const path = parsed.attributes[0].value;
-
-    const mailbox = connection.server.getMailbox(path);
-
-    if (!mailbox || mailbox.flags.indexOf('\\Noselect') >= 0) {
-        connection.sendStatus(parsed, data, 'NO', 'Mailbox does not exist', 'NONEXISTENT', 'SUBSCRIBE FAILED');
+    try {
+        subscribeMailbox(connection.server, parsed.attributes[0].value);
+    } catch (err) {
+        const E = err as IMAPError;
+        connection.sendStatus(parsed, data, 'NO', E.message, E.code, 'SUBSCRIBE FAILED');
         return callback();
-    }
-
-    if (!mailbox.subscribed) {
-        mailbox.subscribed = true;
-        connection.server.mailboxChanged('subscribe', mailbox.path);
     }
 
     connection.send(

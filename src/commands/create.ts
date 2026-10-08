@@ -1,3 +1,4 @@
+import { createMailbox } from '../store-operations.js';
 import type { Callback, IMAPConnection, IMAPError, ParsedCommand } from '../types.js';
 
 export default function createCommand(connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) {
@@ -24,14 +25,13 @@ export default function createCommand(connection: IMAPConnection, parsed: Parsed
 
     let mailbox;
     try {
-        mailbox = connection.server.createMailbox(path);
+        mailbox = createMailbox(connection.server, path);
     } catch (err) {
         const E = err as IMAPError;
         // RFC 5530 response codes, e.g. [ALREADYEXISTS]
         connection.sendStatus(parsed, data, 'NO', E.message, E.code, 'CREATE FAILED');
         return callback();
     }
-    connection.server.mailboxChanged('create', mailbox.path);
 
     connection.send(
         {

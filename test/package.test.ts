@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,6 +37,7 @@ describe('Built package', { skip: !built && 'run npm run build first' }, () => {
         assert.equal(imapkit.default, imapkit);
         assert.ok(imapkit.TAG_REGEX instanceof RegExp);
         assert.equal(typeof imapkit.IMAPServer, 'function');
+        assert.equal(typeof imapkit.ImapKitError, 'function');
         // the old entry point path
         assert.equal(require(packageName + '/lib/server'), imapkit);
 
@@ -55,6 +57,32 @@ describe('Built package', { skip: !built && 'run npm run build first' }, () => {
         assert.deepEqual(require(packageName + '/lib/plugins/qresync').requires, ['ENABLE', 'CONDSTORE']);
         // a module with only named exports loads as the exports object
         assert.equal(typeof require(packageName + '/lib/command-states').states.AUTHENTICATED, 'object');
+    });
+
+    // smtp-server is an optional peer dependency, the package loads it only for SMTP
+    it('does not load smtp-server', { skip: !!(process.versions.bun || (globalThis as any).Deno) && 'spawns Node' }, () => {
+        const output = execFileSync(
+            process.execPath,
+            ['-e', "require('imapkit'); console.log(Object.keys(require.cache).filter(name => name.includes('smtp-server')).length)"],
+            { cwd: root, encoding: 'utf8' }
+        );
+        assert.equal(output.trim(), '0');
+    });
+
+    it('names the package to install when smtp-server is missing', { skip: !!(process.versions.bun || (globalThis as any).Deno) && 'spawns Node' }, () => {
+        // a resolve hook makes smtp-server unavailable, like an install without the optional peer dependency
+        const hook =
+            'export async function resolve(specifier, context, next) { if (specifier === "smtp-server") { throw Object.assign(new Error("Cannot find package smtp-server"), { code: "ERR_MODULE_NOT_FOUND" }); } return next(specifier, context); }';
+        const script = [
+            "import { register } from 'node:module';",
+            'register(' + JSON.stringify('data:text/javascript,' + encodeURIComponent(hook)) + ');',
+            "const { default: imapkit } = await import('imapkit');",
+            'const server = imapkit({ smtp: { port: 0 } });',
+            'await server.start().then(() => console.log("started"), err => console.log(err.message));',
+            'await server.stop();'
+        ].join('\n');
+        const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, encoding: 'utf8' });
+        assert.match(output, /The smtp option needs the smtp-server package, install it with: npm install smtp-server/);
     });
 
     it('loads as an ES module', async () => {

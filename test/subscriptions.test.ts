@@ -2,7 +2,6 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { setupServer } from './helpers/index.js';
 import tls from 'node:tls';
-import imapkit from '../src/server.js';
 
 const tagged = (resp: string, tag: string) => (resp.match(new RegExp('^' + tag + ' (OK|NO|BAD)\\b', 'm')) || [])[1];
 
@@ -378,38 +377,6 @@ describe('STARTTLS on a secure connection', () => {
                     socket.write('A3 LOGOUT\r\n');
                 });
             });
-        });
-    });
-});
-
-describe('XTOYBIRD dumps', () => {
-    const ctx = setupServer(() => ({
-        plugins: ['XTOYBIRD']
-    }));
-
-    it('dumps server, connection and storage state', (t, done) => {
-        const cmds = ['A1 LOGIN testuser testpass', 'A2 XTOYBIRD SERVER', 'A3 XTOYBIRD CONNECTION', 'A4 XTOYBIRD STORAGE', 'A5 XTOYBIRD FOO', 'ZZ LOGOUT'];
-
-        ctx.run(cmds, resp => {
-            resp = resp.toString();
-            for (const tag of ['A2', 'A3', 'A4']) {
-                assert.strictEqual(tagged(resp, tag), 'OK', tag + '\n' + resp);
-            }
-            assert.ok(resp.indexOf('"INBOX"') >= 0, resp);
-            assert.strictEqual(tagged(resp, 'A5'), 'BAD');
-            done();
-        });
-    });
-
-    it('SHUTDOWN closes the server', (t, done) => {
-        const server = ctx.server;
-        ctx.run(['A1 LOGIN testuser testpass', 'A2 XTOYBIRD SHUTDOWN'], resp => {
-            resp = resp.toString();
-            assert.ok(/^\* OK \[ALERT\]/m.test(resp), resp);
-            assert.ok(!server.server.listening);
-            // the afterEach hook closes the server again, so give it a fresh one
-            ctx.server = imapkit();
-            ctx.server.listen(0, () => done());
         });
     });
 });

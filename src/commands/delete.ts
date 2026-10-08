@@ -1,3 +1,4 @@
+import { deleteMailbox } from '../store-operations.js';
 import type { Callback, IMAPConnection, IMAPError, ParsedCommand } from '../types.js';
 
 export default function deleteCommand(connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) {
@@ -22,29 +23,13 @@ export default function deleteCommand(connection: IMAPConnection, parsed: Parsed
 
     const path = parsed.attributes[0].value;
 
-    const mailbox = connection.server.getMailbox(path);
-
-    if (!mailbox) {
-        connection.sendStatus(parsed, data, 'NO', 'Mailbox does not exist', 'NONEXISTENT', 'DELETE FAILED');
-        return callback();
-    }
-
     try {
-        connection.server.deleteMailbox(path);
+        deleteMailbox(connection.server, path);
     } catch (err) {
         const E = err as IMAPError;
         connection.sendStatus(parsed, data, 'NO', E.message, E.code, 'DELETE FAILED');
         return callback();
     }
-    connection.server.mailboxChanged('delete', mailbox.path, { mailbox });
-
-    // RFC 2180 section 3.3: the other sessions that have the mailbox selected are disconnected with an untagged
-    // BYE (RFC 2683 section 3.1.2), as they can not be told about the deletion in any other way
-    connection.server.connections.forEach(other => {
-        if (other !== connection && other.selectedMailbox === mailbox) {
-            other.bye('Selected mailbox was deleted', 'MAILBOX DELETED');
-        }
-    });
 
     connection.send(
         {

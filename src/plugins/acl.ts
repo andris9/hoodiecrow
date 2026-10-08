@@ -6,6 +6,7 @@ import type { ListItemInfo } from '../list-extensions.js';
 import { beginSelect } from '../commands/select.js';
 import { getPendingTarget } from '../commands/append.js';
 import { isAstring } from '../arguments.js';
+import { storeError } from '../store-operations.js';
 import type {
     Attribute,
     Callback,
@@ -16,6 +17,7 @@ import type {
     IMAPResponse,
     IMAPServer,
     Mailbox,
+    MailboxChangeEvent,
     Message,
     NotifyEvent,
     ParsedCommand,
@@ -239,6 +241,32 @@ export default function aclPlugin(server: IMAPServer) {
         server.emit('acl', mailbox, previous);
     };
 
+    /**
+     * Changes the rights of an identifier like SETACL (RFC 4314 section 3.1): "+" adds, "-" removes, no mode
+     * replaces. An identifier without rights is removed from the ACL
+     *
+     * @param {Object} mailbox Mailbox
+     * @param {String} identifier Identifier
+     * @param {String} mode "+", "-" or ""
+     * @param {Set} rights Parsed rights
+     */
+    const applyRights = (mailbox: Mailbox, identifier: string, mode: string, rights: Rights) => {
+        changeAcl(mailbox, acl => {
+            const current = new Set(acl.get(identifier) || []);
+            if (mode === '+') {
+                rights.forEach(right => current.add(right));
+            } else if (mode === '-') {
+                rights.forEach(right => current.delete(right));
+            }
+            const updated = mode ? current : rights;
+            if (updated.size) {
+                acl.set(identifier, updated);
+            } else {
+                acl.delete(identifier);
+            }
+        });
+    };
+
     // CATENATE (RFC 4469 section 5): reading a message through an IMAP URL needs the "r" right, a
     // mailbox without "l" is reported like one that does not exist (RFC 4314 section 6)
     server.urlAccessChecks.push((connection: IMAPConnection, mailbox: Mailbox) => {
@@ -430,20 +458,7 @@ export default function aclPlugin(server: IMAPServer) {
                 return;
             }
 
-            changeAcl(mailbox, acl => {
-                const current = new Set(acl.get(identifier) || []);
-                if (mode === '+') {
-                    rights.forEach(right => current.add(right));
-                } else if (mode === '-') {
-                    rights.forEach(right => current.delete(right));
-                }
-                const updated = mode ? current : rights;
-                if (updated.size) {
-                    acl.set(identifier, updated);
-                } else {
-                    acl.delete(identifier);
-                }
-            });
+            applyRights(mailbox as Mailbox, identifier, mode, rights);
             connection.sendStatus(parsed, data, 'OK', 'Setacl complete');
         }),
         Object.assign({ astringArguments: [1, 2] }, aclOptions)
@@ -565,7 +580,7 @@ export default function aclPlugin(server: IMAPServer) {
                 }
                 flags = ([] as Attribute[]).concat(flags);
                 // invalid flags are still refused with BAD, even if the user could not set them anyway
-                flags.forEach((flag: Attribute) => checkSystemFlags(connection, normalizeSystemFlag(flagValue(flag))));
+                flags.forEach((flag: Attribute) => checkSystemFlags(connection.server, normalizeSystemFlag(flagValue(flag))));
                 let allowed: Attribute[] = flags.filter((flag: Attribute) => canSetFlag(rights, flag));
                 if (item.charAt(0) !== '+' && item.charAt(0) !== '-') {
                     // replacing the flags keeps the ones the user can not change
@@ -671,7 +686,7 @@ export default function aclPlugin(server: IMAPServer) {
         const flags = parsed.attributes![1];
         if (Array.isArray(flags) && flags.every((flag: Attribute) => flag && flag.type === 'ATOM')) {
             try {
-                flags.forEach((flag: Attribute) => checkSystemFlags(connection, normalizeSystemFlag(flag.value)));
+                flags.forEach((flag: Attribute) => checkSystemFlags(connection.server, normalizeSystemFlag(flag.value)));
                 // the server MUST NOT fail APPEND for flags the user can not set
                 parsed.attributes![1] = flags.filter((flag: Attribute) => canSetFlag(rights, flag));
             } catch {
@@ -856,7 +871,7 @@ export default function aclPlugin(server: IMAPServer) {
         }
         const flags: Attribute[] = ([] as Attribute[]).concat(args[args.length - 1] || []);
         try {
-            flags.forEach(flag => checkSystemFlags(connection, normalizeSystemFlag(flagValue(flag))));
+            flags.forEach(flag => checkSystemFlags(connection.server, normalizeSystemFlag(flagValue(flag))));
         } catch {
             // invalid flags are refused with BAD by the STORE handler
             return prevHandler(connection, parsed, data, callback);
@@ -964,39 +979,96 @@ export default function aclPlugin(server: IMAPServer) {
         }
     });
 
-    // The DELETE command MUST delete the ACL of the mailbox (RFC 4314 section 4), this matters when a
-    // \Noselect placeholder stays for the children of the mailbox
-    // DELETE and CREATE are core commands, so the handlers exist
-    const prevDelete = server.getCommandHandler('DELETE') as CommandHandler;
-    server.setCommandHandler('DELETE', (connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) => {
-        const mailbox = argumentMailbox(parsed, 0);
-        prevDelete(connection, parsed, data, () => {
-            const placeholder = argumentMailbox(parsed, 0);
-            if (placeholder && placeholder !== mailbox) {
+    server.on('mailbox', (event: MailboxChangeEvent) => {
+        if (event.type === 'delete') {
+            // DELETE MUST delete the ACL of the mailbox (RFC 4314 section 4), this matters when a \Noselect
+            // placeholder stays for the children of the mailbox
+            const placeholder = server.getMailbox(event.path);
+            if (placeholder && placeholder !== event.mailbox) {
                 delete placeholder.acl;
             }
-            callback();
-        });
+        } else if (event.type === 'create') {
+            // A new mailbox inherits the ACL of its parent (RFC 4314 section 4, CREATE SHOULD)
+            (event.created || []).forEach((path: string) => {
+                const parent = getParent(path);
+                const mailbox = server.folderCache[path];
+                if (parent && mailbox && parent !== mailbox) {
+                    const acl: Acl = new Map();
+                    getAcl(parent).forEach((rights, identifier) => acl.set(identifier, new Set(rights)));
+                    mailbox.acl = acl;
+                }
+            });
+        }
     });
 
-    // A new mailbox inherits the ACL of its parent (RFC 4314 section 4, CREATE SHOULD)
-    const prevCreate = server.getCommandHandler('CREATE') as CommandHandler;
-    server.setCommandHandler('CREATE', (connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) => {
-        const existing = new Set(Object.keys(server.folderCache));
-        prevCreate(connection, parsed, data, () => {
-            Object.keys(server.folderCache)
-                .filter(path => !existing.has(path))
-                .sort((a, b) => a.length - b.length)
-                .forEach(path => {
-                    const parent = getParent(path);
-                    const mailbox = server.folderCache[path];
-                    if (parent && parent !== mailbox) {
-                        const acl: Acl = new Map();
-                        getAcl(parent).forEach((rights, identifier) => acl.set(identifier, new Set(rights)));
-                        mailbox.acl = acl;
-                    }
-                });
-            callback();
+    // Control API (README "Control API"): ACLs as objects of identifier to rights, like the storage option
+    const aclObject = (mailbox: Mailbox) => {
+        const result: Record<string, string> = {};
+        getAcl(mailbox).forEach((rights, identifier) => {
+            result[identifier] = formatRights(rights);
         });
+        return result;
+    };
+    const controlMailbox = (path: unknown): Mailbox => server.control.requireMailbox(path);
+
+    // the snapshot keeps ACLs in the form of the storage option, the parsed ACL is a Map
+    server.control.snapshotHandlers.push((mailbox: Mailbox, copy: Record<string, unknown>) => {
+        if (mailbox.acl instanceof Map) {
+            copy.acl = aclObject(mailbox);
+        }
     });
+
+    const getAclOperation = (path: string) => aclObject(controlMailbox(path));
+
+    // rights replace the rights of the identifier, "+rights" adds and "-rights" removes like SETACL (RFC 4314
+    // section 3.1), empty rights remove the identifier
+    const setAclOperation = (path: string, identifier: unknown, rights: unknown) => {
+        const mailbox = controlMailbox(path);
+        if (typeof identifier !== 'string' || !identifier || typeof rights !== 'string') {
+            throw storeError('setAcl expects an identifier and a rights string', 'INVALID');
+        }
+        const mode = /^[+-]/.test(rights) ? rights.charAt(0) : '';
+        let parsed: Rights;
+        try {
+            parsed = parseRights(rights.substr(mode.length));
+        } catch (err) {
+            throw storeError((err as Error).message, 'INVALID');
+        }
+        applyRights(mailbox, identifier, mode, parsed);
+        return aclObject(mailbox);
+    };
+
+    const deleteAclOperation = (path: string, identifier: unknown) => {
+        const mailbox = controlMailbox(path);
+        if (typeof identifier !== 'string' || !getAcl(mailbox).has(identifier)) {
+            throw storeError('No ACL entry for ' + JSON.stringify(identifier), 'NONEXISTENT');
+        }
+        changeAcl(mailbox, acl => acl.delete(identifier));
+        return aclObject(mailbox);
+    };
+
+    server.control.register('getAcl', getAclOperation, [
+        {
+            method: 'GET',
+            path: '/v1/mailboxes/{path}/acl',
+            summary: 'The ACL of a mailbox (ACL plugin)',
+            handler: ({ params }) => server.control.getAcl(params.path)
+        }
+    ]);
+    server.control.register('setAcl', setAclOperation, [
+        {
+            method: 'PUT',
+            path: '/v1/mailboxes/{path}/acl/{identifier}',
+            summary: 'Sets the rights of an identifier ({ rights }, "+" or "-" in front adds or removes, ACL plugin)',
+            handler: ({ params, body }) => server.control.setAcl(params.path, params.identifier, body.rights)
+        }
+    ]);
+    server.control.register('deleteAcl', deleteAclOperation, [
+        {
+            method: 'DELETE',
+            path: '/v1/mailboxes/{path}/acl/{identifier}',
+            summary: 'Removes an identifier from the ACL (ACL plugin)',
+            handler: ({ params }) => server.control.deleteAcl(params.path, params.identifier)
+        }
+    ]);
 }
