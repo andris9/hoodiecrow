@@ -154,13 +154,13 @@ Adds a message like a delivery from outside.
 
 Returns the new UID and the UIDVALIDITY of the mailbox. A `Date` is stored in the local time zone of the process, a string is kept as it is.
 
-**What sessions see:** sessions that have the mailbox selected get `* n EXISTS`. The first read-write session that has it selected sees the message as `\Recent`, like a delivery.
+**What sessions see:** sessions that have the mailbox selected get `* n EXISTS`, and IMAP4rev1 sessions `* n RECENT` with their new count of `\Recent` messages. The first read-write session that has it selected sees the message as `\Recent`, like a delivery.
 
 ```javascript
 const server = imapkit({ plugins: ['IDLE'] });
 // ... the client logs in, selects INBOX and starts IDLE
 server.control.addMessage('INBOX', { raw: 'Subject: three\r\n\r\nz\r\n' });
-// the idling client receives: * 2 EXISTS
+// the idling client receives: * 2 EXISTS and * 1 RECENT
 ```
 
 **The `checks` option.** Without it, the message is added whatever the limits are, which is how you fill a mailbox above its quota. With `checks: true` the checks of the loaded plugins run first: QUOTA refuses a message over a hard limit with `OVERQUOTA`, APPENDLIMIT one over the limit with `TOOBIG`. A soft quota does not refuse anything.
@@ -231,7 +231,7 @@ copyMessages(path: string, uids: number[], target: string): { uidvalidity: numbe
 
 Copies messages to another mailbox, in UID order like COPY. The copies keep the flags and internal date and get new UIDs in the target. Returns the UIDVALIDITY of the target and the new UID of every message, the same information COPYUID carries.
 
-**What sessions see:** sessions that have the target selected get `EXISTS`.
+**What sessions see:** sessions that have the target selected get `EXISTS` and `RECENT`.
 
 ```javascript
 server.control.copyMessages('INBOX', [2, 1], 'Archive/2024');
@@ -248,7 +248,7 @@ moveMessages(path: string, uids: number[], target: string): { uidvalidity: numbe
 
 Copies the messages like `copyMessages()` and then expunges them from the source. The return value has the same shape. It does not need the MOVE plugin.
 
-**What sessions see:** `EXISTS` in the target, `EXPUNGE` (or `VANISHED`) and `EXISTS` in the source.
+**What sessions see:** `EXISTS` and `RECENT` in the target, `EXPUNGE` (or `VANISHED`) and `EXISTS` in the source.
 
 ### replaceMessage(path, uid, message)
 
@@ -258,10 +258,11 @@ replaceMessage(path: string, uid: number, message: { raw: string | Uint8Array; f
 
 Replaces a message with a new source. The content of a UID never changes ([RFC 9051 section 2.3.1.1](https://www.rfc-editor.org/rfc/rfc9051#section-2.3.1.1)), so this adds the new message and expunges the old one, and the new message gets a new UID. Flags and internal date of the old message are kept unless `message` gives new ones. Returns the new UID.
 
-**What sessions see:** `EXISTS` for the new message, then `EXPUNGE` (or `VANISHED`) and `EXISTS` for the old one:
+**What sessions see:** `EXISTS` and `RECENT` for the new message, then `EXPUNGE` (or `VANISHED`) and `EXISTS` for the old one:
 
 ```
 * 4 EXISTS
+* 1 RECENT
 * 1 EXPUNGE
 * 3 EXISTS
 ```

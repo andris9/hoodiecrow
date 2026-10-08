@@ -1,12 +1,12 @@
 ---
 title: Multiple Sessions
 sidebar_position: 5
-description: How changes made by one session reach the others, when EXPUNGE responses may be sent, the RFC 2180 strategies for expunged messages, \Recent ownership, DELETE, RENAME and IDLE.
+description: How changes made by one session reach the others, when EXISTS, RECENT and EXPUNGE responses may be sent, the RFC 2180 strategies for expunged messages, \Recent ownership, DELETE, RENAME and IDLE.
 ---
 
 # Multiple sessions
 
-Any number of clients can connect to one ImapKit server, and they all work on the same mailbox tree (see [Authentication](./authentication.md)). When one session changes a mailbox, the other sessions that have it selected learn about it through unsolicited responses: `EXISTS` for new messages, `EXPUNGE` for removed ones, and `FETCH` with the new flags.
+Any number of clients can connect to one ImapKit server, and they all work on the same mailbox tree (see [Authentication](./authentication.md)). When one session changes a mailbox, the other sessions that have it selected learn about it through unsolicited responses: `EXISTS` (and `RECENT`) for new messages, `EXPUNGE` for removed ones, and `FETCH` with the new flags.
 
 Changes made with the [control API](../control-api/overview.md) reach the sessions the same way, as if another client had made them.
 
@@ -14,7 +14,7 @@ Changes made with the [control API](../control-api/overview.md) reach the sessio
 
 ## When notifications arrive
 
-Notifications from other sessions are queued and sent before the tagged response of the next command the session runs. NOOP is the usual way for a client to collect them.
+Notifications from other sessions are queued and sent before the tagged response of the next command the session runs, and before the responses of a command that refers to messages. NOOP is the usual way for a client to collect them.
 
 ```mermaid
 sequenceDiagram
@@ -31,10 +31,10 @@ sequenceDiagram
     S-->>B: B5 OK
     Note over S: A is not running a command, its notifications wait
     A->>S: A3 FETCH 1:3 (UID FLAGS)
+    S-->>A: * 1 FETCH (UID 1 FLAGS (\Flagged))
     S-->>A: three FETCH responses, message 2 still there
     S-->>A: A3 OK [EXPUNGEISSUED]
     A->>S: A4 NOOP
-    S-->>A: * 1 FETCH (UID 1 FLAGS (\Flagged))
     S-->>A: * 2 EXPUNGE, * 2 EXISTS
     S-->>A: A4 OK
 ```
@@ -42,8 +42,10 @@ sequenceDiagram
 The rules:
 
 - Nothing is sent while the session has no command in progress ([RFC 3501 section 5.3](https://www.rfc-editor.org/rfc/rfc3501#section-5.3)). The one exception is IDLE, see [IDLE](#idle).
-- EXPUNGE responses are not sent during FETCH, STORE and SEARCH ([RFC 3501 section 7.4.1](https://www.rfc-editor.org/rfc/rfc3501#section-7.4.1)), nor during the commands that extensions add to that list, such as SORT and THREAD. The other notifications wait with them, so the session's message numbers stay the same until the command completes. When an EXPUNGE is pending, the tagged OK of such a command carries `[EXPUNGEISSUED]`, which tells the client to send NOOP soon ([RFC 5530 section 3](https://www.rfc-editor.org/rfc/rfc5530#section-3)).
-- UID commands report the pending EXPUNGE responses before they run, since EXPUNGE is allowed during UID commands. UID SEARCH with message numbers in its criteria is the exception: it runs on the old numbers and the EXPUNGE waits.
+- A command that refers to messages (FETCH, STORE, SEARCH, COPY, MOVE, SORT, THREAD and the UID commands) first reports new messages and flag changes, before it resolves its message numbers. [RFC 3501 section 5.2](https://www.rfc-editor.org/rfc/rfc3501#section-5.2): "A server MUST send mailbox size updates automatically if a mailbox size change is observed during the processing of a command". So the client has been told about every message number that a response of the command uses, and a number above the count it was told about is answered with BAD ([RFC 3501 section 9](https://www.rfc-editor.org/rfc/rfc3501#section-9), seq-number).
+- EXPUNGE responses are not sent during FETCH, STORE and SEARCH ([RFC 3501 section 7.4.1](https://www.rfc-editor.org/rfc/rfc3501#section-7.4.1)), nor during the commands that extensions add to that list, such as SORT and THREAD. Only the notifications queued before a pending EXPUNGE are sent, the ones queued after it wait with it, so the session's message numbers stay the same until the command completes. That includes a message that arrived after the expunge: its EXISTS response can only follow the EXPUNGE. When an EXPUNGE is pending, the tagged OK of such a command carries `[EXPUNGEISSUED]`, which tells the client to send NOOP soon ([RFC 5530 section 3](https://www.rfc-editor.org/rfc/rfc5530#section-3)).
+- UID commands report the pending EXPUNGE responses before they run, since EXPUNGE is allowed during UID commands. UID SEARCH (and UID SORT and UID THREAD) with message numbers in its criteria is the exception: it runs on the old numbers, the EXPUNGE waits and the tagged OK carries `[EXPUNGEISSUED]`.
+- The EXISTS responses of new messages are followed by a RECENT response with the number of messages that are `\Recent` in the session ([RFC 3501 section 7.3.2](https://www.rfc-editor.org/rfc/rfc3501#section-7.3.2): it "occurs as a result of a SELECT or EXAMINE command, and if the size of the mailbox changes (e.g., new messages)"), one for several EXISTS responses in a row. Also for the session's own APPEND, COPY or MOVE into its selected mailbox. Not after `ENABLE IMAP4rev2`, which removed the RECENT response.
 - Unsolicited flag updates always include the UID: `* 1 FETCH (UID 2 FLAGS (\Seen))`. [RFC 9051 section 7.5.2](https://www.rfc-editor.org/rfc/rfc9051#section-7.5.2) requires it, and it is valid in IMAP4rev1 too. A message changed several times is reported once, with its current flags.
 - The session that made a change gets the usual responses of its own command, never a notification of it.
 - A session that has the mailbox selected gets an EXISTS with the new count after EXPUNGE responses caused by another session.
@@ -82,13 +84,13 @@ B S: * 2 EXPUNGE
 B S: B5 OK EXPUNGE Completed
 A C: A3 FETCH 1:3 (UID FLAGS)
 A S: * 1 FETCH (UID 1 FLAGS (\Flagged))
+A S: * 1 FETCH (UID 1 FLAGS (\Flagged))
 A S: * 2 FETCH (UID 2 FLAGS (\Deleted))
 A S: * 3 FETCH (UID 3 FLAGS ())
 A S: A3 OK [EXPUNGEISSUED] FETCH Completed
 A C: A4 STORE 2 +FLAGS (\Seen)
 A S: A4 NO [EXPUNGEISSUED] Some of the messages no longer exist
 A C: A5 COPY 1:3 Archive
-A S: * 1 FETCH (UID 1 FLAGS (\Flagged))
 A S: * 2 EXPUNGE
 A S: * 2 EXISTS
 A S: A5 NO [EXPUNGEISSUED] Some of the requested messages no longer exist
@@ -100,7 +102,7 @@ A S: * 2 FETCH (UID 3 FLAGS ())
 A S: A7 OK FETCH Completed
 ```
 
-FETCH `A3` still returns message 2 and shows the new flags of message 1, STORE `A4` touches only the expunged message and fails, and COPY `A5` is the first command that may report the EXPUNGE, so it does, copies nothing and fails. After that, message 2 is UID 3.
+FETCH `A3` first reports the flag change of B (the first `* 1 FETCH`, unsolicited, with the UID), then returns its own responses, message 2 still among them. STORE `A4` touches only the expunged message and fails, and COPY `A5` is the first command that may report the EXPUNGE, so it does, copies nothing and fails. After that, message 2 is UID 3.
 
 A UID command reports the EXPUNGE before it runs:
 
@@ -118,6 +120,56 @@ A S: * 2 FETCH (FLAGS () UID 3)
 A S: A3 OK UID FETCH Completed
 ```
 
+A new message is reported before the responses of a command that refers to it, so the client knows its number. One that arrived after a pending expunge has to wait for the EXPUNGE, until then its number is not valid:
+
+```text
+B C: B3 APPEND INBOX {18}
+B S: + Go ahead
+B C: Subject: new
+B C:
+B C: Hi
+B S: * 4 EXISTS
+B S: * 0 RECENT
+B S: B3 OK [APPENDUID 1 4] APPEND Completed
+A C: A3 FETCH 4 (UID FLAGS)
+A S: * 4 EXISTS
+A S: * 1 RECENT
+A S: * 4 FETCH (UID 4 FLAGS (\Recent))
+A S: A3 OK FETCH Completed
+B C: B4 STORE 1 +FLAGS.SILENT (\Deleted)
+B S: B4 OK STORE completed
+B C: B5 EXPUNGE
+B S: * 1 EXPUNGE
+B S: B5 OK EXPUNGE Completed
+B C: B6 APPEND INBOX {18}
+B S: + Go ahead
+B C: Subject: new
+B C:
+B C: Hi
+B S: * 4 EXISTS
+B S: * 0 RECENT
+B S: B6 OK [APPENDUID 1 5] APPEND Completed
+A C: A4 FETCH 1:* (UID)
+A S: * 1 FETCH (UID 1)
+A S: * 2 FETCH (UID 2)
+A S: * 3 FETCH (UID 3)
+A S: * 4 FETCH (UID 4)
+A S: A4 OK [EXPUNGEISSUED] FETCH Completed
+A C: A5 FETCH 5 (UID)
+A S: A5 BAD Message sequence number 5 is greater than the number of messages (4)
+A C: A6 UID SEARCH 1:4
+A S: * SEARCH 1 2 3 4
+A S: A6 OK [EXPUNGEISSUED] UID SEARCH completed
+A C: A7 NOOP
+A S: * 1 EXPUNGE
+A S: * 3 EXISTS
+A S: * 4 EXISTS
+A S: * 2 RECENT
+A S: A7 OK Completed
+```
+
+The new message is `\Recent` in A, the first session that selected INBOX read-write, so B gets `* 0 RECENT` for its own APPEND.
+
 ## IDLE
 
 During IDLE ([RFC 2177](https://www.rfc-editor.org/rfc/rfc2177)) notifications are sent right away, without waiting for DONE. Continuing the session above, A starts IDLE while B appends a message, sets a flag and expunges another message:
@@ -131,6 +183,7 @@ B C: Subject: new
 B C:
 B C: Hi
 B S: * 3 EXISTS
+B S: * 0 RECENT
 B S: B5 OK APPEND Completed
 B C: B6 STORE 1 +FLAGS (\Seen)
 B S: * 1 FETCH (FLAGS (\Seen))
@@ -141,6 +194,7 @@ B C: B8 EXPUNGE
 B S: * 2 EXPUNGE
 B S: B8 OK EXPUNGE Completed
 A S: * 3 EXISTS
+A S: * 1 RECENT
 A S: * 1 FETCH (UID 2 FLAGS (\Seen))
 A S: * 2 FETCH (UID 3 FLAGS (\Deleted))
 A S: * 2 EXPUNGE
@@ -157,7 +211,7 @@ Only changes to the selected mailbox are reported. Anything other than `DONE` wh
 
 - The first session that selects the mailbox read-write takes the `\Recent` flags. Later sessions see `0 RECENT`.
 - EXAMINE shows the `\Recent` flags but does not take them ([RFC 3501 section 6.3.2](https://www.rfc-editor.org/rfc/rfc3501#section-6.3.2)).
-- A new message is `\Recent` in one session that has the mailbox selected read-write, or, when there is none, for the next session that selects it.
+- A new message is `\Recent` in one session that has the mailbox selected read-write, or, when there is none, for the next session that selects it. The sessions that have the mailbox selected get a RECENT response with their new count after its EXISTS response.
 - STATUS counts every message that is `\Recent` in any session, and does not take the flag.
 
 Messages from the storage are `\Recent` only with `"recent": true`, see [Storage](./storage.md#recent). With one such message (some untagged responses left out):
@@ -208,6 +262,7 @@ B C: Hi
 B S: B3 OK APPEND Completed
 A C: A3 NOOP
 A S: * 2 EXISTS
+A S: * 1 RECENT
 A S: A3 OK Completed
 A C: A4 FETCH 1:* (UID)
 A S: * 1 FETCH (UID 1)

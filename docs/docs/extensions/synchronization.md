@@ -57,6 +57,7 @@ B C: Subject: hi
 B C:
 B C: hello
 A S: * 5 EXISTS
+A S: * 1 RECENT
 B S: B2 OK APPEND Completed
 A C: DONE
 A S: A3 OK IDLE terminated
@@ -214,7 +215,7 @@ Adds `NOTIFY SET [STATUS] (filter (events)) ...` and `NOTIFY NONE` (RFC 5465).
 
 How events are delivered:
 
-- Events are sent as soon as they happen, also between commands, except EXPUNGE (or VANISHED) with `selected-delayed`, and except during FETCH, STORE and SEARCH.
+- Events are sent as soon as they happen, also between commands. While a command runs they wait for its tagged response, EXPUNGE (or VANISHED) waits longer with `selected-delayed` and during FETCH, STORE and SEARCH. For a new message in the selected mailbox an IMAP4rev1 session gets EXISTS, the requested FETCH and then RECENT (RFC 5465 section 5.2 allows the RECENT response).
 - After the first NOTIFY a session only hears about the events it asked for, also for the selected mailbox. Changes made by the session itself are not reported.
 - Other mailboxes are reported with STATUS: MESSAGES and UIDNEXT, UNSEEN when the `\Seen` count changed, and HIGHESTMODSEQ when CONDSTORE is enabled. With ACL, only mailboxes with the `l` and `r` rights are reported, and granting or revoking `l` counts as MailboxName.
 - Fetch attributes of MessageNew never set `\Seen`.
