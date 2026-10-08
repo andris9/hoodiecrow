@@ -1567,6 +1567,8 @@ class IMAPConnection {
     /** notifications are sent right away instead of before the next tagged response (IDLE) */
     declare directNotifications: boolean;
     declare notificationQueue: Notification[];
+    /** the plain socket that STARTTLS wrapped in TLS */
+    declare tcpSocket: net.Socket | null | undefined;
     /** the number of the connection, 1 for the first one the server accepted (script rules match it) */
     declare sessionNumber: number;
     /** the tag and name of the command whose input handler reads the lines that follow (IDLE, AUTHENTICATE) */
@@ -1850,15 +1852,10 @@ class IMAPConnection {
             socket.pause();
             // a RST sent in the same tick as the last output can get lost: on macOS the client received the output but
             // never the RST (#81). Node has no signal for output that reached the peer, so the RST waits a little
+            const tcpSocket = this.tcpSocket;
             setTimeout(() => {
-                if (socket.destroyed) {
-                    return;
-                }
-                // resetAndDestroy sends a TCP RST (Node 16.17), not every runtime has it
-                if (typeof socket.resetAndDestroy === 'function') {
-                    socket.resetAndDestroy();
-                } else {
-                    socket.destroy();
+                if (!socket.destroyed) {
+                    resetSocket(socket, tcpSocket);
                 }
             }, RESET_DELAY);
         } else if (this.transport) {
@@ -2548,6 +2545,9 @@ class IMAPConnection {
 
         // STARTTLS runs on a live connection
         const socket = this.socket as net.Socket;
+        // the RST of a script rule goes to the TCP socket under the TLS layer, see resetSocket. Node also has it as the
+        // _parent of the TLS socket, Bun does not
+        this.tcpSocket = socket;
 
         // remove all listeners from the original socket besides the error handler
         socket.removeAllListeners();
@@ -3415,6 +3415,32 @@ class IMAPConnection {
             ignoreSelf || ignoreExists ? this : false
         );
     }
+}
+
+/**
+ * Destroys a socket with a TCP RST (`close: 'reset'` of a script rule). resetAndDestroy (Node 16.17) needs a socket with
+ * a TCP handle, a TLS socket throws ERR_INVALID_HANDLE_TYPE (#84), so the RST goes to the TCP socket under the TLS
+ * layer: the plain socket of STARTTLS, or the parent socket of implicit TLS (Node). A runtime without resetAndDestroy,
+ * or a socket that can not be reset, is destroyed without a RST
+ *
+ * @param {Object} socket The socket of the connection
+ * @param {Object} [tcpSocket] The plain socket that STARTTLS wrapped
+ */
+function resetSocket(socket: net.Socket, tcpSocket?: net.Socket | null): void {
+    const parent = (socket as net.Socket & { _parent?: unknown })._parent;
+    const candidates = [tcpSocket, parent instanceof net.Socket ? parent : null, socket];
+    for (const candidate of candidates) {
+        if (candidate && !candidate.destroyed && typeof candidate.resetAndDestroy === 'function') {
+            try {
+                candidate.resetAndDestroy();
+                break;
+            } catch {
+                // not a TCP handle, try the next one
+            }
+        }
+    }
+    // the TLS socket closes with the TCP socket under it, and emits close for the connection
+    socket.destroy();
 }
 
 /**
