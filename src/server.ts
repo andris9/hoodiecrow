@@ -72,6 +72,8 @@ import type {
 
 // longest command line (not counting literals) accepted from a client
 const MAX_LINE_LENGTH = 1024 * 1024;
+// milliseconds between the last output and the RST of a script rule with `close: 'reset'`
+const RESET_DELAY = 20;
 // largest literal accepted after login, override with the maxLiteralSize option
 const MAX_LITERAL_SIZE = 64 * 1024 * 1024;
 // largest literal accepted before login, enough for any user name or password
@@ -1589,6 +1591,8 @@ class IMAPConnection {
     declare _outputTimer: ReturnType<typeof setTimeout> | null;
     /** untagged responses that `defer` rules hold back, see releaseDeferred in src/script.ts */
     declare _deferredOutput: DeferredOutput[] | null;
+    /** a script rule closes the connection with a RST, see closeNow */
+    declare _resetting: boolean | undefined;
 
     constructor(server: IMAPServer, socket: net.Socket) {
         this.server = server;
@@ -1841,12 +1845,22 @@ class IMAPConnection {
         this.clearOutputQueue();
         if (mode === 'reset') {
             this.discardInput();
-            // resetAndDestroy sends a TCP RST (Node 16.17), not every runtime has it
-            if (typeof socket.resetAndDestroy === 'function') {
-                socket.resetAndDestroy();
-            } else {
-                socket.destroy();
-            }
+            // input that arrives while the reset waits is not processed, also input a transport layer still holds
+            this._resetting = true;
+            socket.pause();
+            // a RST sent in the same tick as the last output can get lost: on macOS the client received the output but
+            // never the RST (#81). Node has no signal for output that reached the peer, so the RST waits a little
+            setTimeout(() => {
+                if (socket.destroyed) {
+                    return;
+                }
+                // resetAndDestroy sends a TCP RST (Node 16.17), not every runtime has it
+                if (typeof socket.resetAndDestroy === 'function') {
+                    socket.resetAndDestroy();
+                } else {
+                    socket.destroy();
+                }
+            }, RESET_DELAY);
         } else if (this.transport) {
             this.transport.end(() => socket.end());
         } else {
@@ -1991,6 +2005,10 @@ class IMAPConnection {
     onData(chunk: Buffer): void {
         let match;
         let str;
+
+        if (this._resetting) {
+            return;
+        }
 
         // everything in one read arrived before anything this read causes to be sent
         this._readCount = (this._readCount || 0) + 1;

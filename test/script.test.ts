@@ -489,6 +489,31 @@ describe('Script rules', () => {
             client.close();
         });
 
+        it('resets the connection after the IDLE continuation of a longer session (#81)', async () => {
+            ctx.server.script.add({ on: 'continuation', description: 'IDLE', close: 'reset' });
+            const client = await connectRaw(ctx.port);
+            await client.waitFor(/^\* OK/);
+            for (const line of [
+                '1 CAPABILITY',
+                '2 LOGIN testuser testpass',
+                '3 CAPABILITY',
+                '4 LIST "" ""',
+                '5 LIST "" "INBOX"',
+                '6 LSUB "" "INBOX"',
+                '7 SELECT INBOX'
+            ]) {
+                await command(client, line);
+            }
+            client.send('8 IDLE\r\n');
+            const { output, error } = await client.closed();
+            assert.match(output, /\r\n\+ idling\r\n$/);
+            // Bun and Deno may close without a RST
+            const node = !('Bun' in globalThis) && !('Deno' in globalThis);
+            if (node) {
+                assert.strictEqual((error as NodeJS.ErrnoException | null)?.code, 'ECONNRESET');
+            }
+        });
+
         it('replaces the continuation of IDLE', async () => {
             ctx.server.script.add({ on: 'continuation', command: 'IDLE', send: '* OK still here\r\n' });
             const client = await loggedIn(ctx.port);
