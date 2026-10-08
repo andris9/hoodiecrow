@@ -11,8 +11,8 @@ export interface RawClient {
     send(data: string | Buffer): void;
     /** resolves with the output once it matches, or rejects after the timeout */
     waitFor(pattern: RegExp, timeout?: number): Promise<string>;
-    /** resolves with the output once the server closed the connection, `error` is the socket error if there was one */
-    closed(): Promise<{ output: string; error: Error | null }>;
+    /** resolves with the output once the server closed the connection, `error` is the socket error if there was one. Rejects after the timeout */
+    closed(timeout?: number): Promise<{ output: string; error: Error | null }>;
     close(): void;
 }
 
@@ -80,7 +80,14 @@ export function connectRaw(port: number): Promise<RawClient> {
                     listeners.add(check);
                     check();
                 }),
-            closed: () => closed,
+            closed: (timeout = 3000) =>
+                new Promise((resolveClosed, rejectClosed) => {
+                    const timer = setTimeout(() => rejectClosed(new Error('Connection still open, received:\n' + JSON.stringify(buffer))), timeout);
+                    closed.then(result => {
+                        clearTimeout(timer);
+                        resolveClosed(result);
+                    });
+                }),
             close: () => {
                 socket.destroy();
             }
