@@ -16,7 +16,7 @@ export default function multiappendPlugin(server: IMAPServer) {
 
     // RFC 3502 section 6.3.11: "A zero-length message literal argument is an error, and MUST return a NO.
     // This can be used to cancel the append." Nothing is stored when any message fails
-    server.appendChecks.push((connection: IMAPConnection, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
+    server.appendChecks.push((connection: IMAPConnection | null, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
         // only APPEND like commands, not COPY or MOVE
         if (options.command && messages.some(message => !message.resolve && !message.raw.length)) {
             return { text: 'Zero-length message literal, APPEND cancelled' };

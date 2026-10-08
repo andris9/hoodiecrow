@@ -30,7 +30,7 @@ export default function savedatePlugin(server: IMAPServer) {
             return;
         }
 
-        const savedate = server.normalizeDateTime(message.SAVEDATE || new Date());
+        const savedate = server.normalizeDateTime(message.SAVEDATE || server.now());
         if (!server.validateInternalDate(savedate)) {
             throw new Error('Invalid SAVEDATE value ' + JSON.stringify(savedate) + ' in mailbox ' + mailbox.path);
         }

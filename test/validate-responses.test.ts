@@ -24,7 +24,7 @@ describe('Response grammar guardrail', () => {
         '* VANISHED 1:3,5\r\n* VANISHED (EARLIER) 7\r\n',
         '+ idling\r\n',
         '+ \r\n',
-        '* XTOYBIRD ok\r\n',
+        '* ID ("name" "imapkit")\r\n',
         '* LIST (\\HasNoChildren) "/" "INBOX"\r\n* LIST () NIL INBOX\r\n* LSUB (\\Noselect) "." foo\r\n',
         '* LIST (\\NonExistent \\Subscribed) "/" "a b" ("CHILDINFO" ("SUBSCRIBED"))\r\n',
         '* STATUS INBOX (MESSAGES 3 SIZE 1338)\r\n* STATUS "a b" ()\r\n',

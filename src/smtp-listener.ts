@@ -9,10 +9,11 @@ import type { IMAPServer } from './types.js';
  *
  * @param {Number} smtpPort - port to listen on for SMTP commands
  * @param {Object} imapServer - the ImapKit IMAP server
- * @param {Function} [callback] - function executed when SMTP server is listening
+ * @param {Function} [callback] - function executed when SMTP server is listening, with the port
+ * @param {String} [host] - address to listen on, all addresses if not set
  * @return {SMTPServer} the SMTP server instance, use `close()` to stop it
  */
-export function startSMTPServer(smtpPort: number, imapServer: IMAPServer, callback?: (() => void) | null): SMTPServer {
+export function startSMTPServer(smtpPort: number, imapServer: IMAPServer, callback?: ((port: number) => void) | null, host?: string): SMTPServer {
     const credentials = imapServer.getCredentials();
 
     const server = new SMTPServer({
@@ -42,10 +43,12 @@ export function startSMTPServer(smtpPort: number, imapServer: IMAPServer, callba
         }
     });
 
-    server.listen(smtpPort, () => {
-        console.log('Incoming SMTP server up and running on port %s', (server.server.address() as AddressInfo).port);
-        callback?.();
-    });
+    const onListening = () => callback?.((server.server.address() as AddressInfo).port);
+    if (host) {
+        server.listen(smtpPort, host, onListening);
+    } else {
+        server.listen(smtpPort, onListening);
+    }
 
     return server;
 }

@@ -1,4 +1,6 @@
 import type { IMAPConnection, IMAPServer } from './server.js';
+import { seededRandom } from './random.js';
+import { MAX_NUMBER } from './numbers.js';
 import type { Attribute, IMAPResponse, ParsedCommand, Transport } from './types.js';
 
 /**
@@ -9,7 +11,7 @@ import type { Attribute, IMAPResponse, ParsedCommand, Transport } from './types.
  */
 
 /** The events a rule can watch */
-export type ScriptEvent = 'greeting' | 'command' | 'input' | 'response' | 'continuation';
+export type ScriptEvent = 'greeting' | 'command' | 'input' | 'response' | 'continuation' | 'quiet';
 
 /** Bytes a rule sends, a function gets the context of the event */
 export type ScriptBytes = string | Buffer | ((context: ScriptContext) => string | Buffer);
@@ -35,6 +37,8 @@ export interface ScriptContext {
     description?: string | null | undefined;
     /** the response object (response and continuation events sent with `connection.send()`) */
     response?: IMAPResponse | undefined;
+    /** milliseconds without input or output (quiet events) */
+    quiet?: number | undefined;
 }
 
 /** A rule as it is given to `server.script.add()` or the `script` option */
@@ -64,6 +68,11 @@ export interface ScriptRule {
     nth?: number | undefined;
     /** the rule fires this many times at most (default unlimited) */
     times?: number | undefined;
+    /** the rule fires on a matching event with this probability (0 to 1), from the seeded random numbers of the
+     * server (`scriptSeed` option), so a run can be repeated */
+    chance?: number | undefined;
+    /** milliseconds without input or output before a quiet event fires (quiet events, required) */
+    quietFor?: number | undefined;
 
     // actions
 
@@ -90,8 +99,9 @@ export interface ScriptRule {
     delay?: number | undefined;
     /** write the bytes in pieces of this many octets */
     chunk?: number | undefined;
-    /** milliseconds between the pieces of `chunk` (default 10) */
-    chunkDelay?: number | undefined;
+    /** milliseconds between the pieces of `chunk` (default 10). 0 or "tick" sends each piece on its own event loop
+     * turn, so the pieces leave as separate TCP segments without a wall clock delay */
+    chunkDelay?: number | 'tick' | undefined;
     /** send only this many octets of the bytes, then close the connection */
     truncate?: number | undefined;
     /** close the connection after the bytes are sent, `"reset"` destroys the socket instead of ending it */
@@ -100,6 +110,8 @@ export interface ScriptRule {
 
 /** A rule that was added, `server.script.add()` returns it */
 export interface ScriptHandle {
+    /** number of the rule, 1 for the first rule added to the server */
+    readonly id: number;
     readonly rule: ScriptRule;
     /** events that matched the rule, also before `nth` */
     readonly matched: number;
@@ -113,20 +125,21 @@ export interface OutputOperation {
     data?: Buffer | undefined;
     delay?: number | undefined;
     chunk?: number | undefined;
-    chunkDelay?: number | undefined;
+    chunkDelay?: number | 'tick' | undefined;
     close?: boolean | 'reset' | undefined;
     /** the transport layer of the connection when the output was queued */
     transport?: Transport | null | undefined;
 }
 
-const EVENTS: ScriptEvent[] = ['greeting', 'command', 'input', 'response', 'continuation'];
+const EVENTS: ScriptEvent[] = ['greeting', 'command', 'input', 'response', 'continuation', 'quiet'];
 const OUTPUT_EVENTS: ScriptEvent[] = ['greeting', 'response', 'continuation'];
 
 // the events where a key is valid, every other key is a typo and refused
 const KEYS: Record<keyof ScriptRule, ScriptEvent[]> = {
     on: EVENTS,
-    command: ['command', 'input', 'response', 'continuation'],
-    tag: ['command', 'input', 'response', 'continuation'],
+    // a quiet event belongs to the command that waits for input (IDLE), if there is one
+    command: ['command', 'input', 'response', 'continuation', 'quiet'],
+    tag: ['command', 'input', 'response', 'continuation', 'quiet'],
     description: ['response', 'continuation'],
     session: EVENTS,
     user: EVENTS,
@@ -137,6 +150,8 @@ const KEYS: Record<keyof ScriptRule, ScriptEvent[]> = {
     when: EVENTS,
     nth: EVENTS,
     times: EVENTS,
+    chance: EVENTS,
+    quietFor: ['quiet'],
     mutate: ['response', 'continuation'],
     literals: ['response'],
     defer: ['response'],
@@ -144,7 +159,7 @@ const KEYS: Record<keyof ScriptRule, ScriptEvent[]> = {
     before: OUTPUT_EVENTS,
     after: OUTPUT_EVENTS,
     run: ['command', 'input'],
-    drop: EVENTS,
+    drop: ['greeting', 'command', 'input', 'response', 'continuation'],
     delay: ['greeting', 'command', 'response', 'continuation'],
     chunk: EVENTS,
     chunkDelay: EVENTS,
@@ -204,6 +219,12 @@ function validateRule(rule: ScriptRule): RegExp | null {
             throw new TypeError('Script rule option "' + key + '" can not be used with "on": "' + rule.on + '"');
         }
     }
+    if (rule.on === 'quiet' && !(Number.isInteger(rule.quietFor) && (rule.quietFor as number) > 0)) {
+        throw new TypeError('A quiet rule needs "quietFor", a positive number of milliseconds');
+    }
+    if (rule.chance !== undefined && !(typeof rule.chance === 'number' && rule.chance >= 0 && rule.chance <= 1)) {
+        throw new TypeError('Script rule option "chance" must be a number from 0 to 1');
+    }
     if (!ACTIONS.some(key => rule[key] !== undefined && rule[key] !== false)) {
         throw new TypeError('A script rule needs an action (' + ACTIONS.join(', ') + ')');
     }
@@ -226,6 +247,9 @@ function validateRule(rule: ScriptRule): RegExp | null {
         }
     }
     for (const key of ['delay', 'chunkDelay', 'truncate'] as const) {
+        if (key === 'chunkDelay' && rule[key] === 'tick') {
+            continue;
+        }
         if (rule[key] !== undefined && !(Number.isInteger(rule[key]) && (rule[key] as number) >= 0)) {
             throw new TypeError('Script rule option "' + key + '" must be a non-negative integer');
         }
@@ -283,12 +307,24 @@ function validateRule(rule: ScriptRule): RegExp | null {
 export class ServerScript {
     declare server: IMAPServer;
     declare entries: Entry[];
+    /** rules added so far, the id of a rule is its number */
+    declare ruleCounter: number;
+    /** random numbers for `chance`, seeded with the `scriptSeed` option */
+    declare random: () => number;
     /** the events that rules watch, so that an event nobody watches costs one lookup */
     declare watched: Set<ScriptEvent>;
 
     constructor(server: IMAPServer, rules?: ScriptRule | ScriptRule[] | undefined) {
         this.server = server;
         this.entries = [];
+        this.ruleCounter = 0;
+        const seed = server.options.scriptSeed;
+        const seedRandom = () => {
+            this.random = seededRandom(typeof seed === 'number' ? seed : Math.floor(Math.random() * MAX_NUMBER));
+        };
+        seedRandom();
+        // control.reset() starts the same random sequence again
+        server.on('reset', seedRandom);
         this.watched = new Set();
         if (rules) {
             this.add(rules);
@@ -357,6 +393,27 @@ export class ServerScript {
     private setEntries(entries: Entry[]): void {
         this.entries = entries;
         this.watched = new Set(entries.map(entry => entry.rule.on));
+        if (this.watched.has('quiet')) {
+            // sessions that are quiet already start counting now
+            this.server.connections?.forEach(connection => connection.watchQuiet());
+        }
+    }
+
+    /**
+     * The next quiet time a rule waits for, after the quiet time the rules were checked for already
+     *
+     * @param {Number} checked Milliseconds of quiet the rules were checked for
+     * @return {Number|null} the smallest `quietFor` above it, null if there is none
+     */
+    nextQuiet(checked: number): number | null {
+        let next: number | null = null;
+        for (const entry of this.entries) {
+            const quietFor = entry.rule.quietFor;
+            if (entry.rule.on === 'quiet' && quietFor !== undefined && quietFor > checked && (next === null || quietFor < next)) {
+                next = quietFor;
+            }
+        }
+        return next;
     }
 
     private addEntry(rule: ScriptRule, match: RegExp | null): ScriptHandle {
@@ -371,6 +428,7 @@ export class ServerScript {
             }
         }
         const entry: Entry = {
+            id: ++this.ruleCounter,
             rule: copy,
             match,
             sets,
@@ -398,6 +456,9 @@ export class ServerScript {
             if (entry.matched < (rule.nth || 1) || (rule.times !== undefined && entry.hits >= rule.times)) {
                 continue;
             }
+            if (rule.chance !== undefined && this.random() >= rule.chance) {
+                continue;
+            }
             entry.hits++;
             this.server.emit('script', { rule, event: context.event, session: context.session, tag: context.tag, command: context.command });
             return rule;
@@ -418,6 +479,9 @@ export class ServerScript {
             return false;
         }
         if (rule.untagged !== undefined && rule.untagged !== (!context.response || context.response.tag === '*')) {
+            return false;
+        }
+        if (rule.quietFor !== undefined && (context.quiet || 0) < rule.quietFor) {
             return false;
         }
         if (entry.match && !entry.match.test(context.data)) {
@@ -635,6 +699,17 @@ function sendBytes(connection: IMAPConnection, rule: ScriptRule, data: Buffer, d
         chunkDelay: rule.chunkDelay === undefined ? DEFAULT_CHUNK_DELAY : rule.chunkDelay,
         close: rule.close || (rule.truncate === undefined ? undefined : true)
     });
+}
+
+/**
+ * Handles a quiet event with the rule that matched it: sends the bytes of `send` and closes the connection with `close`
+ *
+ * @param {Object} connection IMAP connection
+ * @param {Object} rule Rule that matched
+ * @param {Object} context Event context
+ */
+export function handleQuiet(connection: IMAPConnection, rule: ScriptRule, context: ScriptContext): void {
+    sendBytes(connection, rule, resolveBytes(rule.send, context) || Buffer.alloc(0));
 }
 
 /**

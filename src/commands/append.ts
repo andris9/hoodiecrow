@@ -70,7 +70,7 @@ function parseFlags(connection: IMAPConnection, list: Attribute[]): string[] {
                 throw new Error('Invalid flags argument');
             }
             const value = normalizeSystemFlag(flag.value);
-            checkSystemFlags(connection, value);
+            checkSystemFlags(connection.server, value);
             return value;
         });
     } catch {

@@ -1,3 +1,4 @@
+import { unsubscribeMailbox } from '../store-operations.js';
 import type { Callback, IMAPConnection, ParsedCommand } from '../types.js';
 
 export default function unsubscribeCommand(connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) {
@@ -20,16 +21,8 @@ export default function unsubscribeCommand(connection: IMAPConnection, parsed: P
         return callback();
     }
 
-    let path = parsed.attributes[0].value;
-    if (path.toUpperCase() === 'INBOX') {
-        path = 'INBOX';
-    }
-
-    // The subscription list holds names, so a name stays removable after its mailbox is deleted
-    // (RFC 3501 section 6.3.6). Removing a name that is not subscribed is not an error (RFC 9051 section 6.3.8)
-    if (connection.server.subscriptions.delete(path)) {
-        connection.server.mailboxChanged('unsubscribe', path);
-    }
+    // removing a name that is not subscribed is not an error (RFC 9051 section 6.3.8)
+    unsubscribeMailbox(connection.server, parsed.attributes[0].value);
 
     connection.send(
         {

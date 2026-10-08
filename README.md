@@ -12,7 +12,7 @@ Homepage: [imapkit.com](https://imapkit.com). ImapKit requires Node.js 20 or new
 
 > ImapKit is maintained by the team behind **[EmailEngine](https://emailengine.app/?utm_source=imapkit-readme&utm_medium=readme&utm_campaign=oss-docs&utm_content=note)**, a self-hosted email API that turns Gmail, Microsoft 365, and IMAP accounts into REST endpoints, with managed OAuth2 and webhooks for incoming mail. If you need a production email integration rather than a mock IMAP server for tests, start there.
 
-> **Formerly Hoodiecrow.** ImapKit was published as [`hoodiecrow-imap`](https://www.npmjs.com/package/hoodiecrow-imap) up to version 3.3.1. To migrate, install `imapkit` instead and use `require('imapkit')`. The command is now `imapkit` and its environment variables start with `IMAPKIT_` instead of `HOODIECROW_`. The API, plugins, storage format and XTOYBIRD commands are unchanged.
+> **Formerly Hoodiecrow.** ImapKit was published as [`hoodiecrow-imap`](https://www.npmjs.com/package/hoodiecrow-imap) up to version 3.3.1. To migrate, install `imapkit` instead and use `require('imapkit')`. The command is now `imapkit` and its environment variables start with `IMAPKIT_` instead of `HOODIECROW_`. The API, plugins and storage format are unchanged.
 
 # Usage
 
@@ -27,7 +27,7 @@ imapkit -p 1143
 
 Point your IMAP client to `localhost:1143` and log in with user name `testuser` and password `testpass`. Without `-p` the server listens on port 143 (993 with `--secure`), which usually needs root privileges.
 
-`imapkit --smtpPort=1025` also starts an SMTP server that appends every message it receives to INBOX.
+`imapkit --smtpPort=1025` also starts an SMTP server that appends every message it receives to INBOX. SMTP needs the optional [smtp-server](https://www.npmjs.com/package/smtp-server) package, which is not installed with ImapKit: `npm install -g smtp-server` (or `npm install smtp-server` next to a local install).
 
 Run `imapkit --help` to see all command line options, the environment variables (`IMAPKIT_PORT`, `IMAPKIT_PLUGINS`, ...) and sample configuration data. For example, `imapkit -p 1143 --plugin=IDLE,MOVE,CONDSTORE --storage=storage.json` loads three plugins and the mailboxes of `storage.json`.
 
@@ -57,7 +57,7 @@ import imapkit, { type IMAPServerOptions, type Plugin } from 'imapkit';
 
 ImapKit needs Node.js 20 or newer. It also runs on the latest [Bun](https://bun.sh/) and [Deno](https://deno.com/) releases (`npm:imapkit` in Deno), CI runs the whole test suite on both.
 
-See [complete.js](https://github.com/postalsys/imapkit/blob/master/examples/complete.js) for an example.
+See [complete.js](https://github.com/postalsys/imapkit/blob/master/examples/complete.js) for an example, [control-api.js](https://github.com/postalsys/imapkit/blob/master/examples/control-api.js) for a client test that changes the server state with the control API, and [rest-api.py](https://github.com/postalsys/imapkit/blob/master/examples/rest-api.py) for the REST API from Python.
 
 ## Scope
 
@@ -119,7 +119,7 @@ ImapKit follows these of the strategies that RFC 2180 (IMAP4 Multi-Accessed Mail
 
 ## Authentication
 
-By default the only account is user name `"testuser"` with password `"testpass"` (and access token `"testtoken"` for XOAUTH2 and OAUTHBEARER). The `users` option replaces the default account list, for example `{ "testuser": { "password": "testpass" }, "otheruser": { "password": "secret" } }`, and `XTOYBIRD USERADD` adds users at runtime. All users share the same mailbox tree.
+By default the only account is user name `"testuser"` with password `"testpass"` (and access token `"testtoken"` for XOAUTH2 and OAUTHBEARER). The `users` option replaces the default account list, for example `{ "testuser": { "password": "testpass" }, "otheruser": { "password": "secret" } }`, and `server.control.addUser()` adds users at runtime (see [Control API](#control-api)). All users share the same mailbox tree.
 
 ## Status
 
@@ -194,7 +194,6 @@ An unknown plugin name throws an error, and a plugin listed more than once is lo
 - **UTF8=ACCEPT** Adds UTF8=ACCEPT [RFC9755] capability and loads ENABLE. After `ENABLE UTF8=ACCEPT` mailbox names are UTF-8 in both directions (storage keeps modified UTF-7 names, so `&` is an ordinary character), strings that are valid UTF-8 are sent quoted, and SEARCH strings are UTF-8 without `CHARSET`. UTF8=ONLY, the obsolete `APPEND ... UTF8 (...)` data item of RFC 6855 and downgrading of 8-bit headers for clients that did not enable UTF-8 (RFC 9755 section 8) are not implemented
 - **X-GM-EXT-1** Adds [Gmail specific](https://developers.google.com/workspace/gmail/imap/imap-extensions) extensions. `X-GM-MSGID` and `X-GM-THRID` work with FETCH and SEARCH (every message is its own thread unless the storage sets an `X-GM-THRID` value for it; with OBJECTID loaded, the messages of a `THREADID` share the `X-GM-THRID` of the first message of that thread, so both thread ids group the same messages). `X-GM-LABELS` works with FETCH, STORE (`+`, `-`, `.SILENT`) and SEARCH: system labels are atoms that start with `\` (`\Inbox` for INBOX, the special-use attribute for special-use mailboxes), other labels are mailbox names, sent and read in the form the session uses for mailbox names (modified UTF-7, or UTF-8 after `ENABLE UTF8=ACCEPT`) and quoted when they are not atoms. In SEARCH a label that starts with `\` is a system label. Setting a label does not change message behavior, for example the message does not get copied to another mailbox. `X-GM-RAW` supports a subset of the Gmail search syntax: words and `"phrases"` (TEXT), `-term`, `OR`, `( )`, `{ }`, `from:`, `to:`, `cc:`, `bcc:`, `subject:`, `label:`, `in:` (`inbox`, `sent`, `drafts`, `trash`, `spam`, `anywhere` or a label), `is:` (`read`, `unread`, `starred`, `important`), `larger:` and `smaller:` (with `k` or `m`), `after:` and `before:` (`YYYY/MM/DD`) and `rfc822msgid:`. Other Gmail operators (`has:`, `older_than:` ...) are answered with NO
 - **XOAUTH2** Gmail XOAUTH2 login. Needs SASL-IR (load the SASL-IR plugin too), Gmail itself does not. Use `"testuser"` as the user name and `"testtoken"` as the access token to log in.
-- **XTOYBIRD** Custom plugin to allow programmatic control of the server. XTOYBIRD commands are only allowed after login
 
 ## ACL
 
@@ -222,43 +221,23 @@ The rights of other users are enforced as RFC 4314 section 4 describes:
 
 Missing rights are answered with `NO [NOPERM]`, or with the same error as for a mailbox that does not exist when the user does not have `l` either, so the existence of the mailbox is not disclosed (RFC 4314 section 6). The rights on the selected mailbox are taken when it is selected. A new mailbox inherits the ACL of its parent and DELETE removes the ACL. The obsolete `c` and `d` rights are accepted as `kx` and `et` and are added to ACL and MYRIGHTS responses (RFC 4314 section 2.1.1). The rights of the owner can not be changed.
 
-## Existing XTOYBIRD commands
+## Migrating from 4.x
 
-To use these functions, XTOYBIRD plugin needs to be enabled and the client needs to be logged in.
+ImapKit 5.0.0 has two breaking changes:
 
-XTOYBIRD is a test control plugin, not an IMAP extension: it skips every access check, so any user that may use it can read the whole storage (all users' mailboxes with `XTOYBIRD STORAGE`), add users and shut the server down. Load it only in tests that need it. With the ACL plugin only the owner (`aclOwner` option, default `testuser`) may use XTOYBIRD, other users get `NO [NOPERM]`.
+- SMTP (`--smtpPort`, the `smtp` option) needs the `smtp-server` package, it is an optional peer dependency now: `npm install smtp-server`.
+- The XTOYBIRD plugin was removed, the IMAP port carries IMAP traffic only. Loading `XTOYBIRD` throws an error that points here.
 
-Available commands:
+The XTOYBIRD commands map to the [control API](#control-api):
 
-- **XTOYBIRD SERVER** dumps server internals
-- **XTOYBIRD CONNECTION** dumps connection internals
-- **XTOYBIRD STORAGE** dumps storage as JSON
-- **XTOYBIRD USERADD "username" "password"** adds or updates user
-- **XTOYBIRD USERDEL "username"** removes a user
-- **XTOYBIRD SHUTDOWN** Closes the server after the last client disconnects. New connections are rejected.
-
-Example usage for XTOYBIRD STORAGE:
-
-```
-S: * OK ImapKit ready for rumble
-C: A0 LOGIN testuser testpass
-S: A0 OK User logged in
-C: A1 XTOYBIRD STORAGE
-S: * XTOYBIRD [XJSONDUMP] {3224}
-S: {
-S:     "INBOX": {
-S:         "messages": [
-S:             {
-S:                 "raw": "Subject: hello 1\r\n\r\nWorld 1!",
-S:                 ...
-S: A1 OK XTOYBIRD Completed
-```
-
-## Ideas for future XTOYBIRD commands
-
-- Change UIDVALIDITY at runtime (eg. `A1 XTOYBIRD UIDVALIDITY INBOX 123` where 123 is the new UIDVALIDITY for INBOX)
-- Reset the server to its initial state (`A1 XTOYBIRD RESET`)
-- Replace the storage at runtime with a JSON string that describes the entire storage (`A1 XTOYBIRD UPDATE {123}\r\n{"INBOX":{...}})`)
+| XTOYBIRD command                     | Control API                                                                                  |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `XTOYBIRD STORAGE`                   | `server.control.snapshot()`                                                                  |
+| `XTOYBIRD SERVER`                    | `server.control.listMailboxes()`, `server.control.listUsers()`                               |
+| `XTOYBIRD CONNECTION`                | `server.control.sessions()`                                                                  |
+| `XTOYBIRD USERADD "user" "password"` | `server.control.addUser('user', { password })`, or `updateUser()` for an existing user       |
+| `XTOYBIRD USERDEL "user"`            | `server.control.deleteUser('user')`                                                          |
+| `XTOYBIRD SHUTDOWN`                  | `await server.control.shutdown()`, stops accepting connections and waits for the last client |
 
 ## CONDSTORE support
 
@@ -395,6 +374,117 @@ describe('IMAP tests', () => {
 });
 ```
 
+## Control API
+
+`server.control` changes and inspects the server from your test, without an IMAP session. Every change reaches the connected sessions the way a change by another session would: a selected session gets `EXISTS` for a new message, `EXPUNGE` (or `VANISHED` after `ENABLE QRESYNC`) for a removed one, an unsolicited `FETCH` with the UID and the new flags (with `MODSEQ` after `ENABLE CONDSTORE`), and `BYE` when its mailbox is deleted. NOTIFY and CONTEXT=SEARCH sessions get their updates too. ACL does not apply to the control API, but every argument is checked.
+
+```javascript
+const server = imapkit({ plugins: ['IDLE', 'CONDSTORE'] });
+const port = await server.start(); // a free port, server.start(1143, '127.0.0.1') for a fixed one
+
+const { uid } = server.control.addMessage('INBOX', { raw: 'Subject: hello\r\n\r\nHi!\r\n', flags: ['\\Seen'] });
+server.control.setFlags('INBOX', [uid], ['\\Flagged'], 'add');
+server.control.expungeMessages('INBOX', [uid]);
+
+await server.stop();
+```
+
+Mailboxes are addressed by their storage name (modified UTF-7, the name a client uses in LIST), messages by mailbox and UID. The methods return plain data and throw an `ImapKitError` (exported by the package) whose `code` is `NONEXISTENT`, `ALREADYEXISTS`, `INVALID`, or the RFC 5530 code of a failed mailbox operation (`CANNOT`, `HASCHILDREN` ...).
+
+| Method                                                                                               | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `snapshot()`                                                                                         | The storage as JSON in the shape of the `storage` option, `imapkit({ storage: server.control.snapshot() })` starts from the same state                                                                                                                                                                                                                                                                                                                                                  |
+| `listMailboxes()`, `getMailbox(path)`                                                                | Mailboxes with `path`, `delimiter`, `flags`, `selectable`, `subscribed`, `messages`, `unseen`, `uidnext`, `uidvalidity`, `permanentFlags` (and `highestModseq` with CONDSTORE)                                                                                                                                                                                                                                                                                                          |
+| `listMessages(path, { uids, raw })`, `getMessage(path, uid)`                                         | Messages with `uid`, `flags`, `internaldate`, `size` (and `modseq` with CONDSTORE), the source as a Buffer in `raw`                                                                                                                                                                                                                                                                                                                                                                     |
+| `sessions()`                                                                                         | Connected sessions: `session` number, `user`, `state`, selected `mailbox`, `readOnly`, `enabled`, `secure`, `compressed`, `remoteAddress`                                                                                                                                                                                                                                                                                                                                               |
+| `addMessage(path, { raw, flags, internaldate }, { checks })`                                         | Adds a message like a delivery, returns `{ uid, uidvalidity }`. A string `raw` is encoded as UTF-8. `checks: true` refuses the message like APPEND would (QUOTA `OVERQUOTA`, APPENDLIMIT `TOOBIG`)                                                                                                                                                                                                                                                                                      |
+| `setFlags(path, uids, flags, mode)`                                                                  | `mode` is `set` (default), `add` or `remove`                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `expungeMessages(path, uids)`                                                                        | Removes messages                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `copyMessages(path, uids, target)`, `moveMessages(...)`                                              | Returns `{ uidvalidity, uids: [{ uid, targetUid }] }`                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `replaceMessage(path, uid, { raw, flags, internaldate })`                                            | Adds the new message and expunges the old one. The content of a UID never changes (RFC 9051 section 2.3.1.1), so the new message gets a new UID                                                                                                                                                                                                                                                                                                                                         |
+| `createMailbox(path, { subscribed })`, `deleteMailbox(path)`, `renameMailbox(path, newPath)`         | Like CREATE, DELETE and RENAME                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `resetUidValidity(path, { uidvalidity, uids, offset, seed })`                                        | Gives the mailbox a new, greater UIDVALIDITY. `uids` is `keep` (default), `renumber` (1 to n), `shuffle` (1 to n in a random order, repeatable with `seed`, so an old UID points to another message) or `offset` (every UID moves above the old UIDNEXT, plus `offset`, so old UIDs find nothing). A UID must not change during a session (RFC 9051 section 2.3.1.1), so sessions that have the mailbox selected get `BYE`. Returns `{ uidvalidity, uidnext, uids: [{ uid, newUid }] }` |
+| `subscribe(path)`, `unsubscribe(path)`                                                               | Return true if the subscription changed                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `listUsers()`, `addUser(name, { password, xoauth2 })`, `updateUser(name, {...})`, `deleteUser(name)` | `xoauth2` is `{ accessToken, sessionTimeout }`. Deleting a user disconnects its sessions, `{ disconnect: false }` keeps them. No credentials in `listUsers()`                                                                                                                                                                                                                                                                                                                           |
+| `disconnect(session or { user }, { text, reset })`                                                   | Disconnects sessions with an untagged `BYE`, or resets the TCP connection                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `inject(session, data)`                                                                              | Writes bytes to a session as they are, e.g. `* OK [ALERT] ...` between commands                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `reset()`                                                                                            | Restores the mailboxes and users of the server options and disconnects every session with `BYE`, so a long running server can be reused between tests. Script rules stay                                                                                                                                                                                                                                                                                                                |
+| `shutdown({ graceful })`                                                                             | Stops accepting connections and resolves once the last client is gone, `graceful: false` closes the sessions                                                                                                                                                                                                                                                                                                                                                                            |
+
+Plugins add operations for their own data, they exist only when the plugin is loaded:
+
+| Plugin                    | Methods                                                                                                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ACL                       | `getAcl(path)`, `setAcl(path, identifier, rights)` (`+rights` adds, `-rights` removes, empty rights remove the identifier), `deleteAcl(path, identifier)`, ACLs are `{ identifier: rights }`          |
+| QUOTA                     | `getQuota()` (`{ root, limits, usage }`, STORAGE in units of 1024 octets), `setQuota({ STORAGE, MESSAGE, MAILBOX })` replaces the limits                                                              |
+| METADATA, METADATA-SERVER | `getMetadata(path)`, `setMetadata(path, { entry: value })` (`""` is the server, null removes an entry, also the read-only `/shared/admin`). Sessions after `ENABLE METADATA` get unsolicited METADATA |
+| SPECIAL-USE               | `setSpecialUse(path, ['\\Sent'])` (RFC 6154 attributes and `\Important`), `getMailbox()` has `specialUse`                                                                                             |
+| OBJECTID                  | `getMailbox()` has `mailboxId`, `getMessage()` and `listMessages()` have `emailId` and `threadId`                                                                                                     |
+
+A plugin of your own adds operations with `server.control.register(name, fn, routes)`, the routes go to the REST API.
+
+`server.start(port, host)` resolves with the port, `server.stop()` closes the server and every session. `listen()` and `close()` still work. With the `smtp` option (`imapkit({ smtp: { port, host } })`) `start()` also starts an SMTP server that appends every message it receives to INBOX, `server.smtpServer` is that server. It needs the optional `smtp-server` package (`npm install smtp-server`), `start()` rejects with an error that says so when it is missing.
+
+### Events
+
+Tests can wait for events instead of polling:
+
+- `session`: `{ type, session }`, `type` is `open`, `login`, `select` (also when the same mailbox is selected again), `unselect` (CLOSE, UNSELECT, a failed SELECT, BYE), `logout` (UNAUTHENTICATE), `waiting` (a command waits for client input, with `command`, e.g. `IDLE` after its continuation) or `close`, `session` is the session as `sessions()` describes it.
+- `command`: `{ session, tag, command, status, user }` when the tagged response of a command goes out, `status` is `OK`, `NO` or `BAD`.
+- `mailbox`: `{ type, path, oldPath, mailbox, origin }` for CREATE, DELETE, RENAME, SUBSCRIBE and UNSUBSCRIBE, `origin` is null for the control API.
+- `expunge`: `(mailbox, messages, origin)` before the sessions are told, and `flags`: `(mailbox, messages, origin)` for flag changes of the control API.
+
+```javascript
+const idling = new Promise(resolve => server.on('session', event => event.type === 'waiting' && event.command === 'IDLE' && resolve(event)));
+// ... let the client start IDLE ...
+await idling;
+server.control.addMessage('INBOX', { raw: message }); // the idling client gets * n EXISTS right away
+```
+
+## REST API
+
+The REST API is the control API over HTTP, for test suites in any language. It is off unless the `rest` option (`imapkit({ rest: { port, host, token } })` with `server.start()`) or `--rest-port` turns it on:
+
+```bash
+imapkit -p 1143 --rest-port=8143
+curl -X POST http://127.0.0.1:8143/v1/mailboxes/INBOX/messages \
+     -H 'Content-Type: application/json' \
+     -d '{"raw": "Subject: hello\r\n\r\nHi!\r\n", "flags": ["\\Seen"]}'
+```
+
+The REST API controls the whole server, including the mail of every user, so it is careful by default. It listens on `127.0.0.1` unless `host` (`--rest-host`) says otherwise, and any other address than a loopback one needs a bearer token (`token`, `--rest-token`, `IMAPKIT_REST_TOKEN`) that every request sends as `Authorization: Bearer <token>`. Without a token it only answers requests for a loopback host name. It sends no CORS headers and takes JSON bodies only (`Content-Type: application/json`, at most 64 MiB), so a web page can not call it. Do not expose it outside a test environment.
+
+Requests and responses are JSON. Errors are `{ "error": { "code", "message" } }` with HTTP status 404 for `NONEXISTENT`, 409 for `ALREADYEXISTS` and the RFC 5530 codes of a failed mailbox operation, 400 for `INVALID`, 401 for a missing or wrong token. A mailbox is its storage name (modified UTF-7) in the URL, URL encoded with a `/` in the name as `%2F` (`/v1/mailboxes/Work%2FProjects`). Message sources are base64 in responses (`"encoding": "base64"`), a request sends `raw` as text or as base64 with `"encoding": "base64"`. `GET /v1/openapi.json` describes every endpoint.
+
+`GET /v1/events` streams the [events](#events) as [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) (`event: <type>` with JSON `data`), so a test in another language can wait for "the client selected INBOX" or "a script rule fired" without polling. `?types=session,command` chooses the types (`session`, `command`, `mailbox`, `expunge`, `flags`, `acl`, `script`, `reset`), mailboxes are paths, messages UIDs and sessions numbers in the data:
+
+```bash
+curl -N 'http://127.0.0.1:8143/v1/events?types=session'
+# event: session
+# data: {"type":"select","session":{"session":1,"user":"testuser","state":"Selected","mailbox":"INBOX",...}}
+```
+
+| Endpoint                                                                                             | Control API                                                                            |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /v1/snapshot`                                                                                   | `snapshot()`                                                                           |
+| `POST /v1/reset`                                                                                     | `reset()`                                                                              |
+| `POST /v1/shutdown` (`{ graceful }`)                                                                 | `shutdown()`                                                                           |
+| `GET /v1/sessions`, `DELETE /v1/sessions/{n}` (`{ text, reset }`)                                    | `sessions()`, `disconnect()`                                                           |
+| `POST /v1/sessions/{n}/inject` (`{ data, encoding }`)                                                | `inject()`                                                                             |
+| `GET`, `POST /v1/users`, `PUT`, `DELETE /v1/users/{name}`                                            | `listUsers()`, `addUser()`, `updateUser()`, `deleteUser()`                             |
+| `GET`, `POST /v1/mailboxes`, `GET`, `DELETE /v1/mailboxes/{path}`                                    | `listMailboxes()`, `createMailbox()`, `getMailbox()`, `deleteMailbox()`                |
+| `POST /v1/mailboxes/{path}/rename` (`{ newPath }`)                                                   | `renameMailbox()`                                                                      |
+| `PUT`, `DELETE /v1/mailboxes/{path}/subscription`                                                    | `subscribe()`, `unsubscribe()`                                                         |
+| `POST /v1/mailboxes/{path}/uidvalidity`                                                              | `resetUidValidity()`                                                                   |
+| `GET /v1/mailboxes/{path}/messages` (`?uids=1,2&raw=true`), `POST` (`{ raw, flags }`)                | `listMessages()`, `addMessage()`                                                       |
+| `GET`, `DELETE /v1/mailboxes/{path}/messages/{uid}`                                                  | `getMessage()`, `expungeMessages()`                                                    |
+| `POST /v1/mailboxes/{path}/messages/flags`, `.../expunge`, `.../copy`, `.../move`                    | `setFlags()`, `expungeMessages()`, `copyMessages()`, `moveMessages()`                  |
+| `GET /v1/mailboxes/{path}/acl`, `PUT`, `DELETE /v1/mailboxes/{path}/acl/{identifier}` (`{ rights }`) | `getAcl()`, `setAcl()`, `deleteAcl()` (ACL)                                            |
+| `GET`, `PUT /v1/quota`                                                                               | `getQuota()`, `setQuota()` (QUOTA)                                                     |
+| `GET`, `PUT /v1/metadata`, `GET`, `PUT /v1/mailboxes/{path}/metadata`                                | `getMetadata()`, `setMetadata()` (METADATA)                                            |
+| `PUT /v1/mailboxes/{path}/special-use` (`{ specialUse }`)                                            | `setSpecialUse()` (SPECIAL-USE)                                                        |
+| `GET`, `POST`, `DELETE /v1/script/rules`, `DELETE /v1/script/rules/{id}`                             | [script rules](#scripted-faults) in their JSON form, so runtime faults need no restart |
+
 ## Scripted faults
 
 ImapKit is strict and correct by default. To test how a client copes with a server that is not, script rules make the server deviate from the protocol at chosen points: answer a command with a canned response, send a literal where a quoted string is expected, cut a response in the middle of a literal, delay or split output, or drop the connection. Rules come from the `script` server option (a rule or a list of rules), or are added at runtime with `server.script.add()`:
@@ -429,21 +519,23 @@ Every rule watches one event (`on`):
 - `input`: a line read by a command that takes over the input, like `DONE` of IDLE or a SASL response of AUTHENTICATE
 - `response`: every response the server sends with `connection.send()`, tagged and untagged, as the exact bytes that are about to go out, after every plugin and the core changed the response
 - `continuation`: a `+` continuation request (literals, IDLE, AUTHENTICATE)
+- `quiet`: the session had no input and no output for `quietFor` milliseconds (required for this event). The output of the rule starts the next quiet time. During IDLE the event belongs to the IDLE command, so `{ on: 'quiet', command: 'IDLE', quietFor: 1800000, send: '* BYE Autologout; idle for too long\r\n', close: true }` is an autologout, and `{ on: 'quiet', state: 'Selected', quietFor: 500, times: 1, send: '* OK [ALERT] System shutdown in 10 minutes\r\n' }` an ALERT between commands. A quiet rule can `send` and `close`
 
 The matchers of a rule all have to match. Rules are checked in the order they were added, the first rule that matches and is not used up handles the event, so a later rule can handle what an earlier one leaves alone.
 
-| Matcher                    | Events                 | Matches                                                                                                                                                            |
-| -------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `command`                  | all but greeting       | the command name, or a list of names, case-insensitive (`'UID FETCH'`). An unsolicited response belongs to the command that runs, or that reads input (IDLE)       |
-| `tag`                      | all but greeting       | the command tag, a string or a RegExp                                                                                                                              |
-| `description`              | response, continuation | the description passed to `connection.send()`, or a list of them. Continuation requests are `LITERAL`, `IDLE`, `AUTHENTICATE PLAIN` and `AUTHENTICATE OAUTHBEARER` |
-| `untagged`                 | response               | `true` for untagged responses only, `false` for tagged ones                                                                                                        |
-| `session`                  | all                    | the number of the connection, or a list of numbers, 1 for the first connection the server accepted                                                                 |
-| `state`, `user`, `mailbox` | all                    | the session state (`'Not Authenticated'`, `'Authenticated'`, `'Selected'`), the authenticated user, the path of the selected mailbox                               |
-| `match`                    | all                    | a RegExp, or a string with a regular expression, tested against the command line or the output bytes (a binary string)                                             |
-| `when`                     | all                    | a function that gets the event context and returns true to match                                                                                                   |
-| `nth`                      | all                    | the rule fires from the nth matching event on (default 1)                                                                                                          |
-| `times`                    | all                    | the rule fires this many times at most, then lets later rules handle the event                                                                                     |
+| Matcher                    | Events                 | Matches                                                                                                                                                                                      |
+| -------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command`                  | all but greeting       | the command name, or a list of names, case-insensitive (`'UID FETCH'`). An unsolicited response belongs to the command that runs, or that reads input (IDLE)                                 |
+| `tag`                      | all but greeting       | the command tag, a string or a RegExp                                                                                                                                                        |
+| `description`              | response, continuation | the description passed to `connection.send()`, or a list of them. Continuation requests are `LITERAL`, `IDLE`, `AUTHENTICATE PLAIN` and `AUTHENTICATE OAUTHBEARER`                           |
+| `untagged`                 | response               | `true` for untagged responses only, `false` for tagged ones                                                                                                                                  |
+| `session`                  | all                    | the number of the connection, or a list of numbers, 1 for the first connection the server accepted                                                                                           |
+| `state`, `user`, `mailbox` | all                    | the session state (`'Not Authenticated'`, `'Authenticated'`, `'Selected'`), the authenticated user, the path of the selected mailbox                                                         |
+| `match`                    | all                    | a RegExp, or a string with a regular expression, tested against the command line or the output bytes (a binary string)                                                                       |
+| `when`                     | all                    | a function that gets the event context and returns true to match                                                                                                                             |
+| `nth`                      | all                    | the rule fires from the nth matching event on (default 1)                                                                                                                                    |
+| `times`                    | all                    | the rule fires this many times at most, then lets later rules handle the event                                                                                                               |
+| `chance`                   | all                    | the rule fires on a matching event with this probability (0 to 1). The random numbers come from the `scriptSeed` option, so a run with the same seed and the same client is repeated exactly |
 
 The actions say what happens instead of the usual behavior. Strings are sent as they are (binary strings, one character per octet, or UTF-8 when they have characters above U+00FF) without an added CRLF, and `$TAG` in a string is replaced with the tag of the command. A Buffer is sent as it is, a function gets the event context and returns a string or a Buffer.
 
@@ -457,7 +549,7 @@ The actions say what happens instead of the usual behavior. Strings are sent as 
 | `defer`               | response               | holds an untagged response back: `'tagged'` sends it right after the tagged response of its command, `'next'` with the answer to the next command, before its first response. Needs `untagged: true`. `send`, `before` and `after` change the held output, `drop`, `delay`, `chunk`, `truncate` and `close` can not be combined with it. A response that does not belong to a command (one that arrives in IDLE belongs to IDLE) is held for the next tagged response or command. Held responses are dropped when the connection closes |
 | `before`, `after`     | output events          | bytes sent before or after the output, e.g. an unsolicited response                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `delay`               | all but input          | milliseconds to wait before the output goes out, all later output waits behind it. For a command, the wait before the rule acts or the command runs, later commands wait too                                                                                                                                                                                                                                                                                                                                                            |
-| `chunk`, `chunkDelay` | all                    | write the bytes in pieces of `chunk` octets, `chunkDelay` milliseconds apart (default 10)                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `chunk`, `chunkDelay` | all                    | write the bytes in pieces of `chunk` octets, `chunkDelay` milliseconds apart (default 10). `chunkDelay: 0` or `'tick'` sends each piece after the earlier one was handed to the system, on the next event loop turn, so the pieces leave as separate TCP segments without a wall clock delay (on Deno a zero timer, about 2 ms a piece)                                                                                                                                                                                                 |
 | `truncate`            | all                    | send only this many octets of the bytes, then close the connection                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `close`               | all                    | close the connection after the bytes are sent, `'reset'` destroys the socket instead (a TCP RST where the runtime supports it), 20 ms after the bytes so that the RST does not overtake them. Input that arrives meanwhile is not processed                                                                                                                                                                                                                                                                                             |
 
@@ -477,6 +569,30 @@ The `imapkit` command takes the rules as JSON with `--script=<path>` (or `IMAPKI
 ```
 
 Faults change only the output and the handling of the lines a rule matches, the state of the server stays consistent: a LOGIN answered by a rule with `OK` does not log the session in, and a dropped EXPUNGE response still removes the message. COMPRESS works with delayed output, as the output keeps the compression layer it was sent with. Script rules are for tests only, a rule can send anything.
+
+### Quirk presets
+
+The `quirks` option (`--quirk` for the `imapkit` command) turns on named presets that make the server behave like a known real server, so a client test reproduces that server's bug in every run, without the server itself. A preset is a set of script rules, after the rules of the `script` option, and plugins it leaves out. The presets are exported as data (`import { quirks } from 'imapkit'`), copy one into your own script rules to adjust it.
+
+| Quirk                   | Behavior                                                                                                                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `james-fetchgroup`      | Apache James FetchGroup: only the first section asked for a part in one FETCH is answered, later ones for the same part are empty (`BODY[2.MIME] BODY[2]` gives a zero-length body) |
+| `james-late-fetch`      | Apache James: 1 in 4 FETCH responses come after the tagged OK of their command                                                                                                      |
+| `yahoo-quoted-sections` | Yahoo: short body sections (up to 100 octets without line breaks) are quoted strings instead of literals                                                                            |
+| `m365-throttle`         | Microsoft 365: 1 in 10 commands (not LOGOUT) is refused with `BAD Request is throttled. Suggested Backoff Time: 1000 milliseconds`                                                  |
+| `no-uidplus`, `no-move` | servers without UIDPLUS or MOVE, the plugins are not loaded even when `plugins` lists them                                                                                          |
+
+```javascript
+const server = imapkit({ plugins: ['IDLE', 'MOVE'], quirks: ['james-fetchgroup', 'm365-throttle'], scriptSeed: 42 });
+```
+
+## Repeatable tests
+
+- `scriptSeed`: the seed of the random numbers of script rules with `chance` and the quirk presets that use them (`--script-seed`).
+- `now`: the time the server uses for the dates it sets itself, the INTERNALDATE of a message without one and SAVEDATE: a Date, a timestamp, or a function that returns one. The dates are formatted in the time zone of the process.
+- `resetUidValidity(path, { uids: 'shuffle', seed })` of the control API.
+
+The `storage` option is checked when the server is built: a key that looks like a typo of a known one (`message` for `messages`, `uidValidity`) or a wrong type fails with the path of the problem, e.g. `Invalid storage at "INBOX".messages[2]: unknown key "flag", did you mean "flags"?`. Plugins keep their own data on mailboxes and messages, so other keys are allowed. The package exports the check as `validateStorage(storage)` and the shape as a JSON Schema, `storageSchema`, for editors and fixture tooling. `server.control.snapshot()` returns the same shape.
 
 ## Creating custom plugins
 

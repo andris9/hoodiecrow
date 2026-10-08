@@ -1,3 +1,4 @@
+import { storeError } from '../store-operations.js';
 import { states } from '../command-states.js';
 import { normalizeLineBreaks } from '../mimeparser.js';
 import { MAX_NUMBER64, isNumber } from '../numbers.js';
@@ -54,6 +55,8 @@ export default function quotaPlugin(server: IMAPServer) {
         limits: {}
     };
 
+    // the limits of the quota option, control.reset() restores them
+    const initialLimits: Limits = {};
     RESOURCES.forEach(resource => {
         if (config[resource] === undefined || config[resource] === null) {
             return;
@@ -62,8 +65,13 @@ export default function quotaPlugin(server: IMAPServer) {
         if (!Number.isSafeInteger(limit) || limit < 0) {
             throw new Error('Invalid quota limit for ' + resource + ': ' + JSON.stringify(config[resource]));
         }
-        root.limits[resource] = limit;
+        initialLimits[resource] = limit;
     });
+    const restoreLimits = () => {
+        root.limits = Object.assign({}, initialLimits);
+    };
+    restoreLimits();
+    server.on('reset', restoreLimits);
 
     // RFC 9208 sections 3.1.1 and 5: every supported resource is advertised, SETQUOTA needs QUOTASET
     server.registerCapability('QUOTA');
@@ -140,7 +148,7 @@ export default function quotaPlugin(server: IMAPServer) {
     };
 
     // APPEND, COPY, MOVE and REPLACE
-    server.appendChecks.push((connection: IMAPConnection, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
+    server.appendChecks.push((connection: IMAPConnection | null, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
         if (!messages.length || !inRoot(mailbox)) {
             return;
         }
@@ -150,7 +158,7 @@ export default function quotaPlugin(server: IMAPServer) {
         }
         const added = { MESSAGE: messages.length, bytes: totalSize(messages) };
         // RFC 8508 section 3.4: REPLACE counts only the net usage, the replaced message is removed
-        if (options.replaced && connection.selectedMailbox && inRoot(connection.selectedMailbox)) {
+        if (options.replaced && connection && connection.selectedMailbox && inRoot(connection.selectedMailbox)) {
             added.MESSAGE--;
             added.bytes -= totalSize([options.replaced]);
         }
@@ -304,4 +312,47 @@ export default function quotaPlugin(server: IMAPServer) {
     });
     server.statusHandlers['DELETED-STORAGE'] = (connection: IMAPConnection, mailbox: Mailbox) =>
         totalSize(mailbox.messages.filter(message => message.flags.indexOf('\\Deleted') >= 0));
+
+    // Control API (README "Control API"): the quota root with its limits and usage, STORAGE in units of 1024 octets
+    const getQuotaOperation = () => {
+        const usage = getUsage();
+        return {
+            root: root.name,
+            limits: Object.assign({}, root.limits),
+            usage: { STORAGE: Math.ceil(usage.bytes / 1024), MESSAGE: usage.MESSAGE, MAILBOX: usage.MAILBOX }
+        };
+    };
+
+    // the new limits replace all earlier ones, like SETQUOTA (RFC 9208 section 4.1.3)
+    const setQuotaOperation = (limits: unknown) => {
+        if (!limits || typeof limits !== 'object' || Array.isArray(limits)) {
+            throw storeError('setQuota expects an object of resource limits, e.g. { STORAGE: 1024 }', 'INVALID');
+        }
+        const next: Limits = {};
+        Object.keys(limits).forEach(name => {
+            const resource = name.toUpperCase();
+            const value = (limits as Record<string, unknown>)[name];
+            if (RESOURCES.indexOf(resource) < 0) {
+                throw storeError('Unknown quota resource ' + name + ', expected ' + RESOURCES.join(', '), 'INVALID');
+            }
+            if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+                throw storeError('Limit of ' + resource + ' must be a non-negative integer', 'INVALID');
+            }
+            next[resource] = value;
+        });
+        root.limits = next;
+        return getQuotaOperation();
+    };
+
+    server.control.register('getQuota', getQuotaOperation, [
+        { method: 'GET', path: '/v1/quota', summary: 'Quota root, limits and usage (QUOTA plugin)', handler: () => server.control.getQuota() }
+    ]);
+    server.control.register('setQuota', setQuotaOperation, [
+        {
+            method: 'PUT',
+            path: '/v1/quota',
+            summary: 'Replaces the quota limits ({ STORAGE, MESSAGE, MAILBOX }, QUOTA plugin)',
+            handler: ({ body }) => server.control.setQuota(body)
+        }
+    ]);
 }

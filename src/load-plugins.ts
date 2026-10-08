@@ -52,13 +52,20 @@ function resolvePlugin(name: string): string | false {
  * @param {Object} server IMAPServer instance
  * @param {Array|String|Function} plugins List of plugins to load
  */
-function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string | Plugin | null | undefined): void {
+function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string | Plugin | null | undefined, exclude?: string[]): void {
     const loaded = new Set<Plugin>();
+    // plugins a quirk preset leaves out (no-move), they are not loaded even when listed
+    const excluded = new Set<Plugin>((exclude || []).map(name => resolvePlugin(name)).flatMap(name => (name ? [builtinPlugins[name]] : [])));
 
     const load = (entry: string | Plugin) => {
         let plugin = entry;
         if (typeof plugin === 'string') {
             const name = resolvePlugin(plugin);
+            if (!name && plugin.toUpperCase() === 'XTOYBIRD') {
+                throw new Error(
+                    'XTOYBIRD was removed in 5.0.0, use the control API (server.control.snapshot(), server.control.addUser() ...) instead, see the README'
+                );
+            }
             if (!name) {
                 throw new Error('Unknown plugin "' + plugin + '". Available plugins: ' + listPlugins().join(', '));
             }
@@ -69,7 +76,7 @@ function loadPlugins(server: IMAPServer, plugins: (string | Plugin)[] | string |
             throw new TypeError('Invalid plugin, expecting a plugin name or a function');
         }
 
-        if (loaded.has(plugin)) {
+        if (loaded.has(plugin) || excluded.has(plugin)) {
             return;
         }
         loaded.add(plugin);

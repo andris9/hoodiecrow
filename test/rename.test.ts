@@ -4,7 +4,6 @@ import { setupServer } from './helpers/index.js';
 
 describe('Rename', () => {
     const ctx = setupServer(() => ({
-        plugins: 'XTOYBIRD',
         storage: {
             '': {
                 folders: {

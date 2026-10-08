@@ -21,25 +21,39 @@ const { values: argv } = parseArgs({
         storage: { type: 'string' },
         script: { type: 'string' },
         plugin: { type: 'string', multiple: true },
-        smtpPort: { type: 'string' }
+        smtpPort: { type: 'string' },
+        'smtp-port': { type: 'string' },
+        'rest-port': { type: 'string' },
+        'rest-host': { type: 'string' },
+        'rest-token': { type: 'string' },
+        quirk: { type: 'string', multiple: true },
+        'script-seed': { type: 'string' }
     }
 });
 
 const isTrue = value => (value || '').toString().trim().toLowerCase() === 'true';
 
+// a repeated option or a comma separated list, e.g. --plugin=IDLE,MOVE --plugin=ID
+const listOption = value =>
+    []
+        .concat(value || [])
+        .flatMap(item =>
+            String(item)
+                .trim()
+                .split(/\s*,\s*/)
+        )
+        .filter(Boolean);
+
 const configLocation = argv.config || process.env.IMAPKIT_CONFIG;
 const storageLocation = argv.storage || process.env.IMAPKIT_STORAGE;
 const scriptLocation = argv.script || process.env.IMAPKIT_SCRIPT;
-const smtpPort = argv.smtpPort || process.env.IMAPKIT_SMTPPORT;
-const pluginsList = []
-    .concat(argv.plugin || process.env.IMAPKIT_PLUGINS || [])
-    .flatMap(plugin =>
-        String(plugin)
-            .toUpperCase()
-            .trim()
-            .split(/\s*,\s*/)
-    )
-    .filter(Boolean);
+const smtpPort = argv.smtpPort || argv['smtp-port'] || process.env.IMAPKIT_SMTPPORT;
+const restPort = argv['rest-port'] || process.env.IMAPKIT_REST_PORT;
+const restHost = argv['rest-host'] || process.env.IMAPKIT_REST_HOST;
+const restToken = argv['rest-token'] || process.env.IMAPKIT_REST_TOKEN;
+const quirksList = listOption(argv.quirk || process.env.IMAPKIT_QUIRKS);
+const scriptSeed = argv['script-seed'] || process.env.IMAPKIT_SCRIPT_SEED;
+const pluginsList = listOption(argv.plugin || process.env.IMAPKIT_PLUGINS).map(plugin => plugin.toUpperCase());
 const secure = isTrue(argv.secure || process.env.IMAPKIT_SECURE);
 const debug = isTrue(argv.debug || process.env.IMAPKIT_DEBUG);
 
@@ -93,18 +107,34 @@ if (argv.help) {
             .trim()
     );
 } else {
+    if (quirksList.length) {
+        config.quirks = quirksList;
+    }
+    if (scriptSeed !== undefined) {
+        config.scriptSeed = Number(scriptSeed);
+    }
+    if (restPort) {
+        config.rest = { port: Number(restPort), host: restHost, token: restToken };
+    }
+    if (smtpPort) {
+        // smtp-server is an optional dependency, start() loads it only when SMTP is enabled
+        config.smtp = { port: Number(smtpPort) };
+    }
     const server = imapkit(config);
     console.log('Starting ImapKit ...');
-    server.server.on('error', err => {
-        console.error('Failed to start ImapKit on port %s: %s', port, err.message);
-        process.exit(1);
-    });
-    server.listen(port, () => {
-        console.log('ImapKit successfully%s listening on port %s', secure ? ' and securely' : '', port);
-    });
-
-    if (smtpPort) {
-        // loaded on demand, smtp-server is only needed when SMTP is enabled
-        import('../dist/esm/smtp-listener.js').then(({ startSMTPServer }) => startSMTPServer(smtpPort, server));
-    }
+    server.start(Number(port)).then(
+        () => {
+            console.log('ImapKit successfully%s listening on port %s', secure ? ' and securely' : '', port);
+            if (server.restServer) {
+                console.log('REST API listening on %s:%s', restHost || '127.0.0.1', server.restServer.address().port);
+            }
+            if (server.smtpServer) {
+                console.log('Incoming SMTP server up and running on port %s', server.smtpServer.server.address().port);
+            }
+        },
+        err => {
+            console.error('Failed to start ImapKit: %s', err.message);
+            process.exit(1);
+        }
+    );
 }

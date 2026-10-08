@@ -9,7 +9,6 @@ const server = imapkit({
         'IDLE',
         'ENABLE',
         'CONDSTORE',
-        'XTOYBIRD',
         'LITERALPLUS',
         'UNSELECT',
         'SPECIAL-USE',

@@ -113,6 +113,17 @@ export default function objectidPlugin(server: IMAPServer) {
         getMailboxId(mailbox);
     });
 
+    // Control API (README "Control API"): the object ids in getMailbox() and getMessage()
+    server.control.mailboxInfoHandlers.push((mailbox: Mailbox, info: { mailboxId?: string }) => {
+        if (mailbox.flags.indexOf('\\Noselect') < 0) {
+            info.mailboxId = getMailboxId(mailbox);
+        }
+    });
+    server.control.messageInfoHandlers.push((message: Message, info: { emailId?: string; threadId?: string }) => {
+        info.emailId = message.EMAILID;
+        info.threadId = message.THREADID;
+    });
+
     server.messageHandlers.push((server: IMAPServer, message: Message, mailbox: Mailbox) => {
         const owner = 'a message of mailbox ' + mailbox.path;
 

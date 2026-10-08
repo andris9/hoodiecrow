@@ -31,13 +31,13 @@ describe('imapkit command', { skip: !built && 'run npm run build first' }, () =>
         });
     }
 
-    /** resolves once the command listens */
-    function listening(child: ReturnType<typeof spawn>): Promise<void> {
+    /** resolves once the command printed a line that matches, by default once it listens */
+    function listening(child: ReturnType<typeof spawn>, pattern = /listening on port/): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             let output = '';
             child.stdout?.on('data', chunk => {
                 output += chunk;
-                if (/listening on port/.test(output)) {
+                if (pattern.test(output)) {
                     resolve();
                 }
             });
@@ -97,6 +97,37 @@ describe('imapkit command', { skip: !built && 'run npm run build first' }, () =>
         } finally {
             child.kill();
             fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('leaves plugins out with --quirk', async () => {
+        const port = await freePort();
+        const child = spawn(process.execPath, [bin, '-p', String(port), '--plugin=IDLE,MOVE', '--quirk=no-move'], { stdio: ['ignore', 'pipe', 'inherit'] });
+        try {
+            await listening(child);
+            const transcript = await capability(port);
+            assert.match(transcript, /^\* CAPABILITY .*\bIDLE\b/m);
+            assert.doesNotMatch(transcript, /\bMOVE\b/);
+        } finally {
+            child.kill();
+        }
+    });
+
+    it('refuses an unknown quirk', () => {
+        assert.throws(() => execFileSync(process.execPath, [bin, '-p', '0', '--quirk=nope'], { encoding: 'utf-8', stdio: 'pipe' }), /Unknown quirk "nope"/);
+    });
+
+    it('starts the REST API with --rest-port', async () => {
+        const [port, restPort] = [await freePort(), await freePort()];
+        const child = spawn(process.execPath, [bin, '-p', String(port), '--rest-port=' + restPort, '--rest-token=sekret'], {
+            stdio: ['ignore', 'pipe', 'inherit']
+        });
+        try {
+            await listening(child, /REST API listening on 127\.0\.0\.1:\d+/);
+            const res = await fetch('http://127.0.0.1:' + restPort + '/v1/users', { headers: { Authorization: 'Bearer sekret' } });
+            assert.deepStrictEqual(await res.json(), [{ name: 'testuser', xoauth2: true }]);
+        } finally {
+            child.kill();
         }
     });
 });

@@ -1,4 +1,5 @@
 import { getListExtensions } from '../list-extensions.js';
+import { storeError } from '../store-operations.js';
 import type { Callback, CommandHandler, IMAPConnection, IMAPResponse, IMAPServer, Mailbox, ParsedCommand } from '../types.js';
 
 /**
@@ -9,6 +10,9 @@ import type { Callback, CommandHandler, IMAPConnection, IMAPResponse, IMAPServer
  * @help With LIST-EXTENDED the SPECIAL-USE selection and
  * @help return options work with the other LIST options
  */
+
+// RFC 6154 section 2 and RFC 8457 (\\Important)
+const SPECIAL_USES = new Set(['\\All', '\\Archive', '\\Drafts', '\\Flagged', '\\Junk', '\\Sent', '\\Trash', '\\Important']);
 
 export default function specialUsePlugin(server: IMAPServer) {
     // Register capability
@@ -93,4 +97,26 @@ export default function specialUsePlugin(server: IMAPServer) {
             }
         }
     );
+
+    // Control API (README "Control API"): the special-use attributes of a mailbox (RFC 6154 section 2)
+    server.control.mailboxInfoHandlers.push((mailbox: Mailbox, info: { specialUse?: string[] }) => {
+        info.specialUse = getSpecialUse(mailbox);
+    });
+
+    const setSpecialUseOperation = (path: string, uses: unknown) => {
+        const mailbox = server.control.requireMailbox(path, true);
+        if (!Array.isArray(uses) || uses.some(use => typeof use !== 'string' || !SPECIAL_USES.has(use))) {
+            throw storeError('Special-use attributes must be a list of ' + [...SPECIAL_USES].join(', '), 'INVALID');
+        }
+        mailbox['special-use'] = [...new Set(uses as string[])];
+        return server.control.getMailbox(mailbox.path);
+    };
+    server.control.register('setSpecialUse', setSpecialUseOperation, [
+        {
+            method: 'PUT',
+            path: '/v1/mailboxes/{path}/special-use',
+            summary: 'Sets the special-use attributes of a mailbox ({ specialUse: ["\\Sent"] }, SPECIAL-USE plugin)',
+            handler: ({ params, body }) => server.control.setSpecialUse(params.path, body.specialUse)
+        }
+    ]);
 }

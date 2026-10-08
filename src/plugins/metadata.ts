@@ -1,8 +1,9 @@
+import { storeError } from '../store-operations.js';
 import { states } from '../command-states.js';
 import { isNumber } from '../numbers.js';
 import { isAstring } from '../arguments.js';
 import { registerEnable, isEnabled } from './enable.js';
-import type { Attribute, Callback, IMAPConnection, IMAPResponse, IMAPServer, ParsedCommand, ResponseCode } from '../types.js';
+import type { Attribute, Callback, IMAPConnection, IMAPServer, MailboxChangeEvent, ParsedCommand, ResponseCode } from '../types.js';
 
 /** A mailbox or the server (path ""), the entries are kept in its `metadata` property */
 interface MetadataHolder {
@@ -358,6 +359,67 @@ function setup(server: IMAPServer, mailboxes: boolean) {
     );
 
     // RFC 5464 section 4.3: setmetadata = "SETMETADATA" SP mailbox SP entry-values
+    /**
+     * Stores the changes of SETMETADATA (or of the control API) when all of them pass the checks, and tells the
+     * sessions that used ENABLE METADATA about the changed entries. The session that made the change
+     * (`server.activeConnection`) is not told, and without one (the control API) the read-only server entries can
+     * be set too
+     *
+     * @param {Object} holder Mailbox object or state.server
+     * @param {Map} changes Lower case entry name to the new value, null removes the entry
+     * @return {Object|null} `{ text, code }` when a change fails, nothing is changed then
+     */
+    const storeChanges = (holder: MetadataHolder, changes: Map<string, string | null>): { text: string; code: ResponseCode } | null => {
+        const origin = server.activeConnection;
+        const entries = getEntries(holder);
+        const computed = getComputedEntries(holder);
+
+        // changes go to a copy that replaces the entries once every check passed
+        const next = Object.assign(Object.create(null), entries);
+        const changed: string[] = [];
+        for (const [name, value] of changes) {
+            if ((!holder.path && origin && READ_ONLY_SERVER_ENTRIES.has(name)) || name in computed) {
+                return { text: 'The ' + name + ' entry is read-only', code: 'CANNOT' };
+            }
+            if (!state.allowPrivate && name.startsWith('/private/')) {
+                return { text: 'Private annotations are not supported', code: ['METADATA', 'NOPRIVATE'] };
+            }
+            if (value !== null && value.length > state.maxSize) {
+                return { text: 'Value of ' + name + ' is too large', code: ['METADATA', 'MAXSIZE', state.maxSize] };
+            }
+            if ((entries[name] ?? null) !== value) {
+                changed.push(name);
+            }
+            if (value === null) {
+                delete next[name];
+            } else {
+                next[name] = value;
+            }
+        }
+        // only adding entries can fail, even when the storage already holds more than the limit
+        const count = Object.keys(next).length;
+        if (count > state.maxEntries && count > Object.keys(entries).length) {
+            return { text: 'Too many annotations', code: ['METADATA', 'TOOMANY'] };
+        }
+        setEntries(holder, next);
+
+        if (changed.length) {
+            // RFC 5464 section 4.4.2: unsolicited responses only list the entry names. Section 4.1:
+            // only sessions that used ENABLE METADATA (or METADATA-SERVER) get them
+            server.notify(
+                {
+                    tag: '*',
+                    command: 'METADATA',
+                    attributes: ([mailboxAttribute(holder.path)] as Attribute[]).concat(changed.map(name => ({ type: 'ATOM', value: name })))
+                },
+                false,
+                origin,
+                isMetadataEnabled
+            );
+        }
+        return null;
+    };
+
     server.setCommandHandler(
         'SETMETADATA',
         (connection: IMAPConnection, parsed: ParsedCommand, data: string, callback: Callback) => {
@@ -399,56 +461,11 @@ function setup(server: IMAPServer, mailboxes: boolean) {
                 return callback();
             }
 
-            const entries = getEntries(holder);
-            const computed = getComputedEntries(holder);
-            const fail = (text: string, code: ResponseCode) => {
+            const failure = storeChanges(holder, changes);
+            if (failure) {
                 // RFC 5464 section 4.3: when one entry fails, no entry is changed
-                connection.sendStatus(parsed, data, 'NO', text, code);
+                connection.sendStatus(parsed, data, 'NO', failure.text, failure.code);
                 return callback();
-            };
-
-            // changes go to a copy that replaces the entries once every check passed
-            const next = Object.assign(Object.create(null), entries);
-            const changed: string[] = [];
-            for (const [name, value] of changes) {
-                if ((!holder.path && READ_ONLY_SERVER_ENTRIES.has(name)) || name in computed) {
-                    return fail('The ' + name + ' entry is read-only', 'CANNOT');
-                }
-                if (!state.allowPrivate && name.startsWith('/private/')) {
-                    return fail('Private annotations are not supported', ['METADATA', 'NOPRIVATE']);
-                }
-                if (value !== null && value.length > state.maxSize) {
-                    return fail('Value of ' + name + ' is too large', ['METADATA', 'MAXSIZE', state.maxSize]);
-                }
-                if ((entries[name] ?? null) !== value) {
-                    changed.push(name);
-                }
-                if (value === null) {
-                    delete next[name];
-                } else {
-                    next[name] = value;
-                }
-            }
-            // only adding entries can fail, even when the storage already holds more than the limit
-            const count = Object.keys(next).length;
-            if (count > state.maxEntries && count > Object.keys(entries).length) {
-                return fail('Too many annotations', ['METADATA', 'TOOMANY']);
-            }
-            setEntries(holder, next);
-
-            if (changed.length) {
-                // RFC 5464 section 4.4.2: unsolicited responses only list the entry names. Section 4.1:
-                // only sessions that used ENABLE METADATA (or METADATA-SERVER) get them
-                server.notify(
-                    {
-                        tag: '*',
-                        command: 'METADATA',
-                        attributes: ([mailboxAttribute(holder.path)] as Attribute[]).concat(changed.map(name => ({ type: 'ATOM', value: name })))
-                    },
-                    false,
-                    connection,
-                    isMetadataEnabled
-                );
             }
 
             connection.sendStatus(parsed, data, 'OK', 'SETMETADATA completed');
@@ -458,36 +475,98 @@ function setup(server: IMAPServer, mailboxes: boolean) {
         { states: states.AUTHENTICATED, mailboxArguments: [0], literal8: true }
     );
 
-    server.outputHandlers.push(
-        (
-            connection: IMAPConnection,
-            response: IMAPResponse,
-            description: string | undefined,
-            parsed: ParsedCommand | null | undefined,
-            data: string | null | undefined,
-            extra: any
-        ) => {
-            if (response.command !== 'OK' || !parsed || !parsed.attributes) {
-                return;
+    server.on('mailbox', (event: MailboxChangeEvent) => {
+        if (event.type === 'rename' && event.oldPath === 'INBOX') {
+            // RFC 5464 section 4.1: renaming INBOX copies its annotations, INBOX keeps them. Other mailboxes are
+            // moved as objects, so their annotations follow without any help
+            const inbox = server.getMailbox('INBOX');
+            const target = server.getMailbox(event.path);
+            if (inbox && target && target !== inbox && inbox.metadata) {
+                setEntries(target, Object.assign(Object.create(null), getEntries(inbox)));
             }
-
-            if (description === 'RENAME' && extra && extra.path === 'INBOX') {
-                // RFC 5464 section 4.1: renaming INBOX copies its annotations, INBOX keeps them. Other
-                // mailboxes are moved as objects, so their annotations follow without any help
-                const target = connection.server.getMailbox(parsed.attributes[1].value);
-                if (target && target !== extra && extra.metadata) {
-                    setEntries(target, Object.assign(Object.create(null), getEntries(extra)));
-                }
-            } else if (description === 'DELETE') {
-                // RFC 5464 section 4.1: a mailbox created later with the same name must not inherit the
-                // annotations. A mailbox with children stays as a \Noselect placeholder
-                const placeholder = connection.server.getMailbox(parsed.attributes[0].value);
-                if (placeholder) {
-                    delete placeholder.metadata;
-                }
+        } else if (event.type === 'delete') {
+            // RFC 5464 section 4.1: a mailbox created later with the same name must not inherit the annotations.
+            // A mailbox with children stays as a \Noselect placeholder
+            const placeholder = server.getMailbox(event.path);
+            if (placeholder && placeholder !== event.mailbox) {
+                delete placeholder.metadata;
             }
         }
-    );
+    });
+
+    // Control API (README "Control API"): the stored annotations of a mailbox, or of the server for "". Values are
+    // UTF-8 text, the protocol keeps them as octets
+    // control.reset() restores the server annotations of the options, the mailboxes come with their storage
+    server.on('reset', () => {
+        state.server = { path: '', metadata: options.metadata };
+    });
+
+    const controlHolder = (path: unknown): MetadataHolder => {
+        if (path === '') {
+            return state.server;
+        }
+        if (!state.mailboxes) {
+            throw storeError('Mailbox annotations need the METADATA plugin, METADATA-SERVER has server annotations only', 'INVALID');
+        }
+        return server.control.requireMailbox(path);
+    };
+
+    const getMetadataOperation = (path: string) => {
+        const entries = getEntries(controlHolder(path));
+        const result: Record<string, string> = {};
+        Object.keys(entries).forEach(name => {
+            result[name] = Buffer.from(entries[name], 'binary').toString('utf-8');
+        });
+        return result;
+    };
+
+    const setMetadataOperation = (path: string, values: unknown) => {
+        const holder = controlHolder(path);
+        if (!values || typeof values !== 'object' || Array.isArray(values)) {
+            throw storeError('setMetadata expects an object of entry names and values (null removes an entry)', 'INVALID');
+        }
+        const changes = new Map<string, string | null>();
+        Object.keys(values).forEach(name => {
+            const value = (values as Record<string, unknown>)[name];
+            const error = checkEntryName(name, true);
+            if (error) {
+                throw storeError(error, 'INVALID');
+            }
+            if (value !== null && typeof value !== 'string') {
+                throw storeError('Value of ' + name + ' must be a string or null', 'INVALID');
+            }
+            changes.set(name.toLowerCase(), value === null ? null : Buffer.from(value, 'utf-8').toString('binary'));
+        });
+        const failure = storeChanges(holder, changes);
+        if (failure) {
+            throw storeError(failure.text, typeof failure.code === 'string' ? failure.code : 'INVALID');
+        }
+        return getMetadataOperation(path);
+    };
+
+    server.control.register('getMetadata', getMetadataOperation, [
+        { method: 'GET', path: '/v1/metadata', summary: 'Server annotations (METADATA plugins)', handler: () => server.control.getMetadata('') },
+        {
+            method: 'GET',
+            path: '/v1/mailboxes/{path}/metadata',
+            summary: 'Mailbox annotations (METADATA plugin)',
+            handler: ({ params }) => server.control.getMetadata(params.path)
+        }
+    ]);
+    server.control.register('setMetadata', setMetadataOperation, [
+        {
+            method: 'PUT',
+            path: '/v1/metadata',
+            summary: 'Sets server annotations ({ "/shared/comment": "text" }, null removes one, METADATA plugins)',
+            handler: ({ body }) => server.control.setMetadata('', body)
+        },
+        {
+            method: 'PUT',
+            path: '/v1/mailboxes/{path}/metadata',
+            summary: 'Sets mailbox annotations (METADATA plugin)',
+            handler: ({ params, body }) => server.control.setMetadata(params.path, body)
+        }
+    ]);
 }
 
 export default function metadataPlugin(server: IMAPServer) {

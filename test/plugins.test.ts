@@ -11,6 +11,10 @@ describe('Plugin loading', () => {
         assert.throws(() => imapkit({ plugins: ['../commands/login'] }), /Unknown plugin/);
     });
 
+    it('points users of the removed XTOYBIRD plugin to the control API', () => {
+        assert.throws(() => imapkit({ plugins: ['xtoybird'] }), /XTOYBIRD was removed in 5\.0\.0, use the control API/);
+    });
+
     it('throws on invalid plugin values', () => {
         // @ts-expect-error an object is not a plugin
         assert.throws(() => imapkit({ plugins: [{}] }), /Invalid plugin/);

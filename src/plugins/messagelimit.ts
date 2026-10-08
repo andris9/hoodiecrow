@@ -65,7 +65,7 @@ function getLimit(server: IMAPServer, name: string) {
  * @param {Number} limit Message limit
  */
 function addSaveLimit(server: IMAPServer, limit: number) {
-    server.appendChecks.push((connection: IMAPConnection, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
+    server.appendChecks.push((connection: IMAPConnection | null, mailbox: Mailbox, messages: AppendMessage[], options: AppendCheckOptions) => {
         if (messages.length <= limit) {
             return false;
         }

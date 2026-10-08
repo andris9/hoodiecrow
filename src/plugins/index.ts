@@ -54,7 +54,6 @@ import unselectPlugin from './unselect.js';
 import utf8AcceptPlugin from './utf8-accept.js';
 import xGmExt1Plugin from './x-gm-ext-1.js';
 import xoauth2Plugin from './xoauth2.js';
-import xtoybirdPlugin from './xtoybird.js';
 
 import type { Plugin } from '../types.js';
 
@@ -112,6 +111,5 @@ export const plugins: Record<string, Plugin> = {
     unselect: unselectPlugin,
     'utf8-accept': utf8AcceptPlugin,
     'x-gm-ext-1': xGmExt1Plugin,
-    xoauth2: xoauth2Plugin,
-    xtoybird: xtoybirdPlugin
+    xoauth2: xoauth2Plugin
 };
