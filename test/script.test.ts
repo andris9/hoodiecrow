@@ -75,6 +75,15 @@ describe('Script rules', () => {
             ['send that is a number', { on: 'response', send: 5 }, /"send" must be a string, a Buffer or a function/],
             ['an unknown close mode', { on: 'response', close: 'abort' }, /"close" must be true, false or "reset"/],
             ['match that is a number', { on: 'response', match: 5, drop: true }, /"match" must be a string or a RegExp/],
+            ['literals for a command', { on: 'command', literals: true }, /"literals" can not be used with "on": "command"/],
+            ['literals that is not a boolean', { on: 'response', literals: 'yes' }, /"literals" must be true or false/],
+            ['defer for a continuation', { on: 'continuation', defer: 'tagged' }, /"defer" can not be used/],
+            ['an unknown defer mode', { on: 'response', untagged: true, defer: 'later' }, /"defer" must be "tagged" or "next"/],
+            ['defer without untagged', { on: 'response', defer: 'tagged' }, /"defer" needs "untagged": true/],
+            ['defer of tagged responses', { on: 'response', untagged: false, defer: 'next' }, /"defer" needs "untagged": true/],
+            ['defer with delay', { on: 'response', untagged: true, defer: 'next', delay: 10 }, /"defer" can not be combined with "/],
+            ['defer with drop', { on: 'response', untagged: true, defer: 'next', drop: true }, /"defer" can not be combined with "/],
+            ['defer with close', { on: 'response', untagged: true, defer: 'tagged', close: true }, /"defer" can not be combined with "/],
             ['an invalid regular expression', { on: 'response', match: '(', drop: true }, /"match" is not a valid regular expression/]
         ];
         for (const [name, rule, error] of refused) {
@@ -714,6 +723,186 @@ describe('Script rules', () => {
             await decompressed;
             assert.match(plain, /^N1 OK/m);
             client.close();
+        });
+    });
+
+    describe('literals', () => {
+        const nested = 'From: inner@example.com\r\nSubject: inner\r\nContent-Type: text/plain\r\n\r\nInner body\r\n';
+        const multipart = [
+            'From: sender@example.com',
+            'Subject: parts',
+            'Content-Type: multipart/mixed; boundary="xyz"',
+            '',
+            '--xyz',
+            'Content-Type: text/plain; charset=utf-8',
+            '',
+            'Hello',
+            '--xyz',
+            'Content-Type: message/rfc822',
+            '',
+            nested,
+            '--xyz',
+            'Content-Type: application/octet-stream; name="a.bin"',
+            'Content-Transfer-Encoding: base64',
+            '',
+            'AAEC',
+            '--xyz--',
+            ''
+        ].join('\r\n');
+        const ctx = setupServer(() => ({
+            plugins: ['NAMESPACE', 'LIST-EXTENDED', 'ESEARCH', 'ID', 'SAVEDATE'],
+            id: { name: 'ImapKit' },
+            storage: {
+                INBOX: { messages: [{ raw: multipart, uid: 1 }] },
+                '': { separator: '/', folders: { Parent: { subscribed: true, folders: { Child: { subscribed: true } } } } }
+            }
+        }));
+
+        it('sends strings as literals and keeps the quoted-only positions, through the guardrail', (t, done) => {
+            const handle = ctx.server.script.add({ on: 'response', untagged: true, literals: true });
+            ctx.run(
+                [
+                    'L1 LOGIN testuser testpass',
+                    'N1 NAMESPACE',
+                    'L2 LIST "" "*"',
+                    'L3 LIST (SUBSCRIBED RECURSIVEMATCH) "" "P*"',
+                    'I1 ID NIL',
+                    'S1 SELECT INBOX',
+                    'F1 FETCH 1 (BODYSTRUCTURE INTERNALDATE SAVEDATE ENVELOPE)',
+                    'F2 FETCH 1 (BODY)',
+                    'E1 SEARCH RETURN (MIN) ALL'
+                ],
+                resp => {
+                    const output = resp.toString('binary');
+                    // namespace-descr: the prefix is a string, the delimiter only DQUOTE QUOTED-CHAR DQUOTE
+                    assert.match(output, /^\* NAMESPACE \(\(\{0\}\r\n "\/"\)\) NIL NIL\r\n/m);
+                    // mailbox-list: the delimiter stays quoted, the name is a literal
+                    assert.match(output, /^\* LIST \(\\HasNoChildren\) "\/" \{5\}\r\nINBOX\r\n/m);
+                    // CHILDINFO takes quoted strings only (RFC 5258 section 6), the tag is an astring
+                    assert.match(output, /^\* LIST \(\\Subscribed \\HasChildren\) "\/" \{6\}\r\nParent \(\{9\}\r\nCHILDINFO \("SUBSCRIBED"\)\)\r\n/m);
+                    assert.match(output, /^\* ID \(\{4\}\r\nname \{7\}\r\nImapKit\)\r\n/m);
+                    // date-time is quoted only
+                    assert.match(output, /INTERNALDATE "\d{2}-\w{3}-\d{4} [\d:]{8} [+-]\d{4}" SAVEDATE "/);
+                    // media-text and media-message stay quoted, the subtypes and parameters are strings
+                    assert.match(output, /BODYSTRUCTURE \(\("TEXT" \{5\}\r\nPLAIN \(\{7\}\r\nCHARSET \{5\}\r\nutf-8\)/);
+                    assert.match(output, /\("MESSAGE" "RFC822" NIL NIL NIL \{4\}\r\n7BIT \d+ \(NIL \{5\}\r\ninner /);
+                    assert.match(output, /\(NIL \{5\}\r\ninner [\s\S]*?\) \("TEXT" \{5\}\r\nPLAIN NIL NIL NIL \{4\}\r\n7BIT 12 1 /);
+                    assert.match(output, /\(\{11\}\r\nAPPLICATION \{12\}\r\nOCTET-STREAM \(\{4\}\r\nNAME \{5\}\r\na\.bin\)/);
+                    assert.match(output, /\{5\}\r\nMIXED \(\{8\}\r\nBOUNDARY \{3\}\r\nxyz\)/);
+                    assert.match(output, /^\* 1 FETCH \(BODY \(\("TEXT" \{5\}\r\nPLAIN /m);
+                    assert.match(output, /ENVELOPE \(NIL \{5\}\r\nparts \(\(NIL NIL \{6\}\r\nsender \{11\}\r\nexample\.com\)\)/);
+                    assert.match(output, /^\* ESEARCH \(TAG \{2\}\r\nE1\) MIN 1\r\n/m);
+                    // tagged responses have no strings, response codes take no literals
+                    assert.match(output, /^S1 OK \[READ-WRITE\]/m);
+                    assert.ok(handle.hits > 10);
+                    done();
+                }
+            );
+        });
+
+        it('applies after mutate', (t, done) => {
+            ctx.server.script.add({
+                on: 'response',
+                command: 'FETCH',
+                untagged: true,
+                literals: true,
+                mutate: response => {
+                    (response.attributes as unknown[])[2] = [{ type: 'ATOM', value: 'PREVIEW' }, 'changed'];
+                }
+            });
+            ctx.run(['L1 LOGIN testuser testpass', 'S1 SELECT INBOX', 'F1 FETCH 1 (FLAGS)'], resp => {
+                assert.match(resp.toString('binary'), /^\* 1 FETCH \(PREVIEW \{7\}\r\nchanged\)\r\n/m);
+                done();
+            });
+        });
+
+        it('leaves responses without attributes alone', async () => {
+            ctx.server.script.add({ on: 'response', command: 'SELECT', match: /EXISTS/, literals: true });
+            const client = await loggedIn(ctx.port);
+            assert.match(await command(client, 'S1 SELECT INBOX'), /^\* 1 EXISTS\r\n/m);
+            client.close();
+        });
+    });
+
+    describe('defer', () => {
+        const ctx = setupServer(() => ({ storage: storage(), plugins: ['IDLE'] }));
+
+        it('sends an untagged response after the tagged response of its command', async () => {
+            const handle = ctx.server.script.add({ on: 'response', command: 'UID FETCH', untagged: true, match: /UID 2/, times: 1, defer: 'tagged' });
+            const client = await loggedIn(ctx.port);
+            await command(client, 'S1 SELECT INBOX');
+            const before = client.output().length;
+            client.send('F1 UID FETCH 1:2 (FLAGS)\r\n');
+            const output = (await client.waitFor(/\* 2 FETCH [^\r]*\r\n$/)).slice(before);
+            assert.match(output, /^\* 1 FETCH \(FLAGS \(\) UID 1\)\r\nF1 OK [^\r]*\r\n\* 2 FETCH \(FLAGS \(\) UID 2\)\r\n$/);
+            assert.strictEqual(handle.hits, 1);
+            client.close();
+        });
+
+        it('sends an untagged response within the answer to the next command', async () => {
+            ctx.server.script.add({ on: 'response', command: 'FETCH', untagged: true, match: /^\* 2 FETCH/, defer: 'next' });
+            const client = await loggedIn(ctx.port);
+            await command(client, 'S1 SELECT INBOX');
+            assert.match(await command(client, 'F1 FETCH 1:2 (FLAGS)'), /^\* 1 FETCH \(FLAGS \(\)\)\r\nF1 OK [^\r]*\r\n$/);
+            assert.match(await command(client, 'N1 NOOP'), /^\* 2 FETCH \(FLAGS \(\)\)\r\nN1 OK [^\r]*\r\n$/);
+            client.close();
+        });
+
+        it('changes the held response with send, before and after', async () => {
+            ctx.server.script.add({ on: 'response', command: 'FETCH', untagged: true, defer: 'tagged', send: '* $TAG late\r\n', after: '* 9 EXISTS\r\n' });
+            const client = await loggedIn(ctx.port);
+            await command(client, 'S1 SELECT INBOX');
+            client.send('F1 FETCH 1 (FLAGS)\r\n');
+            const output = await client.waitFor(/EXISTS\r\n$/);
+            assert.match(output, /^F1 OK [^\r]*\r\n\* F1 late\r\n\* 9 EXISTS\r\n$/m);
+            client.close();
+        });
+
+        it('holds an unsolicited response for the next command', async () => {
+            ctx.server.script.add({ on: 'response', session: 1, untagged: true, match: /^\* 3 EXISTS/, defer: 'next' });
+            const first = await loggedIn(ctx.port);
+            const second = await loggedIn(ctx.port);
+            await command(first, 'S1 SELECT INBOX');
+            first.send('I1 IDLE\r\n');
+            await first.waitFor(/^\+ idling\r\n/m);
+            second.send('A1 APPEND INBOX {5}\r\n');
+            await second.waitFor(/^\+ /m);
+            second.send('hello\r\n');
+            await second.waitFor(/^A1 OK/m);
+            const idleStart = first.output().length;
+            first.send('DONE\r\n');
+            // the EXISTS belongs to IDLE, it goes with the answer to the command after it
+            assert.doesNotMatch((await first.waitFor(/^I1 OK[^\r]*\r\n/m)).slice(idleStart), /EXISTS/);
+            assert.match(await command(first, 'N1 NOOP'), /^\* 3 EXISTS\r\n[\s\S]*N1 OK/);
+            first.close();
+            second.close();
+        });
+
+        it('sends held responses with LOGOUT, the next command', async () => {
+            ctx.server.script.add({ on: 'response', command: 'FETCH', untagged: true, defer: 'next' });
+            const client = await loggedIn(ctx.port);
+            await command(client, 'S1 SELECT INBOX');
+            await command(client, 'F1 FETCH 1 (FLAGS)');
+            client.send('O1 LOGOUT\r\n');
+            const { output } = await client.closed();
+            // LOGOUT is the next command, the held FETCH goes out before its BYE
+            assert.match(output, /\* 1 FETCH \(FLAGS \(\)\)\r\n\* BYE[^\r]*\r\nO1 OK/);
+            assert.strictEqual(client.socket.destroyed, true);
+        });
+
+        it('drops held responses when the connection closes', async () => {
+            ctx.server.script.add({ on: 'response', command: 'FETCH', untagged: true, defer: 'next' });
+            const client = await loggedIn(ctx.port);
+            await command(client, 'S1 SELECT INBOX');
+            await command(client, 'F1 FETCH 1 (FLAGS)');
+            const [connection] = [...ctx.server.connections];
+            assert.strictEqual(connection._deferredOutput?.length, 1);
+            client.close();
+            await client.closed();
+            for (let i = 0; i < 20 && ctx.server.connections.size; i++) {
+                await wait(10);
+            }
+            assert.strictEqual(connection._deferredOutput, null);
         });
     });
 });

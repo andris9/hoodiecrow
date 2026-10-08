@@ -16,8 +16,8 @@ import { isSequenceSet } from './numbers.js';
 import { restoreNilAtoms } from './arguments.js';
 import { refuseMissingTarget } from './commands/append.js';
 import * as bundledCert from './cert.js';
-import { ServerScript, sendOutput, handleLine } from './script.js';
-import type { OutputOperation, ScriptContext, ScriptEvent, ScriptRule } from './script.js';
+import { ServerScript, sendOutput, handleLine, literalResponse, releaseDeferred } from './script.js';
+import type { DeferredOutput, OutputOperation, ScriptContext, ScriptEvent, ScriptRule } from './script.js';
 import type {
     AppendCheck,
     AppendCheckOptions,
@@ -1587,6 +1587,8 @@ class IMAPConnection {
     /** output that waits behind a delay of a script rule, null when output is written right away */
     declare _outputQueue: OutputOperation[] | null;
     declare _outputTimer: ReturnType<typeof setTimeout> | null;
+    /** untagged responses that `defer` rules hold back, see releaseDeferred in src/script.ts */
+    declare _deferredOutput: DeferredOutput[] | null;
 
     constructor(server: IMAPServer, socket: net.Socket) {
         this.server = server;
@@ -1597,6 +1599,7 @@ class IMAPConnection {
         this.sessionNumber = ++this.server.sessionCounter;
         this._outputQueue = null;
         this._outputTimer = null;
+        this._deferredOutput = null;
 
         this.secureConnection = !!this.options.secureConnection;
 
@@ -1713,7 +1716,7 @@ class IMAPConnection {
     }
 
     /**
-     * Drops the output that waits for a delay of a script rule
+     * Drops the output that waits for a delay of a script rule or for its release (`defer`)
      */
     clearOutputQueue(): void {
         if (this._outputTimer) {
@@ -1721,6 +1724,7 @@ class IMAPConnection {
             this._outputTimer = null;
         }
         this._outputQueue = null;
+        this._deferredOutput = null;
     }
 
     /**
@@ -1752,10 +1756,14 @@ class IMAPConnection {
             return;
         }
         const { rule, context } = found;
-        if (rule.mutate && compile && context.response) {
-            // a copy, a notification object is shared by every session
-            const copy = cloneResponse(context.response);
-            const changed = compile(rule.mutate(copy, context) || copy);
+        if ((rule.mutate || rule.literals) && compile && context.response) {
+            let response = context.response;
+            if (rule.mutate) {
+                // a copy, a notification object is shared by every session
+                const copy = cloneResponse(response);
+                response = rule.mutate(copy, context) || copy;
+            }
+            const changed = compile(rule.literals ? literalResponse(response) : response);
             if (changed === null) {
                 return;
             }
@@ -2691,6 +2699,25 @@ class IMAPConnection {
             return;
         }
 
+        if (this._deferredOutput) {
+            // responses that `defer` rules hold back go before the first response of another command
+            releaseDeferred(this, parsed && parsed.command && parsed.tag && parsed.tag !== '*' ? parsed.tag : null, false);
+        }
+        this.scriptResponse(response, compiled, description, parsed);
+        if (this._deferredOutput && response.tag !== '*' && response.tag !== '+') {
+            releaseDeferred(this, response.tag, true);
+        }
+    }
+
+    /**
+     * Sends a compiled response through the script rules that watch responses or continuations
+     *
+     * @param {Object} response Response object
+     * @param {String} compiled The compiled response
+     * @param {String} [description] Description of the response
+     * @param {Object} [parsed] The command the response belongs to
+     */
+    scriptResponse(response: IMAPResponse, compiled: string, description?: string, parsed?: CommandContext | null): void {
         const event = response.tag === '+' ? 'continuation' : 'response';
         if (!this.server.script.watches(event)) {
             this.write(compiled);

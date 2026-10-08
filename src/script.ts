@@ -1,5 +1,5 @@
 import type { IMAPConnection, IMAPServer } from './server.js';
-import type { IMAPResponse, ParsedCommand, Transport } from './types.js';
+import type { Attribute, IMAPResponse, ParsedCommand, Transport } from './types.js';
 
 /**
  * Scripted faults: rules that make the server deviate from the protocol on purpose, to test how a client
@@ -67,6 +67,13 @@ export interface ScriptRule {
 
     // actions
 
+    /** sends every string of the response that the grammar allows as a literal (response events) */
+    literals?: boolean | undefined;
+    /**
+     * holds an untagged response back: `"tagged"` sends it after the tagged response of its command, `"next"` with the
+     * first response that belongs to another command (response events)
+     */
+    defer?: 'tagged' | 'next' | undefined;
     /** changes or replaces the response object before it is compiled (response events) */
     mutate?: ((response: IMAPResponse, context: ScriptContext) => IMAPResponse | void) | undefined;
     /** bytes to send instead of the output, or instead of answering the command or input line. `$TAG` in a string is the tag */
@@ -131,6 +138,8 @@ const KEYS: Record<keyof ScriptRule, ScriptEvent[]> = {
     nth: EVENTS,
     times: EVENTS,
     mutate: ['response', 'continuation'],
+    literals: ['response'],
+    defer: ['response'],
     send: EVENTS,
     before: OUTPUT_EVENTS,
     after: OUTPUT_EVENTS,
@@ -142,7 +151,7 @@ const KEYS: Record<keyof ScriptRule, ScriptEvent[]> = {
     truncate: EVENTS,
     close: EVENTS
 };
-const ACTIONS: (keyof ScriptRule)[] = ['mutate', 'send', 'before', 'after', 'run', 'drop', 'delay', 'chunk', 'truncate', 'close'];
+const ACTIONS: (keyof ScriptRule)[] = ['mutate', 'literals', 'defer', 'send', 'before', 'after', 'run', 'drop', 'delay', 'chunk', 'truncate', 'close'];
 
 const DEFAULT_CHUNK_DELAY = 10;
 
@@ -230,6 +239,22 @@ function validateRule(rule: ScriptRule): RegExp | null {
         const value = rule[key];
         if (value !== undefined && typeof value !== 'string' && typeof value !== 'function' && !Buffer.isBuffer(value)) {
             throw new TypeError('Script rule option "' + key + '" must be a string, a Buffer or a function');
+        }
+    }
+    if (rule.literals !== undefined && typeof rule.literals !== 'boolean') {
+        throw new TypeError('Script rule option "literals" must be true or false');
+    }
+    if (rule.defer !== undefined) {
+        if (rule.defer !== 'tagged' && rule.defer !== 'next') {
+            throw new TypeError('Script rule option "defer" must be "tagged" or "next"');
+        }
+        if (rule.untagged !== true) {
+            // a tagged response ends its command, there is nothing to hold it back for
+            throw new TypeError('Script rule option "defer" needs "untagged": true');
+        }
+        const conflict = (['drop', 'delay', 'chunk', 'truncate', 'close'] as const).find(key => rule[key] !== undefined && rule[key] !== false);
+        if (conflict) {
+            throw new TypeError('Script rule option "defer" can not be combined with "' + conflict + '"');
         }
     }
     if (rule.close !== undefined && typeof rule.close !== 'boolean' && rule.close !== 'reset') {
@@ -445,7 +470,153 @@ function scriptContext(connection: IMAPConnection, event: ScriptEvent, fields: P
 export function sendOutput(connection: IMAPConnection, rule: ScriptRule, context: ScriptContext, output: Buffer): void {
     const replaced = rule.drop ? Buffer.alloc(0) : resolveBytes(rule.send, context) || output;
     const parts = [resolveBytes(rule.before, context), replaced, resolveBytes(rule.after, context)].filter((part): part is Buffer => !!part);
+    if (rule.defer) {
+        (connection._deferredOutput ||= []).push({ mode: rule.defer, tag: context.tag, data: Buffer.concat(parts) });
+        return;
+    }
     sendBytes(connection, rule, Buffer.concat(parts), rule.delay);
+}
+
+/** Output held back by `defer`, see releaseDeferred */
+export interface DeferredOutput {
+    mode: 'tagged' | 'next';
+    /** tag of the command the response belongs to, null for an unsolicited response */
+    tag: string | null;
+    data: Buffer;
+}
+
+/**
+ * Sends the held back responses whose turn has come (`defer`). Before a response of another command go the ones held
+ * with `"next"`, after the tagged response of their command the ones held with `"tagged"`. A response held without a
+ * command goes with the next command, or after the next tagged response
+ *
+ * @param {Object} connection IMAP connection
+ * @param {String|null} tag Tag of the command the response that is sent belongs to
+ * @param {Boolean} tagged false before the response is sent, true after a tagged response was sent
+ */
+export function releaseDeferred(connection: IMAPConnection, tag: string | null, tagged: boolean): void {
+    const ready: DeferredOutput[] = [];
+    const waiting: DeferredOutput[] = [];
+    for (const entry of connection._deferredOutput as DeferredOutput[]) {
+        const due = tagged ? entry.mode === 'tagged' && (entry.tag === null || entry.tag === tag) : entry.mode === 'next' && tag !== null && entry.tag !== tag;
+        (due ? ready : waiting).push(entry);
+    }
+    if (ready.length) {
+        connection._deferredOutput = waiting.length ? waiting : null;
+        ready.forEach(entry => connection.write(entry.data));
+    }
+}
+
+// The grammar positions below follow the responses ImapKit builds. A new response with a position that takes only
+// a quoted string has to be listed here too
+type Node = Attribute;
+
+/**
+ * Turns strings into literals: plain strings and STRING nodes, also in lists. Atoms, numbers, NIL, text and
+ * response codes (SECTION) stay as they are, a response code takes no literals (RFC 9051 section 9 resp-text-code)
+ *
+ * @param {*} node Response attribute
+ * @return {*} the attribute with literals, a new object where something changed
+ */
+function literalValue(node: Node): Node {
+    if (typeof node === 'string') {
+        return { type: 'LITERAL', value: node };
+    }
+    if (Array.isArray(node)) {
+        return node.map(literalValue);
+    }
+    if (node && typeof node === 'object' && node.type === 'STRING') {
+        return { type: 'LITERAL', value: node.value };
+    }
+    return node;
+}
+
+const nodeText = (node: Node): string => String(typeof node === 'string' ? node : node && typeof node === 'object' ? node.value : '').toUpperCase();
+
+/**
+ * Turns the strings of a body structure into literals, except the media types that the grammar writes as quoted
+ * strings: `"TEXT"` (media-text) and `"MESSAGE" "RFC822"` or `"GLOBAL"` (media-message, RFC 9051 section 9). A literal
+ * "TEXT" would read as a basic part, and the lines count after it would break the grammar
+ *
+ * @param {*} body Body structure, a list
+ * @return {*} the body structure with literals
+ */
+function literalBody(body: Node): Node {
+    if (!Array.isArray(body)) {
+        return literalValue(body);
+    }
+    if (Array.isArray(body[0])) {
+        // body-type-mpart: the parts, then the subtype and the extension data
+        const subtype = body.findIndex(item => !Array.isArray(item));
+        return body.map((item, i) => (subtype < 0 || i < subtype ? literalBody(item) : literalValue(item)));
+    }
+    const type = nodeText(body[0]);
+    const message = type === 'MESSAGE' && ['RFC822', 'GLOBAL'].includes(nodeText(body[1]));
+    return body.map((item, i) => {
+        if ((i === 0 && (type === 'TEXT' || message)) || (i === 1 && message)) {
+            return item;
+        }
+        // body-type-msg: the envelope, then the body of the encapsulated message
+        return i === 8 && message ? literalBody(item) : literalValue(item);
+    });
+}
+
+// FETCH items with a date-time value, which is a quoted string (RFC 9051 section 9, SAVEDATE: RFC 8514 section 4)
+const DATE_TIME_ITEMS = new Set(['INTERNALDATE', 'SAVEDATE']);
+
+/**
+ * Turns the strings of a response into literals wherever the grammar allows a string (RFC 9051 section 9: string,
+ * nstring and astring). Positions that take only a quoted string stay quoted: the hierarchy delimiter of LIST, LSUB
+ * and NAMESPACE, CHILDINFO values (RFC 5258 section 6), date-time values and the quoted media types of a body structure
+ *
+ * @param {Object} response Response object
+ * @return {Object} a copy of the response with literals, the response is not changed
+ */
+export function literalResponse(response: IMAPResponse): IMAPResponse {
+    const attributes = Array.isArray(response.attributes) ? (response.attributes as Node[]) : null;
+    if (!attributes) {
+        return response;
+    }
+    const command = nodeText(response.command);
+    const name = nodeText(attributes[1]);
+    let converted: Node[];
+    if (name === 'FETCH' || name === 'UIDFETCH') {
+        // message-data: number SP "FETCH" SP msg-att, the items are name and value pairs
+        const items = Array.isArray(attributes[2]) ? (attributes[2] as Node[]) : [];
+        const fetched = items.map((item, i) => {
+            if (i % 2 === 0) {
+                return item;
+            }
+            const key = items[i - 1];
+            const itemName = key && !key.section ? nodeText(key) : '';
+            if (DATE_TIME_ITEMS.has(itemName)) {
+                return item;
+            }
+            return itemName === 'BODY' || itemName === 'BODYSTRUCTURE' ? literalBody(item) : literalValue(item);
+        });
+        converted = attributes.map((item, i) => (i === 2 ? fetched : item));
+    } else if (command === 'LIST' || command === 'LSUB') {
+        // mailbox-list: flags, the delimiter (quoted only), the name and the extended data items
+        converted = attributes.map((item, i) => {
+            if (i === 1) {
+                return item;
+            }
+            if (i === 3 && Array.isArray(item)) {
+                return item.map((value, j) => (j % 2 === 1 && nodeText(item[j - 1]) === 'CHILDINFO' ? value : literalValue(value)));
+            }
+            return literalValue(item);
+        });
+    } else if (command === 'NAMESPACE') {
+        // namespace-descr: "(" string SP (DQUOTE QUOTED-CHAR DQUOTE / nil) [extensions] ")"
+        converted = attributes.map(namespace =>
+            Array.isArray(namespace)
+                ? namespace.map(descr => (Array.isArray(descr) ? descr.map((value, i) => (i === 1 ? value : literalValue(value))) : descr))
+                : namespace
+        );
+    } else {
+        converted = attributes.map(literalValue);
+    }
+    return Object.assign({}, response, { attributes: converted });
 }
 
 /**
