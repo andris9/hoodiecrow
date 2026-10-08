@@ -4,6 +4,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import tls from 'node:tls';
 import imapkit from '../src/server.js';
 import { setupServer } from './helpers/index.js';
 import { connectRaw } from './helpers/raw-client.js';
@@ -42,6 +43,9 @@ async function loggedIn(port: number): Promise<RawClient> {
     await command(client, 'L1 LOGIN testuser testpass');
     return client;
 }
+
+// Bun and Deno may close a reset connection without a RST, the ECONNRESET checks run on Node only
+const node = !('Bun' in globalThis) && !('Deno' in globalThis);
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -507,8 +511,6 @@ describe('Script rules', () => {
             client.send('8 IDLE\r\n');
             const { output, error } = await client.closed();
             assert.match(output, /\r\n\+ idling\r\n$/);
-            // Bun and Deno may close without a RST
-            const node = !('Bun' in globalThis) && !('Deno' in globalThis);
             if (node) {
                 assert.strictEqual((error as NodeJS.ErrnoException | null)?.code, 'ECONNRESET');
             }
@@ -928,6 +930,69 @@ describe('Script rules', () => {
                 await wait(10);
             }
             assert.strictEqual(connection._deferredOutput, null);
+        });
+    });
+
+    describe('reset on TLS (#84)', () => {
+        /** collects what a TLS socket receives and resolves with the output and the error once it is closed */
+        const untilClosed = (socket: tls.TLSSocket, received: () => string) =>
+            new Promise<{ output: string; error: NodeJS.ErrnoException | null }>((resolve, reject) => {
+                let error: NodeJS.ErrnoException | null = null;
+                const timer = setTimeout(() => reject(new Error('Connection still open, received:\n' + JSON.stringify(received()))), 3000);
+                socket.on('error', err => {
+                    error = err;
+                });
+                socket.on('close', () => {
+                    clearTimeout(timer);
+                    resolve({ output: received(), error });
+                });
+            });
+
+        describe('STARTTLS', () => {
+            const ctx = setupServer(() => ({ plugins: ['STARTTLS'] }));
+
+            it('resets the TCP socket under the TLS layer', async () => {
+                ctx.server.script.add({ on: 'command', command: 'CAPABILITY', nth: 2, drop: true, close: 'reset' });
+                const client = await connectRaw(ctx.port);
+                await client.waitFor(/^\* OK/);
+                await command(client, 'C1 CAPABILITY');
+                await command(client, 'T1 STARTTLS');
+                client.socket.removeAllListeners('data');
+                const secure = tls.connect({ socket: client.socket, rejectUnauthorized: false });
+                let output = '';
+                secure.on('data', chunk => {
+                    output += chunk.toString('binary');
+                });
+                await new Promise(resolve => secure.once('secureConnect', resolve));
+                const closed = untilClosed(secure, () => output);
+                secure.write('C2 CAPABILITY\r\n');
+                const result = await closed;
+                assert.strictEqual(result.output, '');
+                if (node) {
+                    assert.strictEqual(result.error?.code, 'ECONNRESET');
+                }
+            });
+        });
+
+        describe('implicit TLS', () => {
+            const ctx = setupServer(() => ({ secureConnection: true }));
+
+            it('resets the TCP socket of a TLS connection', async () => {
+                ctx.server.script.add({ on: 'command', command: 'NOOP', close: 'reset' });
+                const secure = tls.connect({ port: ctx.port, host: 'localhost', rejectUnauthorized: false });
+                let output = '';
+                secure.on('data', chunk => {
+                    output += chunk.toString('binary');
+                    if (/^\* OK[^\r]*\r\n$/.test(output)) {
+                        secure.write('N1 NOOP\r\n');
+                    }
+                });
+                const result = await untilClosed(secure, () => output);
+                assert.match(result.output, /^\* OK[^\r]*\r\n$/);
+                if (node) {
+                    assert.strictEqual(result.error?.code, 'ECONNRESET');
+                }
+            });
         });
     });
 });
