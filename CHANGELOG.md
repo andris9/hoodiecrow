@@ -5,7 +5,6 @@
 
 ### Bug Fixes
 
-* script rule close: 'reset' threw ERR_INVALID_HANDLE_TYPE on TLS connections ([c2e50d6](https://github.com/postalsys/imapkit/commit/c2e50d63724250462eba9d3b79d835132fa01a4e))
 * script rule close: 'reset' threw ERR_INVALID_HANDLE_TYPE on TLS connections ([89fb431](https://github.com/postalsys/imapkit/commit/89fb4317a2d183bf362d084d2767f888aae0f6b4)), closes [#84](https://github.com/postalsys/imapkit/issues/84)
 
 ## [4.3.0](https://github.com/postalsys/imapkit/compare/v4.2.0...v4.3.0) (2026-10-08)
