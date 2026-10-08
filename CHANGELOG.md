@@ -1,5 +1,28 @@
 # Changelog
 
+## [5.0.0](https://github.com/postalsys/imapkit/compare/v4.3.1...v5.0.0) (2026-10-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* the XTOYBIRD plugin is removed, use the control API (README "Migrating from 4.x"). smtp-server is an optional peer dependency now, install it for --smtpPort or the new smtp option.
+
+### Features
+
+* chance script rule option and scriptSeed, now option for repeatable tests ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* chunkDelay 0 or 'tick' splits output on the wire without a delay ([#89](https://github.com/postalsys/imapkit/issues/89)) ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* control API, REST API and quirk presets, XTOYBIRD removed ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* plugin operations for ACL, QUOTA, METADATA, SPECIAL-USE and OBJECTID ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* quiet script event for unsolicited output between commands and during IDLE ([#88](https://github.com/postalsys/imapkit/issues/88)) ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* quirk presets (quirks option, --quirk) for Apache James, Yahoo and Microsoft 365 behavior ([#87](https://github.com/postalsys/imapkit/issues/87)) ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* session, command and waiting events, server.start() and server.stop() ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+* the storage option is validated, the JSON Schema is exported as storageSchema ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+
+
+### Bug Fixes
+
+* ACL and annotations are dropped and inherited on DELETE, CREATE and RENAME of the control API too ([c04303a](https://github.com/postalsys/imapkit/commit/c04303a0f04ffe523c78453c5a949b7f9bb80b35))
+
 ## [4.3.1](https://github.com/postalsys/imapkit/compare/v4.3.0...v4.3.1) (2026-10-08)
 
 
