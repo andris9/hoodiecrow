@@ -464,6 +464,33 @@ describe('Strict extended LIST', () => {
     defineCases(ctx, LIST_EXTENDED_CASES);
 });
 
+// CREATE-SPECIAL-USE, RFC 6154 section 6: create-param =/ "USE" SP "(" [use-attr *(SP use-attr)] ")",
+// use-attr-ext = "\" atom; the create-params of RFC 4466 section 2.2
+const CREATE_SPECIAL_USE_CASES: Case[] = [
+    ['CREATE USE (NIL)', 'auth', ['A1 CREATE W (USE (NIL))'], { A1: 'BAD' }],
+    ['CREATE USE with a quoted attribute', 'auth', ['A1 CREATE W (USE ("\\\\Sent"))'], { A1: 'BAD' }],
+    ['CREATE USE with a literal attribute', 'auth', ['A1 CREATE W (USE ({5}\r\n\\Sent))'], { A1: 'BAD' }],
+    ['CREATE USE with an attribute without a backslash', 'auth', ['A1 CREATE W (USE (Sent))'], { A1: 'BAD' }],
+    ['CREATE USE with a lone backslash', 'auth', ['A1 CREATE W (USE (\\))'], { A1: 'BAD' }],
+    ['CREATE USE with a nested list', 'auth', ['A1 CREATE W (USE ((\\Sent)))'], { A1: 'BAD' }],
+    ['CREATE USE with a number', 'auth', ['A1 CREATE W (USE (1))'], { A1: 'BAD' }],
+    ['CREATE USE without a list', 'auth', ['A1 CREATE W (USE \\Sent)'], { A1: 'BAD' }],
+    ['CREATE USE without a value', 'auth', ['A1 CREATE W (USE)'], { A1: 'BAD' }],
+    ['CREATE USE with an unknown parameter', 'auth', ['A1 CREATE W (USE (\\Sent) FOO)'], { A1: 'BAD' }],
+    // RFC 6154 section 3: an attribute the server does not support is NO, with the USEATTR response code
+    ['CREATE USE with an unsupported attribute', 'auth', ['A1 CREATE W (USE (\\Important))'], { A1: 'NO' }],
+    ['CREATE USE with an empty list', 'auth', ['A1 CREATE W (USE ())'], { A1: 'OK' }],
+    ['CREATE USE', 'auth', ['A1 CREATE W (USE (\\Sent \\Drafts))'], { A1: 'OK' }]
+];
+
+describe('Strict CREATE-SPECIAL-USE', () => {
+    const ctx = setupServer(() => ({
+        plugins: ['SPECIAL-USE', 'CREATE-SPECIAL-USE']
+    }));
+
+    defineCases(ctx, CREATE_SPECIAL_USE_CASES);
+});
+
 describe('Strict METADATA handling', () => {
     const ctx = setupServer(() => ({
         plugins: ['METADATA'],
