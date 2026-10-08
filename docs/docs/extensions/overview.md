@@ -165,6 +165,7 @@ Some choices that the RFCs leave to the server:
 - CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3). An existing `\Noselect` level stays `\Noselect`.
 - DELETE of a mailbox with children leaves a `\Noselect` level that keeps nothing but the children. CREATE of that name makes a new mailbox with a new UIDVALIDITY.
 - A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6). In a mailbox with `"allowPermanentFlags": false` STORE accepts exactly the flags PERMANENTFLAGS lists (`permanentFlags` and the flags its messages have or had) and ignores the others, APPEND and COPY leave them out (RFC 3501 section 7.1).
+- An obsolete source route in an address (`<@route.example:a@b.c>`, RFC 5322 section 4.4) goes to the at-domain-list field of the ENVELOPE address (`(NIL "@route.example" "a" "b.c")`), the mailbox name is the local part only (RFC 9051 section 7.5.2), like Dovecot sends it.
 - SEARCH, SORT and THREAD support the `US-ASCII` and `UTF-8` charsets. Any other charset gets `NO [BADCHARSET (US-ASCII UTF-8)]`.
 
 The [Mailboxes](./mailboxes.md#core-list-lsub-and-subscriptions) page shows these in transcripts, and [Strict by design](../guides/strict-by-design.md) lists what the core refuses.

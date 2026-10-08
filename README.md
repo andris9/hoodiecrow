@@ -131,6 +131,7 @@ All RFC 3501 commands are supported. Some choices that the RFCs leave to the ser
 - CREATE `a/b` also creates `a` as a normal mailbox if it does not exist (RFC 3501 section 6.3.3, Dovecot creates a `\Noselect` level instead). An existing `\Noselect` level stays `\Noselect`
 - DELETE of a mailbox with children leaves a `\Noselect` level that keeps nothing but the children, CREATE of that name makes a new mailbox with a new UIDVALIDITY
 - A keyword stays in the FLAGS and PERMANENTFLAGS of a mailbox once a message in it had the keyword, also after that message is expunged (RFC 3501 section 7.2.6, like Dovecot). In a mailbox with `"allowPermanentFlags": false` STORE accepts exactly the flags PERMANENTFLAGS lists (`permanentFlags` and the flags its messages have or had) and ignores the others, APPEND and COPY leave them out (RFC 3501 section 7.1)
+- An obsolete source route in an address (`<@route.example:a@b.c>`, RFC 5322 section 4.4) goes to the at-domain-list field of the ENVELOPE address (`(NIL "@route.example" "a" "b.c")`), the mailbox name is the local part only (RFC 9051 section 7.5.2), like Dovecot sends it
 
 ### Supported Plugins
 
@@ -255,7 +256,6 @@ The XTOYBIRD commands map to the [control API](#control-api):
 
 # Known issues
 
-- **addr-adl** (at-domain-list) values are not supported, NIL is always used
 - **anonymous namespaces** are not supported
 - **LIST** does not insert a hierarchy delimiter between a reference without one and the mailbox name (RFC 2683 section 3.4.9 recommends it), the two are concatenated as RFC 9051 section 6.3.9 describes, like Dovecot does
 - **CHARSET** values other than US-ASCII and UTF-8 are not supported
