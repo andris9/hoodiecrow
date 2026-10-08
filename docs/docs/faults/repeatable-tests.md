@@ -185,7 +185,12 @@ imapkit({ storage: { INBOX: { uidValidity: 5 } } });
 
 imapkit({ storage: { INBOX: { uidnext: 0 } } });
 // Error: Invalid storage at "INBOX".uidnext: must be an integer from 1 to 4294967295
+
+imapkit({ storage: { INBOX: { messages: [{ raw: 'Subject: hi\r\n\r\nHello\r\n', internaldate: 'Thu, 1 Jan 2026 10:00:00 +0000' }] } } });
+// Error: Invalid storage at "INBOX".messages[0].internaldate: must be a date-time string like "14-Sep-2013 21:22:28 -0300" or a Date, not "Thu, 1 Jan 2026 10:00:00 +0000"
 ```
+
+`internaldate` (and `SAVEDATE`) must be an RFC 3501 date-time string of a real date and time, or a valid `Date`. A Date header style value like the one above is refused, as FETCH would send it as an invalid INTERNALDATE and SORT ARRIVAL could not read it.
 
 A key counts as a typo when it is a known key in another case, or one edit away from a known key (for keys longer than 3 characters). Plugins keep their own data on mailboxes and messages (`acl`, `metadata`, `MODSEQ` ...), so other keys are allowed.
 

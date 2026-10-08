@@ -58,6 +58,29 @@ function dateKey(day: number | string, month: number, year: number | string): st
 }
 
 /**
+ * Checks a date-time string of RFC 3501 section 9, like an INTERNALDATE ("14-Sep-2013 21:22:28 -0300"):
+ * date-time = DQUOTE date-day-fixed "-" date-month "-" date-year SP time SP zone DQUOTE
+ *
+ * @param {String} value Value to check
+ * @return {Boolean} true if the value is a date-time string of a real date and time
+ */
+function isDateTime(value: unknown): boolean {
+    if (!value || typeof value !== 'string') {
+        return false;
+    }
+    // month names are case-insensitive like all ABNF strings
+    const match = value.match(/^( \d|\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4}) (\d{2}):(\d{2}):(\d{2}) [-+](\d{2})(\d{2})$/i);
+    if (!match) {
+        return false;
+    }
+
+    // the values must also make a real date and time
+    return (
+        isRealDate(match[1], monthIndex(match[2]), match[3]) && Number(match[4]) < 24 && Number(match[5]) < 60 && Number(match[6]) < 61 && Number(match[8]) < 60
+    );
+}
+
+/**
  * Parses a date-time value of the RFC 3501 section 9 form, like an INTERNALDATE ("14-Sep-2013 21:22:28 -0300").
  * A value with only the date part is accepted as well, its time fields are left undefined
  *
@@ -131,4 +154,4 @@ function toTimestamp(date: DateParts): number {
     return Date.UTC(date.year, date.month, date.day, date.hours || 0, date.minutes || 0, date.seconds || 0) - offset * 60 * 1000;
 }
 
-export { MONTHS, monthIndex, isRealDate, dateKey, parseDateTime, parseHeaderDate, toTimestamp };
+export { MONTHS, monthIndex, isRealDate, isDateTime, dateKey, parseDateTime, parseHeaderDate, toTimestamp };

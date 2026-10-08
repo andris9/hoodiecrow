@@ -569,8 +569,9 @@ describe('Search with unusual data', () => {
             INBOX: {
                 messages: [
                     {
+                        // no Date header; an internal date that is not a date-time is refused when the server is built
                         raw: 'Subject: folded\r\n subject line\r\nX-Foo: bar\r\n\r\nbody',
-                        internaldate: 'not a date'
+                        internaldate: '30-Sep-2026 23:59:59 +0000'
                     },
                     {
                         raw: 'Subject: second\r\nDate: Mon, 5 Oct 26 10:00:00 +0300\r\n\r\nbody',
@@ -585,7 +586,7 @@ describe('Search with unusual data', () => {
         }
     }));
 
-    it('a bad internal date does not break date searches', (t, done) => {
+    it('a message without a Date header does not break date searches', (t, done) => {
         const cmds = ['A1 LOGIN testuser testpass', 'A2 SELECT INBOX', 'A3 SEARCH SINCE 1-Oct-2026', 'A4 SEARCH SENTON 5-Oct-2026', 'ZZ LOGOUT'];
 
         ctx.run(cmds, resp => {

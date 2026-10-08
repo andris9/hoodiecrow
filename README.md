@@ -594,7 +594,7 @@ const server = imapkit({ plugins: ['IDLE', 'MOVE'], quirks: ['james-fetchgroup',
 - `now`: the time the server uses for the dates it sets itself, the INTERNALDATE of a message without one and SAVEDATE: a Date, a timestamp, or a function that returns one. The dates are formatted in the time zone of the process.
 - `resetUidValidity(path, { uids: 'shuffle', seed })` of the control API.
 
-The `storage` option is checked when the server is built: a key that looks like a typo of a known one (`message` for `messages`, `uidValidity`) or a wrong type fails with the path of the problem, e.g. `Invalid storage at "INBOX".messages[2]: unknown key "flag", did you mean "flags"?`. Plugins keep their own data on mailboxes and messages, so other keys are allowed. The package exports the check as `validateStorage(storage)` and the shape as a JSON Schema, `storageSchema`, for editors and fixture tooling. `server.control.snapshot()` returns the same shape.
+The `storage` option is checked when the server is built: a key that looks like a typo of a known one (`message` for `messages`, `uidValidity`) or a wrong type fails with the path of the problem, e.g. `Invalid storage at "INBOX".messages[2]: unknown key "flag", did you mean "flags"?`. A message `internaldate` (or `SAVEDATE`) must be an RFC 3501 date-time string like `"14-Sep-2013 21:22:28 -0300"` or a valid Date, a Date header value like `"Thu, 1 Jan 2026 10:00:00 +0000"` is refused. Plugins keep their own data on mailboxes and messages, so other keys are allowed. The package exports the check as `validateStorage(storage)` and the shape as a JSON Schema, `storageSchema`, for editors and fixture tooling. `server.control.snapshot()` returns the same shape.
 
 ## Creating custom plugins
 

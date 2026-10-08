@@ -214,13 +214,13 @@ Flags of messages in the storage become flags of the mailbox: they are added to 
 
 A message is either a string with the full message source, or an object:
 
-| Key            | Default          | Description                                                                                                                               |
-| -------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `raw`          | `""`             | The message source. A string, or a `Buffer` / `Uint8Array` in JavaScript.                                                                 |
-| `uid`          | Assigned         | The UID, an integer from 1 to 4294967295. Two messages with the same UID in one mailbox throw `Duplicate UID <n> in mailbox <path>`.      |
-| `flags`        | `[]`             | A flag or a list of flags. `\Recent` here is turned into `recent: true`.                                                                  |
-| `internaldate` | The current time | An RFC 3501 date-time string such as `"14-Sep-2013 21:22:28 -0300"`, or a `Date`. The month name can be in any case, it is sent as `Sep`. |
-| `recent`       | `false`          | `true` makes the message `\Recent` for the first session that selects the mailbox, see [`\Recent`](#recent).                              |
+| Key            | Default          | Description                                                                                                                                                                                                                                                                                                                                |
+| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `raw`          | `""`             | The message source. A string, or a `Buffer` / `Uint8Array` in JavaScript.                                                                                                                                                                                                                                                                  |
+| `uid`          | Assigned         | The UID, an integer from 1 to 4294967295. Two messages with the same UID in one mailbox throw `Duplicate UID <n> in mailbox <path>`.                                                                                                                                                                                                       |
+| `flags`        | `[]`             | A flag or a list of flags. `\Recent` here is turned into `recent: true`.                                                                                                                                                                                                                                                                   |
+| `internaldate` | The current time | An RFC 3501 date-time string such as `"14-Sep-2013 21:22:28 -0300"`, or a `Date`. The month name can be in any case, it is sent as `Sep`. Other forms, such as a Date header value (`"Thu, 1 Jan 2026 10:00:00 +0000"`), impossible dates and invalid `Date` objects, are refused when the server is built, see [Validation](#validation). |
+| `recent`       | `false`          | `true` makes the message `\Recent` for the first session that selects the mailbox, see [`\Recent`](#recent).                                                                                                                                                                                                                               |
 
 Messages are sorted by UID when the server loads them. Messages without a `uid` get UIDs after the highest UID of the mailbox, in the order they are listed. That is why the plain string in the first example got UID 46 and not 1.
 
@@ -318,7 +318,7 @@ try {
 }
 ```
 
-The check covers the types of the known keys, `type` and `separator` of namespaces, and keys that look like a typo of a known key (the same key in another case, or one edit away, such as `uidValidity` or `flagz`). Other unknown keys are allowed, since plugins keep their own data on mailboxes and messages.
+The check covers the types of the known keys, `type` and `separator` of namespaces, `internaldate` and `SAVEDATE` values that are not an RFC 3501 date-time string or a valid `Date`, and keys that look like a typo of a known key (the same key in another case, or one edit away, such as `uidValidity` or `flagz`). Other unknown keys are allowed, since plugins keep their own data on mailboxes and messages.
 
 The package exports the same check and a JSON Schema (draft 2020-12) of the format:
 

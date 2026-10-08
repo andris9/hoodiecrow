@@ -9,7 +9,7 @@ import { commands as builtinCommands } from './commands/index.js';
 import { getCommandOptions, commandOptions } from './command-states.js';
 import type { ResolvedCommandOptions } from './command-states.js';
 import validateMailboxName from './mailbox-name.js';
-import { MONTHS, monthIndex, isRealDate } from './dates.js';
+import { MONTHS, monthIndex, isDateTime } from './dates.js';
 import fetchHandlers from './commands/handlers/fetch.js';
 import { hasSequenceSetKey } from './commands/handlers/search.js';
 import { isSequenceSet } from './numbers.js';
@@ -722,23 +722,8 @@ class IMAPServer extends Stream {
      * @return {Boolean} Returns true if the date string is in IMAP date-time format
      */
     validateInternalDate(date: unknown): boolean {
-        if (!date || typeof date !== 'string') {
-            return false;
-        }
-        // date-time from RFC 3501 section 9, month names are case-insensitive like all ABNF strings
-        const match = date.match(/^( \d|\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4}) (\d{2}):(\d{2}):(\d{2}) [-+](\d{2})(\d{2})$/i);
-        if (!match) {
-            return false;
-        }
-
-        // the values must also make a real date and time
-        return (
-            isRealDate(match[1], monthIndex(match[2]), match[3]) &&
-            Number(match[4]) < 24 &&
-            Number(match[5]) < 60 &&
-            Number(match[6]) < 61 &&
-            Number(match[8]) < 60
-        );
+        // date-time from RFC 3501 section 9
+        return isDateTime(date);
     }
 
     /**
