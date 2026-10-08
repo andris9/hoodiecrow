@@ -265,3 +265,19 @@ describe('LIST with a prefixed personal namespace', () => {
         });
     });
 });
+
+describe('LIST with child mailboxes of INBOX', () => {
+    const ctx = setupServer(() => ({ storage: { INBOX: { folders: { Child: {} } }, '': { folders: { Other: {} } } } }));
+
+    it('lists them with "*" and with "INBOX/%"', (t, done) => {
+        ctx.run(['A1 LOGIN testuser testpass', 'A2 LIST "" "*"', 'A3 LIST "" "INBOX/%"', 'ZZ LOGOUT'], resp => {
+            resp = resp.toString();
+            const a2 = resp.slice(resp.indexOf('A1 OK'), resp.indexOf('A2 OK'));
+            assert.match(a2, /^\* LIST \(\\HasChildren\) "\/" "?INBOX"?\r$/m);
+            assert.match(a2, /^\* LIST \(\\HasNoChildren\) "\/" "INBOX\/Child"\r$/m);
+            assert.match(a2, /^\* LIST \(\\HasNoChildren\) "\/" "?Other"?\r$/m);
+            assert.match(resp.slice(resp.indexOf('A2 OK')), /^\* LIST \(\\HasNoChildren\) "\/" "INBOX\/Child"\r\nA3 OK/m);
+            done();
+        });
+    });
+});
